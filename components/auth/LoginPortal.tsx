@@ -21,14 +21,10 @@ const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYA
 const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, processedStudents, globalRegistry, initialCredentials, onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
   const [authMode, setAuthMode] = useState<'ADMIN' | 'FACILITATOR' | 'PUPIL'>('ADMIN');
   const [credentials, setCredentials] = useState({
-    schoolName: '',
     schoolNumber: '',
-    registrant: '',
-    accessKey: '',
+    accessKey: '', // This will be the role-specific code (Master/Staff/Pupil)
     facilitatorName: '',
-    staffId: '',
     subject: SUBJECT_LIST[0],
-    pupilName: '',
     pupilIndex: ''
   });
   
@@ -36,9 +32,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     if (initialCredentials) {
       setCredentials(prev => ({
         ...prev,
-        schoolName: initialCredentials.schoolName || '',
         schoolNumber: initialCredentials.schoolNumber || '',
-        registrant: initialCredentials.registrantName || '',
         accessKey: initialCredentials.accessCode || ''
       }));
     }
@@ -68,7 +62,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     const hubId = (credentials.schoolNumber || "").trim().toUpperCase();
 
     try {
-      // 2. REGISTRY VERIFICATION (Check the public record first)
+      // 2. REGISTRY VERIFICATION (Get the institutional shard from Supabase)
       const { data: registryData, error: regError } = await supabase
         .from('uba_persistence')
         .select('payload')
@@ -82,33 +76,30 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
       const rawEntry = Array.isArray(registryData.payload) ? registryData.payload[0] : registryData.payload;
       if (!rawEntry) throw new Error("Institutional record is inaccessible.");
 
-      const storedKey = (rawEntry.accessCode || "").trim().toUpperCase();
-
-      if (storedKey !== inputKey) {
-        throw new Error("Invalid institutional access key.");
+      // Check role-specific keys stored in registry shard
+      let isVerified = false;
+      if (authMode === 'ADMIN') {
+        isVerified = (rawEntry.accessCode || "").trim().toUpperCase() === inputKey;
+      } else if (authMode === 'FACILITATOR') {
+        isVerified = (rawEntry.staffAccessCode || "").trim().toUpperCase() === inputKey;
+      } else {
+        isVerified = (rawEntry.pupilAccessCode || "").trim().toUpperCase() === inputKey;
       }
 
-      // 3. SUPABASE AUTH HANDSHAKE (Use Standardized System Email)
-      // This ensures we always try the correct email derived from the Hub ID
+      if (!isVerified) {
+        throw new Error(`Invalid unique code for ${authMode} access.`);
+      }
+
+      // 3. AUTH HANDSHAKE (Derive system email for Supabase session)
       const systemAuthEmail = `${hubId.toLowerCase()}@unitedbaylor.edu`;
+      const masterPassword = (rawEntry.accessCode || "").trim().toUpperCase();
       
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: systemAuthEmail,
-        password: inputKey // The Access Key is the password set during registration
+        password: masterPassword 
       });
 
-      if (authError) {
-         // Fallback: If registrant field looks like an email, try it too (for legacy support)
-         if ((credentials.registrant || "").includes('@')) {
-            const { error: secondTryError } = await supabase.auth.signInWithPassword({
-              email: credentials.registrant.toLowerCase().trim(),
-              password: inputKey
-            });
-            if (secondTryError) throw new Error("Auth Refused: " + secondTryError.message);
-         } else {
-            throw new Error("Security Node Refused: " + authError.message);
-         }
-      }
+      if (authError) throw new Error("Security Node Refused: Institutional handshake failed.");
 
       // 4. ROUTING
       setIsAuthenticating(false);
@@ -130,13 +121,13 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
         {isAuthenticating && (
           <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center space-y-6">
             <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Authenticating with Network Node...</p>
+            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Establishing Secure Node Link...</p>
           </div>
         )}
 
         <div className="text-center relative mb-10">
           <div className="inline-block px-5 py-1.5 rounded-full bg-blue-900 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-6 shadow-xl">
-            {credentials.schoolName || 'UBA HUB ACCESS'}
+             ACADEMY HUB ACCESS
           </div>
           <div className="w-20 h-20 bg-white border-2 border-slate-100 text-blue-900 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-lg">
              <img src={ACADEMY_ICON} alt="Shield" className="w-12 h-12 object-contain" />
@@ -158,20 +149,19 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
               <input type="text" value={credentials.schoolNumber} onChange={(e) => setCredentials({...credentials, schoolNumber: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="UBA-YYYY-XXXX" required />
             </div>
 
-            {authMode === 'ADMIN' && (
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Institution Name</label>
-                <input type="text" value={credentials.schoolName} onChange={(e) => setCredentials({...credentials, schoolName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="ACADEMY NAME..." required />
-              </div>
-            )}
-
             {authMode === 'FACILITATOR' && (
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Specialist Subject</label>
-                <select value={credentials.subject} onChange={(e) => setCredentials({...credentials, subject: e.target.value})} className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-[10px] font-black outline-none">
-                  {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
+              <>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Staff Full Name</label>
+                  <input type="text" value={credentials.facilitatorName} onChange={(e) => setCredentials({...credentials, facilitatorName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="ENTER NAME..." required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Specialist Subject</label>
+                  <select value={credentials.subject} onChange={(e) => setCredentials({...credentials, subject: e.target.value})} className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-[10px] font-black outline-none">
+                    {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </>
             )}
 
             {authMode === 'PUPIL' && (
@@ -182,9 +172,18 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
             )}
 
             <div className="space-y-1 relative">
-              <label className="text-[9px] font-black text-indigo-900 uppercase tracking-widest">System Access Key</label>
+              <label className="text-[9px] font-black text-indigo-900 uppercase tracking-widest">
+                {authMode} Unique Access Code
+              </label>
               <div className="relative">
-                <input type={showKey ? "text" : "password"} value={credentials.accessKey} onChange={(e) => setCredentials({...credentials, accessKey: e.target.value})} className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-mono font-black outline-none focus:ring-4 focus:ring-indigo-500/10 uppercase pr-12" placeholder="SEC-••••••••" required />
+                <input 
+                  type={showKey ? "text" : "password"} 
+                  value={credentials.accessKey} 
+                  onChange={(e) => setCredentials({...credentials, accessKey: e.target.value})} 
+                  className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-mono font-black outline-none focus:ring-4 focus:ring-indigo-500/10 uppercase pr-12" 
+                  placeholder={authMode === 'ADMIN' ? 'SEC-••••••••' : authMode === 'FACILITATOR' ? 'STAFF-••••' : 'PUPIL-••••'} 
+                  required 
+                />
                 <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
                     {showKey ? '👁️' : '🔒'}
                 </button>
@@ -195,7 +194,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
           {errorMessage && <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-[10px] font-black uppercase text-center border border-red-100 shadow-sm animate-pulse">{errorMessage}</div>}
 
           <button type="submit" className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 mt-4">
-            Verify Hub Credentials
+            Verify Institutional Credentials
           </button>
         </form>
 

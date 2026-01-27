@@ -1,6 +1,6 @@
+
 import React, { useState } from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings, StaffAssignment } from '../../types';
-import EditableField from '../shared/EditableField';
 import CompositeSheet from './CompositeSheet';
 import SupplementarySheet from './SupplementarySheet';
 import InstitutionalAnalytics from './InstitutionalAnalytics';
@@ -19,75 +19,19 @@ const MOCK_SERIES = Array.from({ length: 10 }, (_, i) => `MOCK ${i + 1}`);
 
 const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, onSettingChange, facilitators, isFacilitator }) => {
   const [sheetView, setSheetView] = useState<'composite' | 'sectionA' | 'sectionB' | 'analytics'>('composite');
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const handleDownloadPDF = async () => {
-    setIsGenerating(true);
-    const element = document.getElementById('broadsheet-export-container');
-    if (!element) return setIsGenerating(false);
-
-    const opt = {
-      margin: 5,
-      filename: `${settings.schoolName.replace(/\s+/g, '_')}_${settings.activeMock}_BroadSheet.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-      jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
-    };
-
-    try {
-      // @ts-ignore
-      await window.html2pdf().set(opt).from(element).save();
-    } catch (e) {
-      console.error("PDF Generation Error:", e);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   return (
-    <div className="bg-white p-4 print:p-0 min-h-screen max-w-[420mm] mx-auto overflow-hidden print:overflow-visible print:max-w-none">
-      
-      {/* Navigation & Controls */}
-      <div className="no-print mb-8 space-y-4">
-        <div className="flex items-center justify-between bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-4">
-            <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest flex items-center gap-2 border-r pr-4 border-gray-200">
-              Broad Sheet Controller
-            </h3>
-            <div className="flex gap-2">
-               <button onClick={() => setSheetView('composite')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'composite' ? 'bg-blue-900 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>NRT Composite</button>
-               <button onClick={() => setSheetView('sectionA')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'sectionA' ? 'bg-indigo-900 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>Section A (Obj)</button>
-               <button onClick={() => setSheetView('sectionB')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'sectionB' ? 'bg-purple-900 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>Section B (Theory)</button>
-               <button onClick={() => setSheetView('analytics')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'analytics' ? 'bg-emerald-700 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>Institutional Analytics</button>
-            </div>
-          </div>
-          
-          <div className="flex gap-3">
-             <button 
-               onClick={handleDownloadPDF}
-               disabled={isGenerating}
-               className={`${isGenerating ? 'bg-gray-400' : 'bg-red-700 hover:bg-black'} text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg flex items-center gap-2 transition-all active:scale-95`}
-             >
-               {isGenerating ? (
-                 <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-               ) : (
-                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-               )}
-               {isGenerating ? 'Processing...' : 'Download PDF'}
-             </button>
-             <button 
-               onClick={() => window.print()}
-               className="bg-blue-950 hover:bg-black text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg flex items-center gap-2 transition-all active:scale-95"
-             >
-               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-               Print
-             </button>
-          </div>
+    <div className="bg-white p-4 print:p-0 min-h-screen max-w-full">
+      <div className="no-print mb-8 flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+        <div className="flex gap-2">
+            <button onClick={() => setSheetView('composite')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'composite' ? 'bg-blue-900 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>NRT Composite</button>
+            <button onClick={() => setSheetView('sectionA')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'sectionA' ? 'bg-indigo-900 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>Obj (Sec A)</button>
+            <button onClick={() => setSheetView('sectionB')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'sectionB' ? 'bg-purple-900 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>Thy (Sec B)</button>
+            <button onClick={() => setSheetView('analytics')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'analytics' ? 'bg-emerald-700 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>Analytics</button>
         </div>
-
-        <div className="grid grid-cols-5 md:grid-cols-10 gap-1.5 p-1 bg-gray-100 rounded-xl border border-gray-200">
+        <div className="flex gap-1.5 p-1 bg-gray-100 rounded-xl">
            {MOCK_SERIES.map(mock => (
-             <button key={mock} onClick={() => onSettingChange('activeMock', mock)} className={`py-2 rounded-lg text-[10px] font-black uppercase transition-all ${settings.activeMock === mock ? 'bg-blue-900 text-white shadow-md' : 'bg-white text-blue-900 hover:bg-blue-50'}`}>
+             <button key={mock} onClick={() => onSettingChange('activeMock', mock)} className={`px-2 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${settings.activeMock === mock ? 'bg-blue-900 text-white shadow-md' : 'bg-white text-blue-900 hover:bg-blue-50'}`}>
                {mock.split(' ')[1]}
              </button>
            ))}
@@ -95,7 +39,6 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
       </div>
 
       <div id="broadsheet-export-container">
-        {/* Unified Academy Branding Header - Editable particulars of UNITED BAYLOR ACADEMY */}
         <ReportBrandingHeader 
           settings={settings} 
           onSettingChange={onSettingChange} 
@@ -104,28 +47,11 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
           isLandscape={true}
         />
 
-        {/* Dynamic Content Rendering */}
         <div className="min-h-[400px]">
           {sheetView === 'composite' && <CompositeSheet students={students} stats={stats} settings={settings} facilitators={facilitators} isFacilitator={isFacilitator} />}
           {sheetView === 'sectionA' && <SupplementarySheet students={students} stats={stats} settings={settings} section="sectionA" />}
           {sheetView === 'sectionB' && <SupplementarySheet students={students} stats={stats} settings={settings} section="sectionB" />}
           {sheetView === 'analytics' && <InstitutionalAnalytics students={students} stats={stats} settings={settings} facilitators={facilitators} onSettingChange={onSettingChange} />}
-        </div>
-
-        {/* Validation Footer - Fully Editable Particulars */}
-        <div className="flex justify-between items-end pt-12 pb-4 border-t-2 border-blue-900 mt-12 page-break-inside-avoid">
-           <div className="flex flex-col items-center">
-              <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
-                 <EditableField value="Examination Registry" onChange={() => {}} className="text-center w-full" />
-              </div>
-              <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Verified Data Snapshot</p>
-           </div>
-           <div className="flex flex-col items-center">
-              <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
-                 <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center w-full" />
-              </div>
-              <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Academy Director's Seal</p>
-           </div>
         </div>
       </div>
     </div>

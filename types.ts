@@ -76,7 +76,7 @@ export interface StaffAssignment {
 export interface MockSnapshotMetadata {
   submissionDate: string;
   subjectsSubmitted: string[];
-  subjectSubmissionDates?: Record<string, string>; // Maps subject name to its submission date
+  subjectSubmissionDates?: Record<string, string>;
   confirmedScripts: string[];
   approvalStatus: 'pending' | 'approved' | 'completed';
   approvedBy?: string;
@@ -87,6 +87,8 @@ export interface SchoolRegistryEntry {
   name: string;
   registrant: string;
   accessCode: string;
+  staffAccessCode: string;
+  pupilAccessCode: string;
   enrollmentDate: string;
   studentCount: number;
   avgAggregate: number;
@@ -129,7 +131,7 @@ export interface MockScoreSet {
 }
 
 export interface BeceResult {
-  grades: Record<string, number>; // Subject -> Grade (1-9)
+  grades: Record<string, number>;
   year: string;
 }
 
@@ -147,7 +149,7 @@ export interface StudentData {
   examSubScores: Record<string, ExamSubScore>;
   mockData: Record<string, MockScoreSet>; 
   seriesHistory?: Record<string, MockSeriesRecord>;
-  beceResults?: Record<string, BeceResult>; // Year -> Result
+  beceResults?: Record<string, BeceResult>;
 }
 
 export interface ProcessedStudent {
@@ -226,6 +228,8 @@ export interface GlobalSettings {
   registrantName?: string; 
   registrantEmail?: string;
   accessCode?: string;     
+  staffAccessCode?: string;
+  pupilAccessCode?: string;
   enrollmentDate?: string; 
   examTitle: string;
   termInfo: string;
@@ -253,6 +257,7 @@ export interface GlobalSettings {
   useTDistribution: boolean;
   mockSnapshots?: Record<string, MockSnapshotMetadata>;
   reportTemplate: 'standard' | 'minimal' | 'prestige';
+  systemAuthEmail?: string;
 }
 
 export interface QuestionIndicatorMapping {
@@ -272,3 +277,5 @@ export interface MockResource {
   schemeUrl?: string;
   generalReport?: string;
 }
+
+export type ViewMode = 'home' | 'master' | 'reports' | 'management' | 'series' | 'pupil_hub';

@@ -1,9 +1,11 @@
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
-import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
+import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent, ViewMode } from './types';
 import { supabase } from './supabaseClient';
 
 // Portal Components
+import HomePortal from './components/HomePortal';
 import MasterSheet from './components/reports/MasterSheet';
 import ReportCard from './components/reports/ReportCard';
 import SeriesBroadSheet from './components/reports/SeriesBroadSheet';
@@ -21,7 +23,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   schoolName: "UNITED BAYLOR ACADEMY",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
   schoolNumber: "UBA-2026-7448", 
-  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
+  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
   examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
   termInfo: "TERM 2",
   academicYear: "2024/2025",
@@ -51,7 +53,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
-  const [viewMode, setViewMode] = useState<'master' | 'reports' | 'management' | 'series' | 'pupil_hub'>('master');
+  const [viewMode, setViewMode] = useState<ViewMode>('home');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
   
   const [isAuthenticated, setIsAuthenticated] = useState(false); 
@@ -70,7 +72,6 @@ const App: React.FC = () => {
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // PRIMARY HANDSHAKE: Fetch Registry (Public Discovery Mode)
   const fetchRegistry = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -118,7 +119,6 @@ const App: React.FC = () => {
 
   useEffect(() => { fetchRegistry(); }, [fetchRegistry]);
 
-  // Real-time Persistence Handshake (Owner Sync Mode)
   useEffect(() => {
     let channel: any;
     const initSync = async () => {
@@ -160,7 +160,7 @@ const App: React.FC = () => {
     if (!hubId) return;
     
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return; // Exit silently if no user (prevents warning noise)
+    if (!user) return;
 
     const ts = new Date().toISOString();
     const shards = [
@@ -172,15 +172,19 @@ const App: React.FC = () => {
     try {
       await supabase.from('uba_persistence').upsert(shards);
       
-      const regEntry = { 
+      const regEntry: SchoolRegistryEntry = { 
         id: hubId, 
         name: settings.schoolName || "UNITED BAYLOR ACADEMY", 
         studentCount: students.length, 
         avgAggregate: classAvgAggregate, 
         status: 'active', 
         lastActivity: ts,
-        accessCode: settings.accessCode,
-        registrant: settings.registrantName
+        accessCode: settings.accessCode || "",
+        staffAccessCode: settings.staffAccessCode || "",
+        pupilAccessCode: settings.pupilAccessCode || "",
+        registrant: settings.registrantName || "ADMINISTRATOR",
+        enrollmentDate: settings.enrollmentDate || new Date().toLocaleDateString(),
+        performanceHistory: []
       };
 
       await supabase.from('uba_persistence').upsert({ 
@@ -194,12 +198,8 @@ const App: React.FC = () => {
     }
   }, [settings, students, facilitators, classAvgAggregate]);
 
-  // Auto-Sync logic with Authenticated Guard
   useEffect(() => {
-    // ONLY trigger auto-save if we are authenticated.
-    // This removes the "Save blocked" warning during the login/registration phase.
     if (!isAuthenticated && !isSuperAdmin) return;
-
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => { handleSave(); }, 1500);
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
@@ -210,7 +210,8 @@ const App: React.FC = () => {
       <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-[2rem] animate-spin"></div>
       <div className="text-center space-y-2">
         <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] animate-pulse">Establishing Registry Handshake</p>
-        <p className="text-[8px] text-slate-600 uppercase font-bold">Node: {supabase.supabaseUrl.split('//')[1].split('.')[0]}</p>
+        {/* Fix: Access protected property supabaseUrl via cast to any to resolve TypeScript error */}
+        <p className="text-[8px] text-slate-600 uppercase font-bold">Node: {(supabase as any).supabaseUrl?.split('//')[1]?.split('.')[0] || 'Cloud'}</p>
       </div>
     </div>
   );
@@ -234,7 +235,7 @@ const App: React.FC = () => {
             initialCredentials={postRegistrationData} 
             onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
             onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('master'); }); }} 
+            onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('home'); }); }} 
             onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} 
             onSwitchToRegister={() => setIsRegistering(true)} 
           />
@@ -243,7 +244,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (isSuperAdmin) return <SuperAdminPortal onExit={() => setIsSuperAdmin(false)} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); setViewMode('master'); }} />;
+  if (isSuperAdmin) return <SuperAdminPortal onExit={() => setIsSuperAdmin(false)} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); setViewMode('home'); }} />;
 
   return (
     <div className={`min-h-screen bg-gray-100 font-sans flex flex-col ${viewMode === 'master' || viewMode === 'series' ? 'print-landscape' : 'print-portrait'}`}>
@@ -251,6 +252,7 @@ const App: React.FC = () => {
         <div className="flex bg-blue-800 rounded p-1 text-[10px] md:text-sm">
           {!isPupil ? (
             <>
+              <button onClick={() => setViewMode('home')} className={`px-3 py-1 rounded transition ${viewMode === 'home' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Home Hub</button>
               <button onClick={() => setViewMode('master')} className={`px-3 py-1 rounded transition ${viewMode === 'master' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Broad Sheets</button>
               <button onClick={() => setViewMode('series')} className={`px-3 py-1 rounded transition ${viewMode === 'series' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Series Tracker</button>
               <button onClick={() => setViewMode('reports')} className={`px-3 py-1 rounded transition ${viewMode === 'reports' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Pupil Reports</button>
@@ -266,6 +268,7 @@ const App: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-auto bg-gray-100 p-4 md:p-8">
+        {viewMode === 'home' && !isPupil && <HomePortal onNavigate={setViewMode} schoolName={settings.schoolName} />}
         {viewMode === 'master' && !isPupil && <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />}
         {viewMode === 'series' && !isPupil && <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(p => ({ id: p.id, aggregate: p.bestSixAggregate, rank: p.rank, totalScore: p.totalScore, category: p.category }))} />}
         {viewMode === 'reports' && !isPupil && (

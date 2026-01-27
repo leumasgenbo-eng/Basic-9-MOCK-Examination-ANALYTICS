@@ -36,7 +36,7 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
 
   return (
     <div className="bg-white p-6 print:p-0 min-h-screen max-w-full">
-      {/* Unified Academy Particulars Header */}
+      {/* Editable Academy Branding Header */}
       <ReportBrandingHeader 
         settings={settings} 
         onSettingChange={onSettingChange} 

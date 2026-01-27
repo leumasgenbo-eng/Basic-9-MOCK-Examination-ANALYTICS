@@ -1,3 +1,4 @@
+
 import { SUBJECT_LIST, CORE_SUBJECTS, PREDEFINED_CONDUCT_REMARKS, RAW_STUDENTS, FACILITATORS } from './constants';
 import { ClassStatistics, ProcessedStudent, ComputedSubject, StudentData, GradingThresholds, GlobalSettings, MockScoreSet, MockResource, QuestionIndicatorMapping, MockSeriesRecord, MockSnapshotMetadata, SchoolRegistryEntry, InstitutionalPerformance } from './types';
 
@@ -261,6 +262,9 @@ export const generateFullDemoSuite = (): {
     name: "CULBURY ACADEMY",
     registrant: "ADMINISTRATOR",
     accessCode: "SSMAP-HQ-SECURE",
+    // Fix: Added missing required properties staffAccessCode and pupilAccessCode
+    staffAccessCode: "SSMAP-STAFF-DEMO",
+    pupilAccessCode: "SSMAP-PUPIL-DEMO",
     enrollmentDate: "2025-01-01",
     studentCount: 5,
     avgAggregate: 19.2,
