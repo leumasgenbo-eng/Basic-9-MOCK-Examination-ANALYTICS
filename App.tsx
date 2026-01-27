@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
@@ -13,6 +12,8 @@ import SuperAdminPortal from './components/hq/SuperAdminPortal';
 import LoginPortal from './components/auth/LoginPortal';
 import SchoolRegistrationPortal from './components/auth/SchoolRegistrationPortal';
 import PupilDashboard from './components/pupil/PupilDashboard';
+import HomeDashboard from './components/management/HomeDashboard';
+import DataCleanupPortal from './components/management/DataCleanupPortal';
 
 import { SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGORY_THRESHOLDS } from './constants';
 
@@ -54,7 +55,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
-  const [viewMode, setViewMode] = useState<'master' | 'reports' | 'management' | 'series' | 'pupil_hub'>('master');
+  const [viewMode, setViewMode] = useState<'home' | 'master' | 'reports' | 'management' | 'series' | 'pupil_hub' | 'cleanup'>('home');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
   
   const [isAuthenticated, setIsAuthenticated] = useState(false); 
@@ -68,7 +69,7 @@ const App: React.FC = () => {
   
   const [globalRegistry, setGlobalRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_SETTINGS);
-  const [students, setStudents] = useState<StudentData[]>([]); // Default to empty list for new registrations
+  const [students, setStudents] = useState<StudentData[]>([]); 
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -225,7 +226,7 @@ const App: React.FC = () => {
             onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} 
             onSave={handleSave} 
             onComplete={(d) => { setPostRegistrationData(d); setIsRegistering(false); fetchRegistry(); }} 
-            onResetStudents={() => setStudents([])} // Ensure students are cleared on new registration
+            onResetStudents={() => setStudents([])} 
             onSwitchToLogin={() => setIsRegistering(false)} 
           />
         ) : (
@@ -236,7 +237,7 @@ const App: React.FC = () => {
             initialCredentials={postRegistrationData} 
             onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
             onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('master'); }); }} 
+            onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('home'); }); }} 
             onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} 
             onSwitchToRegister={() => setIsRegistering(true)} 
           />
@@ -245,20 +246,35 @@ const App: React.FC = () => {
     );
   }
 
-  if (isSuperAdmin) return <SuperAdminPortal onExit={() => setIsSuperAdmin(false)} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); setViewMode('master'); }} />;
+  if (isSuperAdmin) return <SuperAdminPortal onExit={() => setIsSuperAdmin(false)} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); setViewMode('home'); }} />;
 
   return (
-    <div className={`min-h-screen bg-gray-100 font-sans flex flex-col ${viewMode === 'master' || viewMode === 'series' ? 'print-landscape' : 'print-portrait'}`}>
+    <div className={`min-h-screen bg-gray-100 font-sans flex flex-col ${viewMode === 'master' || viewMode === 'series' || viewMode === 'cleanup' ? 'print-landscape' : 'print-portrait'}`}>
       <div className="no-print bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-md flex justify-between items-center flex-wrap gap-2">
         <div className="flex bg-blue-800 rounded p-1 text-[10px] md:text-sm">
           {!isPupil ? (
             <>
+              <button onClick={() => setViewMode('home')} className={`px-3 py-1 rounded transition flex items-center gap-1.5 ${viewMode === 'home' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                Home
+              </button>
               <button onClick={() => setViewMode('master')} className={`px-3 py-1 rounded transition ${viewMode === 'master' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Broad Sheets</button>
               <button onClick={() => setViewMode('series')} className={`px-3 py-1 rounded transition ${viewMode === 'series' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Series Tracker</button>
+              
+              {!isFacilitator && (
+                <button onClick={() => setViewMode('cleanup')} className={`px-3 py-1 rounded transition flex items-center gap-1.5 ${viewMode === 'cleanup' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  Data Forge
+                </button>
+              )}
+
               <button onClick={() => setViewMode('reports')} className={`px-3 py-1 rounded transition ${viewMode === 'reports' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Pupil Reports</button>
               <button onClick={() => setViewMode('management')} className={`px-3 py-1 rounded transition ${viewMode === 'management' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Mgmt Desk</button>
             </>
-          ) : <button onClick={() => setViewMode('pupil_hub')} className={`px-3 py-1 rounded transition ${viewMode === 'pupil_hub' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>My Dashboard</button>}
+          ) : <button onClick={() => setViewMode('pupil_hub')} className={`px-3 py-1 rounded transition flex items-center gap-1.5 ${viewMode === 'pupil_hub' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                My Dashboard
+              </button>}
         </div>
         <div className="flex gap-2">
            {!isPupil && <button onClick={handleSave} className="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-4 py-2 rounded font-black shadow transition text-xs uppercase">Cloud Sync</button>}
@@ -268,8 +284,14 @@ const App: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-auto bg-gray-100 p-4 md:p-8">
+        {viewMode === 'home' && !isPupil && <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />}
         {viewMode === 'master' && !isPupil && <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />}
         {viewMode === 'series' && !isPupil && <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(p => ({ id: p.id, aggregate: p.bestSixAggregate, rank: p.rank, totalScore: p.totalScore, category: p.category }))} />}
+        
+        {viewMode === 'cleanup' && !isPupil && !isFacilitator && (
+          <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={handleSave} subjects={SUBJECT_LIST} />
+        )}
+
         {viewMode === 'reports' && !isPupil && (
           <div className="space-y-8">
             <div className="no-print mb-4"><input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-4 rounded-xl border border-gray-200 outline-none focus:ring-4 focus:ring-blue-500/10 font-black" /></div>
