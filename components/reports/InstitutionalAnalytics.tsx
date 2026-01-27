@@ -1,8 +1,6 @@
-
 import React, { useMemo } from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings, StaffAssignment } from '../../types';
 import { SUBJECT_LIST } from '../../constants';
-import ReportBrandingHeader from '../shared/ReportBrandingHeader';
 import EditableField from '../shared/EditableField';
 
 interface InstitutionalAnalyticsProps {
@@ -65,15 +63,6 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
-      
-      {/* Unified Academy Branding Header */}
-      <ReportBrandingHeader 
-        settings={settings} 
-        onSettingChange={onSettingChange} 
-        reportTitle="INSTITUTIONAL CORE ANALYTICS"
-        subtitle="NRT PERFORMANCE DATA OUTPUT"
-      />
-
       {/* KPI Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-blue-950 text-white p-8 rounded-[3rem] shadow-xl border border-blue-900 relative overflow-hidden">

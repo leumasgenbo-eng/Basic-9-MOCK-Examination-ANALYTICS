@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings, StaffAssignment } from '../../types';
 import EditableField from '../shared/EditableField';
@@ -45,17 +44,37 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
     }
   };
 
+  const getDynamicSubtitle = () => {
+    switch (sheetView) {
+      case 'analytics':
+        return 'INSTITUTIONAL PERFORMANCE ANALYTICS';
+      case 'composite':
+        return 'OFFICIAL MASTER BROAD SHEET';
+      case 'sectionA':
+        return 'SUPPLEMENTARY SUB-SCORE SHEET (SECTION A - OBJECTIVES)';
+      case 'sectionB':
+        return 'SUPPLEMENTARY SUB-SCORE SHEET (SECTION B - THEORY)';
+      default:
+        return 'OFFICIAL ASSESSMENT REPORT';
+    }
+  };
+
+  const getDynamicReportTitle = () => {
+    if (sheetView === 'analytics') return 'INSTITUTIONAL CORE ANALYTICS';
+    return settings.examTitle;
+  };
+
   return (
     <div className="bg-white p-4 print:p-0 min-h-screen max-w-[420mm] mx-auto overflow-hidden print:overflow-visible print:max-w-none">
       
-      {/* Navigation & Controls */}
+      {/* Navigation & Controls - NO PRINT */}
       <div className="no-print mb-8 space-y-4">
-        <div className="flex items-center justify-between bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+        <div className="flex flex-col md:flex-row items-center justify-between bg-white p-4 rounded-3xl border border-gray-100 shadow-sm gap-4">
           <div className="flex items-center gap-4">
             <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest flex items-center gap-2 border-r pr-4 border-gray-200">
               Broad Sheet Controller
             </h3>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
                <button onClick={() => setSheetView('composite')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'composite' ? 'bg-blue-900 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>NRT Composite</button>
                <button onClick={() => setSheetView('sectionA')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'sectionA' ? 'bg-indigo-900 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>Section A (Obj)</button>
                <button onClick={() => setSheetView('sectionB')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${sheetView === 'sectionB' ? 'bg-purple-900 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>Section B (Theory)</button>
@@ -95,17 +114,17 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
         </div>
       </div>
 
+      {/* SINGLE UNIFIED BRANDING HEADER ZONE */}
       <div id="broadsheet-export-container">
-        {/* Unified Academy Branding Header - Editable particulars of UNITED BAYLOR ACADEMY */}
         <ReportBrandingHeader 
           settings={settings} 
           onSettingChange={onSettingChange} 
-          reportTitle={settings.examTitle}
-          subtitle={sheetView === 'composite' ? 'OFFICIAL MASTER BROAD SHEET' : sheetView === 'analytics' ? 'INSTITUTIONAL PERFORMANCE ANALYTICS' : `SUPPLEMENTARY SUB-SCORE SHEET (${sheetView.toUpperCase()})`}
+          reportTitle={getDynamicReportTitle()}
+          subtitle={getDynamicSubtitle()}
           isLandscape={true}
         />
 
-        {/* Dynamic Content Rendering */}
+        {/* Dynamic Content Rendering - These components no longer contain their own branding headers */}
         <div className="min-h-[400px]">
           {sheetView === 'composite' && <CompositeSheet students={students} stats={stats} settings={settings} facilitators={facilitators} isFacilitator={isFacilitator} />}
           {sheetView === 'sectionA' && <SupplementarySheet students={students} stats={stats} settings={settings} section="sectionA" />}
@@ -113,7 +132,7 @@ const MasterSheet: React.FC<MasterSheetProps> = ({ students, stats, settings, on
           {sheetView === 'analytics' && <InstitutionalAnalytics students={students} stats={stats} settings={settings} facilitators={facilitators} onSettingChange={onSettingChange} />}
         </div>
 
-        {/* Validation Footer - Fully Editable Particulars */}
+        {/* Unified Validation Footer */}
         <div className="flex justify-between items-end pt-12 pb-4 border-t-2 border-blue-900 mt-12 page-break-inside-avoid">
            <div className="flex flex-col items-center">
               <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
