@@ -89,6 +89,7 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
             onLoadDummyData={onLoadDummyData} 
             onClearData={onClearData}
             hasData={students.length > 0}
+            isFacilitator={isFacilitator}
         />
         <ManagementTabs activeTab={activeTab} setActiveTab={setActiveTab} onRegistrationStart={onRegistrationStart} isFacilitator={isFacilitator} />
         <div className="p-3 sm:p-6 md:p-8 min-h-[500px]">

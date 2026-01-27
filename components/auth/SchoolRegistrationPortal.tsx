@@ -17,18 +17,18 @@ const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYA
 const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({ 
   settings, onBulkUpdate, onSave, onComplete, onExit, onResetStudents, onSwitchToLogin 
 }) => {
-  const isExistingRegistration = !!settings.accessCode;
-  const [isRegistered, setIsRegistered] = useState(isExistingRegistration);
+  const [isRegistered, setIsRegistered] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [registeredData, setRegisteredData] = useState<any>(null);
   const [authErrorCode, setAuthErrorCode] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
-    schoolName: isExistingRegistration ? settings.schoolName : '',
-    location: isExistingRegistration ? settings.schoolAddress : '',
-    registrant: isExistingRegistration ? settings.registrantName || '' : '',
-    registrantEmail: isExistingRegistration ? settings.registrantEmail || '' : '',
-    schoolEmail: isExistingRegistration ? settings.schoolEmail || '' : '',
-    contact: isExistingRegistration ? settings.schoolContact || '' : ''
+    schoolName: '',
+    location: '',
+    registrant: '',
+    registrantEmail: '',
+    schoolEmail: '',
+    contact: ''
   });
 
   const handleEnrollment = async (e: React.FormEvent) => {
@@ -44,11 +44,16 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       
       const systemAuthEmail = `${hubId.toLowerCase()}@unitedbaylor.edu`;
 
+      // 1. AUTH PROVISIONING (Admin Master Account)
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: systemAuthEmail,
         password: accessKey, 
         options: {
-          data: { hubId, schoolName: formData.schoolName.toUpperCase(), role: 'school_admin' }
+          data: {
+            hubId: hubId, 
+            schoolName: formData.schoolName.toUpperCase(),
+            role: 'school_admin'
+          }
         }
       });
 
@@ -66,6 +71,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
 
       const ts = new Date().toISOString();
 
+      // 2. PRIVATE SETTINGS SHARD
       const newSettings = {
         ...settings,
         schoolName: formData.schoolName.toUpperCase(),
@@ -78,17 +84,20 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         accessCode: accessKey,
         staffAccessCode: staffKey,
         pupilAccessCode: pupilKey,
-        systemAuthEmail,
+        systemAuthEmail: systemAuthEmail,
         enrollmentDate: new Date().toLocaleDateString()
       };
 
-      await supabase.from('uba_persistence').insert({ 
+      const { error: settingsError } = await supabase.from('uba_persistence').insert({ 
         id: `${hubId}_settings`, 
         payload: newSettings, 
         last_updated: ts,
         user_id: userId 
       });
 
+      if (settingsError) throw new Error("Settings Allocation Failed: " + settingsError.message);
+
+      // 3. NETWORK REGISTRY NODE (Includes keys for validation during login)
       const newRegistryEntry: SchoolRegistryEntry = {
         id: hubId,
         name: formData.schoolName.toUpperCase(),
@@ -104,18 +113,24 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         lastActivity: ts
       };
 
-      await supabase.from('uba_persistence').insert({ 
+      const { error: regError } = await supabase.from('uba_persistence').insert({ 
         id: `registry_${hubId}`, 
         payload: [newRegistryEntry], 
         last_updated: ts,
         user_id: userId
       });
 
+      if (regError) throw new Error("Network Registry Sync Failed: " + regError.message);
+
       onBulkUpdate(newSettings);
       if (onResetStudents) onResetStudents();
+      
+      setRegisteredData(newSettings);
       setIsRegistered(true);
+      
     } catch (err: any) {
-      alert(err.message || "Registration Node Error.");
+      console.error("Enrollment sequence interrupted:", err);
+      alert(err.message || "Registration Node Error: Request failed.");
     } finally {
       setIsSyncing(false);
     }
@@ -124,98 +139,90 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
   const handleDownloadCredentials = () => {
     const text = `SS-MAP - INSTITUTIONAL ACCESS PACK\n` +
                  `==================================================\n\n` +
-                 `USE THESE FIELDS TO LOGIN TO YOUR HUB:\n\n` +
-                 `1. Institution Hub ID:  ${settings.schoolNumber}\n` +
-                 `2. System Login Email:  ${settings.systemAuthEmail}\n` +
-                 `3. System Access Key:   ${settings.accessCode}\n\n` +
+                 `ADMIN ACCESS:\n` +
+                 `1. Hub ID:          ${registeredData?.schoolNumber}\n` +
+                 `2. Login Email:     ${registeredData?.systemAuthEmail}\n` +
+                 `3. Master Key:      ${registeredData?.accessCode}\n\n` +
+                 `ROLE ACCESS CODES:\n` +
+                 `4. Facilitator Key: ${registeredData?.staffAccessCode}\n` +
+                 `5. Pupil Key:       ${registeredData?.pupilAccessCode}\n\n` +
                  `--------------------------------------------------\n` +
-                 `REGISTRATION METADATA:\n` +
-                 `Academy Name: ${settings.schoolName}\n` +
-                 `Director:     ${settings.registrantName}\n` +
-                 `Locality:     ${settings.schoolAddress}\n\n` +
-                 `* IMPORTANT: Save this file. Your Access Key is required for every session.`;
+                 `* IMPORTANT: Save this file. Codes are unique to your Academy.`;
+    
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `SSMap_AccessPack_${settings.schoolNumber}.txt`;
+    a.download = `SSMap_Hub_Credentials_${registeredData?.schoolNumber}.txt`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
-  if (isSyncing) return (
-    <div className="flex flex-col items-center justify-center py-32 space-y-8 animate-in fade-in zoom-in-95 duration-500">
-      <div className="w-24 h-24 border-8 border-slate-100 border-t-blue-900 rounded-full animate-spin"></div>
-      <h3 className="text-xl font-black text-slate-900 uppercase">Synchronizing Node...</h3>
-    </div>
-  );
-
-  if (isRegistered) return (
-    <div className="max-w-4xl mx-auto animate-in zoom-in-95 duration-700">
-      <div className="bg-slate-950 rounded-[3rem] p-10 md:p-16 shadow-2xl border border-white/10 relative overflow-hidden flex flex-col">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full -mr-48 -mt-48 blur-[100px]"></div>
-        
-        <div className="relative mb-12 border-b border-white/10 pb-8 text-center">
-          <h2 className="text-2xl font-black text-blue-400 uppercase tracking-[0.2em] mb-2">SS-MAP - INSTITUTIONAL ACCESS PACK</h2>
-          <div className="h-1 w-full bg-gradient-to-r from-transparent via-blue-600 to-transparent mb-4"></div>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">AUTHORIZED CREDENTIALS FOR {settings.schoolName}</p>
-        </div>
-
-        <div className="space-y-10 relative">
-          <section className="space-y-6">
-            <h3 className="text-[11px] font-black text-white/40 uppercase tracking-[0.4em]">Hub Access Protocols:</h3>
-            <div className="grid grid-cols-1 gap-4">
-              <div className="bg-white/5 border border-white/10 p-6 rounded-3xl group hover:bg-white/10 transition-all">
-                <span className="text-[9px] font-black text-blue-400 uppercase block mb-1">1. Institution Hub ID</span>
-                <p className="text-2xl font-mono font-black text-white tracking-tighter">{settings.schoolNumber}</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 p-6 rounded-3xl group hover:bg-white/10 transition-all">
-                <span className="text-[9px] font-black text-blue-400 uppercase block mb-1">2. System Login Email</span>
-                <p className="text-lg font-mono font-black text-white/80">{settings.systemAuthEmail}</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 p-6 rounded-3xl group hover:bg-white/10 transition-all relative">
-                <span className="text-[9px] font-black text-emerald-400 uppercase block mb-1">3. System Access Key</span>
-                <p className="text-2xl font-mono font-black text-emerald-400 tracking-[0.2em]">{settings.accessCode}</p>
-                <div className="absolute right-6 top-1/2 -translate-y-1/2">
-                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-500/30"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="bg-white/[0.02] border border-white/5 p-8 rounded-[2rem] space-y-4">
-            <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-widest border-b border-white/5 pb-2">Registration Metadata:</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-3 text-xs">
-              <div className="flex justify-between items-center"><span className="text-slate-500 uppercase font-bold text-[9px]">Academy Name:</span><span className="font-black text-white uppercase">{settings.schoolName}</span></div>
-              <div className="flex justify-between items-center"><span className="text-slate-500 uppercase font-bold text-[9px]">Director:</span><span className="font-black text-white uppercase">{settings.registrantName}</span></div>
-              <div className="flex justify-between items-center"><span className="text-slate-500 uppercase font-bold text-[9px]">Locality:</span><span className="font-black text-white uppercase">{settings.schoolAddress}</span></div>
-              <div className="flex justify-between items-center"><span className="text-slate-500 uppercase font-bold text-[9px]">Enrollment Date:</span><span className="font-black text-white uppercase font-mono">{settings.enrollmentDate}</span></div>
-            </div>
-          </section>
-
-          <div className="pt-6 text-center space-y-8">
-            <p className="text-[10px] text-red-400/80 font-black uppercase tracking-[0.2em] italic">
-               * IMPORTANT: Save this file. Your Access Key is required for every session.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button onClick={handleDownloadCredentials} className="bg-white text-slate-900 px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-blue-50 transition-all active:scale-95">Download Pack (.txt)</button>
-              <button onClick={() => onComplete?.(settings)} className="bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-blue-500 transition-all active:scale-95">Enter Control Center</button>
-            </div>
-          </div>
+  if (isSyncing) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-8 animate-in fade-in zoom-in-95 duration-500">
+        <div className="w-24 h-24 border-8 border-slate-100 border-t-blue-900 rounded-full animate-spin"></div>
+        <div className="text-center space-y-2">
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Establishing Secure Node...</h3>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Generating cryptographic keys and data shards</p>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (isRegistered) {
+    return (
+      <div className="max-w-4xl mx-auto animate-in zoom-in-95 duration-700">
+        <div className="bg-slate-900 rounded-[3rem] p-10 md:p-16 shadow-2xl border border-white/10 text-center space-y-10">
+           <div className="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-4 border border-emerald-500/30">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+           </div>
+           <div className="space-y-2">
+              <h2 className="text-4xl font-black text-white uppercase tracking-tight leading-none">Institutional Node Established</h2>
+              <p className="text-emerald-400/60 font-black text-[10px] uppercase tracking-[0.4em]">Registry Handshake Complete</p>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                { label: 'Institution Hub ID', val: registeredData?.schoolNumber },
+                { label: 'Admin Master Key', val: registeredData?.accessCode },
+                { label: 'Facilitator Unique Code', val: registeredData?.staffAccessCode },
+                { label: 'Pupil Unique Code', val: registeredData?.pupilAccessCode }
+              ].map(f => (
+                <div key={f.label} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-left hover:bg-white/10 transition-colors">
+                  <span className="text-[9px] font-black text-blue-400 uppercase block mb-1">{f.label}</span>
+                  <p className="text-lg font-black text-white truncate font-mono">{f.val}</p>
+                </div>
+              ))}
+           </div>
+           <div className="flex flex-wrap justify-center gap-4">
+              <button onClick={handleDownloadCredentials} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all">Download Credentials Pack</button>
+              <button onClick={() => onComplete?.(registeredData)} className="w-full bg-white text-slate-900 py-7 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-emerald-50 transition-all active:scale-95">Proceed to Secure Portal</button>
+           </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-500">
+    <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
       <div className="bg-white rounded-[3rem] p-10 md:p-16 shadow-2xl border border-slate-100 space-y-12">
         <div className="text-center space-y-4">
-            <div className="w-20 h-20 bg-blue-900 text-white rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-2">
+            <div className="w-20 h-20 bg-blue-900 text-white rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-2 transition-transform hover:rotate-12">
                <img src={ACADEMY_ICON} alt="Shield" className="w-12 h-12" />
             </div>
             <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Register Institution Hub</h2>
             <p className="text-xs font-black text-slate-400 uppercase tracking-[0.4em]">Establish your encrypted node on the UBA network</p>
         </div>
+
+        {authErrorCode === 'USER_EXISTS' && (
+          <div className="bg-amber-50 border-2 border-amber-200 p-8 rounded-[2rem] text-center space-y-4 animate-in fade-in zoom-in-95">
+             <div className="text-amber-600 font-black text-xs uppercase tracking-[0.2em]">Registry Conflict Detected</div>
+             <p className="text-sm font-bold text-amber-900 leading-relaxed">
+               This institutional identity already exists in the network database.
+             </p>
+             <button onClick={onSwitchToLogin} className="bg-amber-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-amber-700 transition-all">Go to Sign In</button>
+          </div>
+        )}
 
         <form onSubmit={handleEnrollment} className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
             <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Official Academy Name</label><input type="text" value={formData.schoolName} onChange={(e) => setFormData({...formData, schoolName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required placeholder="E.G. UNITED BAYLOR ACADEMY" /></div>
@@ -225,8 +232,8 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
             <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">School Official Email</label><input type="email" placeholder="OFFICE@ACADEMY.COM" value={formData.schoolEmail} onChange={(e) => setFormData({...formData, schoolEmail: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required /></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Primary Contact Node</label><input type="text" placeholder="PHONE..." value={formData.contact} onChange={(e) => setFormData({...formData, contact: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required /></div>
             <div className="md:col-span-2 pt-10 space-y-6">
-              <button type="submit" disabled={isSyncing} className="w-full bg-blue-900 text-white py-7 rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:bg-black transition-all active:scale-95">{isSyncing ? "Syncing Shards..." : "Execute Enrollment Protocol"}</button>
-              <div className="text-center"><button type="button" onClick={onSwitchToLogin} className="text-[10px] font-black text-blue-900 uppercase tracking-[0.3em] hover:text-indigo-600 border-b-2 border-transparent hover:border-indigo-600 pb-1">Already Registered? Hub Access</button></div>
+              <button type="submit" disabled={isSyncing} className="w-full bg-blue-900 text-white py-7 rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50">{isSyncing ? "Syncing Shards..." : "Execute Enrollment Protocol"}</button>
+              <div className="text-center"><button type="button" onClick={onSwitchToLogin} className="text-[10px] font-black text-blue-900 uppercase tracking-[0.3em] hover:text-indigo-600 transition-colors border-b-2 border-transparent hover:border-indigo-600 pb-1">Already Registered? Hub Access</button></div>
             </div>
         </form>
       </div>

@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings, StaffAssignment } from '../../types';
 import { SUBJECT_LIST } from '../../constants';
@@ -170,13 +171,22 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
       <div className="flex justify-between items-end pt-12 pb-4 border-t-2 border-blue-900 mt-12 page-break-inside-avoid">
          <div className="flex flex-col items-center">
             <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
-               <EditableField value="Director of Studies" onChange={() => {}} className="text-center w-full" />
+               <EditableField 
+                value={settings.registryRoleTitle || "Director of Studies"} 
+                onChange={(v) => onSettingChange('registryRoleTitle', v)} 
+                className="text-center w-full" 
+               />
             </div>
             <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Performance Audit Signature</p>
          </div>
          <div className="flex flex-col items-center">
             <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
-               <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center w-full" />
+               <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center w-full mb-1" />
+               <EditableField 
+                value={settings.adminRoleTitle || "Academy Director"} 
+                onChange={(v) => onSettingChange('adminRoleTitle', v)} 
+                className="text-center w-full text-[8px] opacity-60" 
+               />
             </div>
             <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Academy Director's Seal</p>
          </div>

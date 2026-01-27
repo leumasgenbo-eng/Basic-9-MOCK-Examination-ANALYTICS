@@ -1,11 +1,10 @@
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
-import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent, ViewMode } from './types';
+import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
 import { supabase } from './supabaseClient';
 
 // Portal Components
-import HomePortal from './components/HomePortal';
 import MasterSheet from './components/reports/MasterSheet';
 import ReportCard from './components/reports/ReportCard';
 import SeriesBroadSheet from './components/reports/SeriesBroadSheet';
@@ -15,7 +14,7 @@ import LoginPortal from './components/auth/LoginPortal';
 import SchoolRegistrationPortal from './components/auth/SchoolRegistrationPortal';
 import PupilDashboard from './components/pupil/PupilDashboard';
 
-import { RAW_STUDENTS, SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGORY_THRESHOLDS } from './constants';
+import { SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGORY_THRESHOLDS } from './constants';
 
 const MOCK_SERIES = Array.from({ length: 10 }, (_, i) => `MOCK ${i + 1}`);
 
@@ -23,7 +22,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   schoolName: "UNITED BAYLOR ACADEMY",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
   schoolNumber: "UBA-2026-7448", 
-  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
+  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
   examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
   termInfo: "TERM 2",
   academicYear: "2024/2025",
@@ -48,12 +47,14 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   maxSectionB: 60,
   sortOrder: 'aggregate-asc',
   useTDistribution: true,
-  reportTemplate: 'standard'
+  reportTemplate: 'standard',
+  adminRoleTitle: "Academy Director",
+  registryRoleTitle: "Examination Registry"
 };
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>('home');
+  const [viewMode, setViewMode] = useState<'master' | 'reports' | 'management' | 'series' | 'pupil_hub'>('master');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
   
   const [isAuthenticated, setIsAuthenticated] = useState(false); 
@@ -67,7 +68,7 @@ const App: React.FC = () => {
   
   const [globalRegistry, setGlobalRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_SETTINGS);
-  const [students, setStudents] = useState<StudentData[]>(RAW_STUDENTS);
+  const [students, setStudents] = useState<StudentData[]>([]); // Default to empty list for new registrations
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -210,8 +211,7 @@ const App: React.FC = () => {
       <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-[2rem] animate-spin"></div>
       <div className="text-center space-y-2">
         <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] animate-pulse">Establishing Registry Handshake</p>
-        {/* Fix: Access protected property supabaseUrl via cast to any to resolve TypeScript error */}
-        <p className="text-[8px] text-slate-600 uppercase font-bold">Node: {(supabase as any).supabaseUrl?.split('//')[1]?.split('.')[0] || 'Cloud'}</p>
+        <p className="text-[8px] text-slate-600 uppercase font-bold">Node: {supabase.supabaseUrl.split('//')[1].split('.')[0]}</p>
       </div>
     </div>
   );
@@ -225,6 +225,7 @@ const App: React.FC = () => {
             onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} 
             onSave={handleSave} 
             onComplete={(d) => { setPostRegistrationData(d); setIsRegistering(false); fetchRegistry(); }} 
+            onResetStudents={() => setStudents([])} // Ensure students are cleared on new registration
             onSwitchToLogin={() => setIsRegistering(false)} 
           />
         ) : (
@@ -235,7 +236,7 @@ const App: React.FC = () => {
             initialCredentials={postRegistrationData} 
             onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
             onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('home'); }); }} 
+            onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('master'); }); }} 
             onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} 
             onSwitchToRegister={() => setIsRegistering(true)} 
           />
@@ -244,7 +245,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (isSuperAdmin) return <SuperAdminPortal onExit={() => setIsSuperAdmin(false)} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); setViewMode('home'); }} />;
+  if (isSuperAdmin) return <SuperAdminPortal onExit={() => setIsSuperAdmin(false)} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); setViewMode('master'); }} />;
 
   return (
     <div className={`min-h-screen bg-gray-100 font-sans flex flex-col ${viewMode === 'master' || viewMode === 'series' ? 'print-landscape' : 'print-portrait'}`}>
@@ -252,7 +253,6 @@ const App: React.FC = () => {
         <div className="flex bg-blue-800 rounded p-1 text-[10px] md:text-sm">
           {!isPupil ? (
             <>
-              <button onClick={() => setViewMode('home')} className={`px-3 py-1 rounded transition ${viewMode === 'home' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Home Hub</button>
               <button onClick={() => setViewMode('master')} className={`px-3 py-1 rounded transition ${viewMode === 'master' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Broad Sheets</button>
               <button onClick={() => setViewMode('series')} className={`px-3 py-1 rounded transition ${viewMode === 'series' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Series Tracker</button>
               <button onClick={() => setViewMode('reports')} className={`px-3 py-1 rounded transition ${viewMode === 'reports' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Pupil Reports</button>
@@ -268,7 +268,6 @@ const App: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-auto bg-gray-100 p-4 md:p-8">
-        {viewMode === 'home' && !isPupil && <HomePortal onNavigate={setViewMode} schoolName={settings.schoolName} />}
         {viewMode === 'master' && !isPupil && <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />}
         {viewMode === 'series' && !isPupil && <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(p => ({ id: p.id, aggregate: p.bestSixAggregate, rank: p.rank, totalScore: p.totalScore, category: p.category }))} />}
         {viewMode === 'reports' && !isPupil && (
@@ -291,8 +290,20 @@ const App: React.FC = () => {
             onBulkUpdate={(u) => setSettings(p=>({...p,...u}))} 
             onSave={handleSave} 
             processedSnapshot={processedStudents} 
-            onLoadDummyData={() => { const d = generateFullDemoSuite(); setStudents(d.students); setSettings(p => ({...p, resourcePortal: d.resourcePortal, mockSnapshots: d.mockSnapshots})); }} 
-            onClearData={() => { if(window.confirm("Clear Data?")){ setStudents(RAW_STUDENTS); setFacilitators({}); handleSave(); }}} 
+            onLoadDummyData={() => { 
+              const d = generateFullDemoSuite(); 
+              setStudents(d.students); 
+              setSettings(p => ({...p, resourcePortal: d.resourcePortal, mockSnapshots: d.mockSnapshots})); 
+              setTimeout(() => handleSave(), 500);
+            }} 
+            onClearData={() => { 
+              if(window.confirm("SWITCH TO REAL MODE? This will permanently erase ALL student records and scores. Branding and Identity will be preserved.")){ 
+                setStudents([]); 
+                setFacilitators({}); 
+                setTimeout(() => handleSave(), 500); 
+              }
+            }} 
+            onResetStudents={() => setStudents([])}
             isFacilitator={isFacilitator} 
             activeFacilitator={activeFacilitator} 
           />

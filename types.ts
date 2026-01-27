@@ -87,8 +87,8 @@ export interface SchoolRegistryEntry {
   name: string;
   registrant: string;
   accessCode: string;
-  staffAccessCode: string;
-  pupilAccessCode: string;
+  staffAccessCode: string; // Unique code for facilitators
+  pupilAccessCode: string; // Unique code for pupils
   enrollmentDate: string;
   studentCount: number;
   avgAggregate: number;
@@ -228,8 +228,8 @@ export interface GlobalSettings {
   registrantName?: string; 
   registrantEmail?: string;
   accessCode?: string;     
-  staffAccessCode?: string;
-  pupilAccessCode?: string;
+  staffAccessCode?: string; // Stored unique code for staff
+  pupilAccessCode?: string; // Stored unique code for pupils
   enrollmentDate?: string; 
   examTitle: string;
   termInfo: string;
@@ -258,6 +258,8 @@ export interface GlobalSettings {
   mockSnapshots?: Record<string, MockSnapshotMetadata>;
   reportTemplate: 'standard' | 'minimal' | 'prestige';
   systemAuthEmail?: string;
+  adminRoleTitle?: string;
+  registryRoleTitle?: string;
 }
 
 export interface QuestionIndicatorMapping {
@@ -277,5 +279,3 @@ export interface MockResource {
   schemeUrl?: string;
   generalReport?: string;
 }
-
-export type ViewMode = 'home' | 'master' | 'reports' | 'management' | 'series' | 'pupil_hub';
