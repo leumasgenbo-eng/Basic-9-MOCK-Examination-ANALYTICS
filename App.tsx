@@ -207,6 +207,30 @@ const App: React.FC = () => {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [settings.schoolName, settings.schoolAddress, settings.schoolNumber, settings.examTitle, isAuthenticated, isSuperAdmin, handleSave]);
 
+  const handleClearData = useCallback(() => {
+    if (window.confirm("CRITICAL: SWITCH TO REAL MODE? This will PERMANENTLY ERASE all pupils, scores, mock snapshots, staff assignments, and resources. Branded Institutional Identity will be preserved for your fresh start.")) {
+      // 1. Wipe Students and Facilitators
+      setStudents([]);
+      setFacilitators({});
+      
+      // 2. Wipe Historical/Snapshot Settings
+      setSettings(prev => ({
+        ...prev,
+        resourcePortal: {},
+        mockSnapshots: {},
+        activeMock: "MOCK 1",
+        isConductLocked: false,
+        committedMocks: MOCK_SERIES
+      }));
+
+      // 3. Immediately Push Clean State to Cloud
+      setTimeout(() => {
+        handleSave();
+        alert("TOTAL CLEAN SHEET ACTIVE: Demo records have been decommissioned. You may now begin fresh data entry.");
+      }, 500);
+    }
+  }, [handleSave]);
+
   if (isInitializing) return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500">
       <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-[2rem] animate-spin"></div>
@@ -318,13 +342,7 @@ const App: React.FC = () => {
               setSettings(p => ({...p, resourcePortal: d.resourcePortal, mockSnapshots: d.mockSnapshots})); 
               setTimeout(() => handleSave(), 500);
             }} 
-            onClearData={() => { 
-              if(window.confirm("SWITCH TO REAL MODE? This will permanently erase ALL student records and scores. Branding and Identity will be preserved.")){ 
-                setStudents([]); 
-                setFacilitators({}); 
-                setTimeout(() => handleSave(), 500); 
-              }
-            }} 
+            onClearData={handleClearData} 
             onResetStudents={() => setStudents([])}
             isFacilitator={isFacilitator} 
             activeFacilitator={activeFacilitator} 

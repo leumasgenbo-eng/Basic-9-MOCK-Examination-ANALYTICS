@@ -62,24 +62,6 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
     document.body.removeChild(link);
   };
 
-  const resetSchoolParticulars = () => {
-    if (window.confirm("REVERSE DEMO / PURGE: This will permanently delete all student scores, mock history, and staff assignments. Proceed?")) {
-      setStudents(prev => prev.map(student => ({
-        ...student, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {}, seriesHistory: {}, attendance: 0, conductRemark: ""
-      })));
-      const resetFacilitators = { ...facilitators };
-      Object.keys(resetFacilitators).forEach(key => {
-        resetFacilitators[key].invigilations = Array.from({ length: 9 }, () => ({ dutyDate: '', timeSlot: '', subject: '' }));
-        resetFacilitators[key].marking = { dateTaken: '', dateReturned: '', inProgress: false };
-      });
-      setFacilitators(resetFacilitators);
-      onSettingChange('resourcePortal', {});
-      onSettingChange('mockSnapshots', {});
-      setTimeout(() => onSave(), 500);
-      alert("Institutional records have been purged.");
-    }
-  };
-
   return (
     <div className="p-0 sm:p-4 md:p-8 max-w-7xl mx-auto pb-24 sm:pb-8">
       <div className="bg-white rounded-none sm:rounded-2xl shadow-xl overflow-hidden border-b sm:border border-gray-200">
@@ -115,9 +97,9 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="14 15 14 20 20 20"></polyline><line x1="21" y1="15" x2="21" y2="3"></line></svg>
                   Export Full Hub Backup
                 </button>
-                <button onClick={resetSchoolParticulars} className="bg-red-50 text-red-600 px-6 py-2.5 rounded-xl font-black text-[10px] uppercase border border-red-100 shadow-sm hover:bg-red-600 hover:text-white transition-all flex items-center gap-2">
+                <button onClick={onClearData} className="bg-red-50 text-red-600 px-6 py-2.5 rounded-xl font-black text-[10px] uppercase border border-red-100 shadow-sm hover:bg-red-600 hover:text-white transition-all flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                  System Reset
+                  Total System Reset
                 </button>
               </div>
               <AcademyIdentityPortal settings={settings} onSettingChange={onSettingChange} onSave={onSave} />
