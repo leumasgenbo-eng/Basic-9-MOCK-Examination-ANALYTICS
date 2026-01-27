@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { ProcessedStudent, GlobalSettings, ClassStatistics } from '../../types';
 import EditableField from '../shared/EditableField';
@@ -39,7 +38,33 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
     };
   }, [student, stats, settings.schoolAddress]);
 
-  const handleSharePDF = async () => {
+  const handleShareWhatsApp = () => {
+    const phone = student.parentContact.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+    const message = `*${settings.schoolName} - OFFICIAL ASSESSMENT ALERT*\n\n` +
+                    `Dear Parent/Guardian,\n\n` +
+                    `Assessment results for *${student.name}* (${settings.activeMock}) are now ready for review:\n\n` +
+                    `• *Best 6 Aggregate:* ${student.bestSixAggregate}\n` +
+                    `• *Class Position:* ${student.rank} of ${totalEnrolled}\n` +
+                    `• *Status:* ${student.category}\n\n` +
+                    `Please find the detailed attainment report attached or login to the Pupil Portal.\n\n` +
+                    `_Generated via SS-Map Network Hub_`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleSendEmail = () => {
+    const email = student.parentEmail || "";
+    const subject = `Official Academic Report: ${student.name} - ${settings.schoolName}`;
+    const body = `Assessment Period: ${settings.activeMock}\n` +
+                 `Pupil Name: ${student.name}\n` +
+                 `Aggregate Score: ${student.bestSixAggregate}\n` +
+                 `Position: ${student.rank} of ${totalEnrolled}\n\n` +
+                 `Kindly review the pupil's performance in the attached official PDF document.\n\n` +
+                 `Institutional Administration,\n` +
+                 `${settings.schoolName}`;
+    window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  const handleDownloadPDF = async () => {
     setIsGenerating(true);
     const reportId = `report-${student.id}`;
     const originalElement = document.getElementById(reportId);
@@ -48,9 +73,9 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
     // @ts-ignore
     const opt = { 
       margin: 0, 
-      filename: `${student.name.replace(/\s+/g, '_')}_Report.pdf`, 
+      filename: `${student.name.replace(/\s+/g, '_')}_${settings.activeMock}_Report.pdf`, 
       image: { type: 'jpeg', quality: 0.98 }, 
-      html2canvas: { scale: 2 }, 
+      html2canvas: { scale: 2, useCORS: true }, 
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
     };
     try {
@@ -60,12 +85,46 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
   };
 
   return (
-    <div id={`report-${student.id}`} className="bg-white p-10 max-w-[210mm] mx-auto min-h-[296mm] border border-gray-200 shadow-2xl print:shadow-none print:border-none page-break relative flex flex-col box-border font-sans">
+    <div id={`report-${student.id}`} className="bg-white p-10 max-w-[210mm] mx-auto min-h-[296mm] border border-gray-200 shadow-2xl print:shadow-none print:border-none page-break relative flex flex-col box-border font-sans mb-20 last:mb-0">
        
-       <div data-html2canvas-ignore="true" className="absolute top-4 -right-16 flex flex-col gap-4 no-print z-50">
-          <button onClick={handleSharePDF} disabled={isGenerating} className={`${isGenerating ? 'bg-gray-400' : 'bg-blue-900 hover:bg-black'} text-white w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-all transform hover:scale-110`}>
-            {isGenerating ? <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div> : <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>}
-          </button>
+       {/* ACTION COMMAND CENTER - Hidden for print */}
+       <div data-html2canvas-ignore="true" className="absolute -top-4 right-0 no-print flex flex-wrap justify-end gap-3 z-[60]">
+          <div className="bg-white p-2 rounded-2xl shadow-2xl border border-gray-100 flex items-center gap-3">
+             <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-3 border-r">Dispatch Hub</span>
+             
+             {/* WhatsApp Button */}
+             <button 
+               onClick={handleShareWhatsApp}
+               className="group flex items-center justify-center w-10 h-10 bg-green-500 hover:bg-green-600 text-white rounded-xl shadow-lg transition-all active:scale-90"
+               title="WhatsApp Parent"
+             >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-7.6 8.38 8.38 0 0 1 3.8.9L21 3.5Z"></path></svg>
+             </button>
+
+             {/* Email Button */}
+             <button 
+               onClick={handleSendEmail}
+               disabled={!student.parentEmail}
+               className={`flex items-center justify-center w-10 h-10 rounded-xl shadow-lg transition-all active:scale-90 ${student.parentEmail ? 'bg-slate-800 hover:bg-black text-white' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
+               title={student.parentEmail ? "Email Parent" : "Email Not Configured"}
+             >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+             </button>
+
+             {/* PDF Button */}
+             <button 
+               onClick={handleDownloadPDF}
+               disabled={isGenerating}
+               className={`flex items-center justify-center w-10 h-10 rounded-xl shadow-lg transition-all active:scale-90 ${isGenerating ? 'bg-gray-400' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+               title="Download PDF Report"
+             >
+                {isGenerating ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                )}
+             </button>
+          </div>
        </div>
 
        {/* Unified Academy Branding Header */}
