@@ -125,7 +125,19 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
         <div className="p-8 space-y-6">
            <div className="space-y-1">
               <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Enrolled Institutional ID</label>
-              <code className="text-xs font-mono font-black text-blue-900 bg-blue-50 px-4 py-2 rounded-xl block border border-blue-100">{institutionalId}</code>
+              <div className="flex items-center gap-3">
+                 <code className="text-xs font-mono font-black text-blue-900 bg-blue-50 px-4 py-2 rounded-xl flex-1 border border-blue-100 truncate">
+                   {institutionalId}
+                 </code>
+                 {!isFacilitator && (
+                   <div className="bg-indigo-50 border border-indigo-200 px-4 py-1.5 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                      <span className="text-[7px] font-black text-indigo-400 uppercase leading-none mb-1">Passkey</span>
+                      <code className="text-[10px] font-mono font-black text-indigo-900 tracking-wider">
+                        {staff.passkey || "S-XXXX"}
+                      </code>
+                   </div>
+                 )}
+              </div>
            </div>
            
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
