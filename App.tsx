@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
@@ -8,7 +7,7 @@ import { supabase, isSupabaseConfigured } from './supabaseClient';
 import MasterSheet from './components/reports/MasterSheet';
 import ReportCard from './components/reports/ReportCard';
 import SeriesBroadSheet from './components/reports/SeriesBroadSheet';
-import ManagementDesk from './components/ManagementDesk';
+import ManagementDesk from './components/management/ManagementDesk';
 import SuperAdminPortal from './components/hq/SuperAdminPortal';
 import LoginPortal from './components/auth/LoginPortal';
 import SchoolRegistrationPortal from './components/auth/SchoolRegistrationPortal';
@@ -41,7 +40,6 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   normalizationConfig: DEFAULT_NORMALIZATION,
   sbaConfig: { enabled: true, isLocked: false, sbaWeight: 30, examWeight: 70 },
   isConductLocked: false,
-  securityPin: "0000",
   scoreEntryMetadata: { mockSeries: "MOCK 2", entryDate: new Date().toISOString().split('T')[0] },
   committedMocks: MOCK_SERIES,
   activeMock: "MOCK 1",
@@ -178,7 +176,6 @@ const App: React.FC = () => {
               <button onClick={() => setViewMode('home')} className={`px-4 py-2 rounded transition-all ${viewMode === 'home' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Home</button>
               <button onClick={() => setViewMode('master')} className={`px-4 py-2 rounded transition-all ${viewMode === 'master' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Sheets</button>
               <button onClick={() => setViewMode('series')} className={`px-4 py-2 rounded transition-all ${viewMode === 'series' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Tracker</button>
-              <button onClick={() => setViewMode('cleanup')} className={`px-4 py-2 rounded transition-all ${viewMode === 'cleanup' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Data Forge</button>
               <button onClick={() => setViewMode('reports')} className={`px-4 py-2 rounded transition-all ${viewMode === 'reports' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Reports</button>
               <button onClick={() => setViewMode('management')} className={`px-4 py-2 rounded transition-all ${viewMode === 'management' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Mgmt Hub</button>
             </>
@@ -196,7 +193,6 @@ const App: React.FC = () => {
             case 'home': return <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />;
             case 'master': return <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />;
             case 'series': return <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents} />;
-            case 'cleanup': return <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={handleSave} subjects={SUBJECT_LIST} />;
             case 'reports': return (
               <div className="space-y-8">
                 <input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-5 rounded-2xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none focus:border-blue-300 transition-all" />
