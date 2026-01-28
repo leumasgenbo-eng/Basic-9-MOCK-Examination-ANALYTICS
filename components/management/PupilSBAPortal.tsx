@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { StudentData, GlobalSettings } from '../../types';
 
@@ -6,10 +7,12 @@ interface PupilSBAPortalProps {
   setStudents: React.Dispatch<React.SetStateAction<StudentData[]>>;
   settings: GlobalSettings;
   subjects: string[];
+  onSave: () => void;
 }
 
-const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, settings, subjects }) => {
+const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, settings, subjects, onSave }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingSbaId, setEditingSbaId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     gender: 'M',
@@ -43,19 +46,35 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
     };
     
     setStudents([...students, newStudent]);
-    setFormData({
-      name: '',
-      gender: 'M',
-      guardianName: '',
-      contact: '',
-      email: ''
-    });
+    setFormData({ name: '', gender: 'M', guardianName: '', contact: '', email: '' });
   };
 
   const handleDelete = (id: number) => {
     if (window.confirm("CRITICAL: Decommission pupil from academy registry? This erases all associated data.")) {
       setStudents(prev => prev.filter(s => s.id !== id));
+      setTimeout(onSave, 500);
     }
+  };
+
+  const handleUpdateSbaScore = (studentId: number, subject: string, score: string) => {
+    const val = Math.min(100, Math.max(0, parseInt(score) || 0));
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s;
+      const nextSba = { ...(s.sbaScores || {}), [subject]: val };
+      
+      // Also update the active mock's SBA record for immediate availability in sheets
+      const mockSet = s.mockData?.[settings.activeMock] || { scores: {}, sbaScores: {}, examSubScores: {}, facilitatorRemarks: {}, observations: { facilitator: "", invigilator: "", examiner: "" }, attendance: 0, conductRemark: "" };
+      const updatedMockSba = { ...(mockSet.sbaScores || {}), [subject]: val };
+      
+      return { 
+        ...s, 
+        sbaScores: nextSba,
+        mockData: {
+          ...(s.mockData || {}),
+          [settings.activeMock]: { ...mockSet, sbaScores: updatedMockSba }
+        }
+      };
+    }));
   };
 
   const filtered = students.filter(s => 
@@ -63,9 +82,79 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
     s.id.toString().includes(searchTerm)
   );
 
+  const activeSbaStudent = students.find(s => s.id === editingSbaId);
+
+  // VIEW: SBA MATRIX FORGE (When editingSbaId is set)
+  if (editingSbaId && activeSbaStudent) {
+    return (
+      <div className="space-y-8 animate-in slide-in-from-right-8 duration-500">
+         <div className="bg-slate-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+            <div className="relative flex flex-col md:flex-row justify-between items-center gap-8">
+               <div className="space-y-2">
+                  <button onClick={() => setEditingSbaId(null)} className="text-[10px] font-black text-blue-400 uppercase tracking-widest hover:text-white transition-colors mb-4 flex items-center gap-2">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Return to Registry
+                  </button>
+                  <h3 className="text-3xl font-black uppercase tracking-tighter">SBA Matrix Forge</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">Continuous Assessment Input for {activeSbaStudent.name}</p>
+               </div>
+               <div className="bg-emerald-600/20 px-8 py-4 rounded-3xl border border-emerald-500/30 flex flex-col items-center">
+                  <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest mb-1">Mirror Status</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
+                    <span className="text-sm font-black uppercase">Sync Active</span>
+                  </div>
+               </div>
+            </div>
+         </div>
+
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {subjects.map(sub => (
+              <div key={sub} className="bg-white border border-gray-100 p-8 rounded-[2.5rem] shadow-xl group hover:border-emerald-200 transition-all">
+                 <div className="flex justify-between items-start mb-6">
+                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{sub}</span>
+                    <span className="text-[8px] font-black text-gray-300 uppercase">Subject Node</span>
+                 </div>
+                 <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                       <input 
+                         type="number" 
+                         value={activeSbaStudent.sbaScores?.[sub] || 0}
+                         onChange={(e) => handleUpdateSbaScore(activeSbaStudent.id, sub, e.target.value)}
+                         className="flex-1 bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 text-2xl font-black text-blue-900 outline-none focus:border-emerald-400 transition-all text-center"
+                         max="100"
+                       />
+                       <div className="text-center w-12">
+                          <span className="text-[8px] font-black text-gray-400 uppercase block">Max</span>
+                          <span className="text-sm font-black text-gray-400">100</span>
+                       </div>
+                    </div>
+                    <div className="h-1.5 bg-gray-50 rounded-full overflow-hidden">
+                       <div 
+                         className="h-full bg-emerald-500 transition-all duration-700" 
+                         style={{ width: `${activeSbaStudent.sbaScores?.[sub] || 0}%` }}
+                       ></div>
+                    </div>
+                 </div>
+              </div>
+            ))}
+         </div>
+
+         <div className="pt-8 flex justify-center sticky bottom-8">
+            <button 
+              onClick={() => { onSave(); setEditingSbaId(null); }}
+              className="bg-blue-900 text-white px-24 py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.4em] shadow-[0_20px_50px_rgba(30,58,138,0.4)] hover:bg-black transition-all active:scale-95"
+            >
+              Update SBA Matrix & Return
+            </button>
+         </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-10 animate-in fade-in duration-500 pb-20">
-      
       {/* Enrollment Protocol Form */}
       <section className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
@@ -188,14 +277,17 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Contact Phone</span>
                       <p className="text-xs font-black text-slate-800 font-mono">{s.parentContact || "—"}</p>
                    </div>
-                   <div className="space-y-1">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Email Address</span>
-                      <p className="text-xs font-bold text-blue-600 lowercase truncate">{s.parentEmail || "—"}</p>
+                   <div className="space-y-1 text-center">
+                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">SBA Completion</span>
+                      <p className="text-lg font-black text-emerald-600">{Object.keys(s.sbaScores || {}).length} / {subjects.length}</p>
                    </div>
                 </div>
 
                 <div className="flex gap-3 w-full xl:w-auto">
-                   <button className="flex-1 xl:flex-none bg-blue-900 text-white px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all">
+                   <button 
+                     onClick={() => setEditingSbaId(s.id)}
+                     className="flex-1 xl:flex-none bg-blue-900 text-white px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all"
+                   >
                       Open SBA
                    </button>
                    <button 
