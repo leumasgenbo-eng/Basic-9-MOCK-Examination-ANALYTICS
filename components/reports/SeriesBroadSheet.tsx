@@ -7,7 +7,8 @@ interface SeriesBroadSheetProps {
   students: StudentData[];
   settings: GlobalSettings;
   onSettingChange: (key: keyof GlobalSettings, value: any) => void;
-  currentProcessed: { id: number; aggregate: number; rank: number; totalScore: number; category: string }[];
+  // Fix: Renamed 'aggregate' to 'bestSixAggregate' to match ProcessedStudent type
+  currentProcessed: { id: number; bestSixAggregate: number; rank: number; totalScore: number; category: string }[];
 }
 
 const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings, onSettingChange, currentProcessed }) => {
@@ -98,7 +99,8 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
                         </React.Fragment>
                       );
                     })}
-                    <td className="p-3 bg-red-50 text-center font-black text-red-700 text-sm border-r border-red-100">{live?.aggregate || '-'}</td>
+                    {/* Fix: Using bestSixAggregate instead of aggregate */}
+                    <td className="p-3 bg-red-50 text-center font-black text-red-700 text-sm border-r border-red-100">{live?.bestSixAggregate || '-'}</td>
                     <td className="p-3 bg-red-50 text-center font-mono text-xs text-red-600 border-r border-red-100">{live ? ((live.totalScore / (subjectCount * 100)) * 100).toFixed(1) + '%' : '-'}</td>
                     <td className="p-3 bg-red-50 text-center font-black text-[8px] uppercase text-red-800">{live?.category || '-'}</td>
                   </tr>

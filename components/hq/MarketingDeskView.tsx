@@ -29,7 +29,7 @@ const MarketingDeskView: React.FC = () => {
   }, [submissions]);
 
   return (
-    <div className="animate-in fade-in duration-700 h-full flex flex-col p-10 font-sans bg-slate-950">
+    <div className="animate-in fade-in duration-700 h-full flex flex-col p-10 bg-slate-950 font-sans">
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8 mb-12">
         <div className="space-y-1">
           <h2 className="text-4xl font-black uppercase text-white tracking-tighter">Network Marketing Control</h2>
@@ -76,7 +76,7 @@ const MarketingDeskView: React.FC = () => {
                </div>
             ) : (
                <div className="flex-1 flex flex-col items-center justify-center opacity-20 text-center space-y-6">
-                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-700"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                   <p className="text-white font-black uppercase text-sm tracking-[0.6em]">Awaiting Institutional Shard Selection</p>
                </div>
             )}
