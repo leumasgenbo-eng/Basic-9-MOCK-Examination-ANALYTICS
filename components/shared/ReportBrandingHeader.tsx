@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { GlobalSettings } from '../../types';
 import EditableField from './EditableField';
@@ -46,7 +45,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
         {/* Editable Address */}
         <p className="text-[11px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed">
           <EditableField 
-            value={settings.schoolAddress} 
+            value={settings.schoolAddress || "ENTER ACADEMY ADDRESS..."} 
             onChange={(v) => onSettingChange('schoolAddress', v)} 
             className="text-center w-full"
             placeholder="LOCALITY / POSTAL ADDRESS"
