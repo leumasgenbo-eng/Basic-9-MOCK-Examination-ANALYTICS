@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { GlobalSettings, StaffAssignment, ProcessedStudent, SchoolRegistryEntry } from '../../types';
+import { GlobalSettings, StaffAssignment, SchoolRegistryEntry, StudentData } from '../../types';
 import { SUBJECT_LIST } from '../../constants';
 import { supabase } from '../../supabaseClient';
 
 interface LoginPortalProps {
   settings: GlobalSettings;
-  facilitators?: Record<string, StaffAssignment>;
-  processedStudents?: ProcessedStudent[];
   globalRegistry: SchoolRegistryEntry[];
   initialCredentials?: any;
   onLoginSuccess: (hubId: string) => void;
@@ -18,187 +16,275 @@ interface LoginPortalProps {
 
 const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC";
 
-const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, processedStudents, globalRegistry, initialCredentials, onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
+const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, initialCredentials, onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
   const [authMode, setAuthMode] = useState<'ADMIN' | 'FACILITATOR' | 'PUPIL'>('ADMIN');
+  const [step, setStep] = useState<'IDENTITY' | 'OTP'>('IDENTITY');
   const [credentials, setCredentials] = useState({
-    schoolNumber: '',
-    accessKey: '', 
-    facilitatorName: '',
-    subject: SUBJECT_LIST[0],
-    pupilIndex: ''
+    identityId: '',
+    accessKey: '',
   });
   
-  useEffect(() => {
-    if (initialCredentials) {
-      setCredentials(prev => ({
-        ...prev,
-        schoolNumber: initialCredentials.schoolNumber || '',
-        accessKey: initialCredentials.accessCode || ''
-      }));
-    }
-  }, [initialCredentials]);
-
+  const [otpInput, setOtpInput] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [resolvedSession, setResolvedSession] = useState<any>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (initialCredentials) {
+      setCredentials({
+        identityId: initialCredentials.schoolNumber || '',
+        accessKey: initialCredentials.accessCode || ''
+      });
+    }
+  }, [initialCredentials]);
+
+  const generateOtp = () => {
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedOtp(code);
+    setOtpInput('');
+  };
+
+  const handleIdentityCheck = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
     setErrorMessage(null);
     
-    const MASTER_KEY = "UBA-HQ-MASTER-2025";
-    const inputKey = (credentials.accessKey || "").trim().toUpperCase();
+    const inputKey = credentials.accessKey.trim().toUpperCase();
+    const inputId = credentials.identityId.trim().toUpperCase();
 
-    if (inputKey === MASTER_KEY) {
-      setTimeout(() => {
-        setIsAuthenticating(false);
-        onSuperAdminLogin();
-      }, 800);
+    // 1. SuperAdmin Bypass
+    if (inputKey === "UBA-HQ-MASTER-2025") {
+      setIsAuthenticating(false);
+      onSuperAdminLogin();
       return;
     }
 
-    const hubId = (credentials.schoolNumber || "").trim().toUpperCase();
-
     try {
-      const { data: registryData, error: regError } = await supabase
+      // Resolve Root Hub ID
+      const rootHubId = inputId.split('/')[0];
+      
+      const { data: persistenceData, error: fetchError } = await supabase
         .from('uba_persistence')
-        .select('payload')
-        .eq('id', `registry_${hubId}`)
-        .maybeSingle();
+        .select('id, payload')
+        .or(`id.eq.registry_${rootHubId},id.eq.${rootHubId}_facilitators,id.eq.${rootHubId}_students`);
 
-      if (regError || !registryData || !registryData.payload) {
-         throw new Error("Invalid Hub ID. Ensure the Enrollment Number is correct.");
+      if (fetchError || !persistenceData || persistenceData.length === 0) {
+         throw new Error("Handshake Failed: Identity Node not found.");
       }
 
-      const rawEntry = Array.isArray(registryData.payload) ? registryData.payload[0] : registryData.payload;
-      if (!rawEntry) throw new Error("Institutional record is inaccessible.");
+      const registryShard = persistenceData.find(d => d.id === `registry_${rootHubId}`)?.payload;
+      const rawEntry = Array.isArray(registryShard) ? registryShard[0] : registryShard;
+      if (!rawEntry) throw new Error("Institutional registry is offline.");
+
+      const facilitatorsShard = persistenceData.find(d => d.id === `${rootHubId}_facilitators`)?.payload as Record<string, StaffAssignment>;
+      const studentsShard = persistenceData.find(d => d.id === `${rootHubId}_students`)?.payload as StudentData[];
 
       let isVerified = false;
+      let sessionPayload: any = null;
+
       if (authMode === 'ADMIN') {
+        if (inputId !== rootHubId) throw new Error("Admin access requires the Root Hub ID.");
         isVerified = (rawEntry.accessCode || "").trim().toUpperCase() === inputKey;
-        if (!isVerified && inputKey.startsWith('STAFF-')) throw new Error("Staff key detected. Please switch login mode to FACILITATOR.");
-        if (!isVerified && inputKey.startsWith('PUPIL-')) throw new Error("Pupil key detected. Please switch login mode to PUPIL.");
-      } else if (authMode === 'FACILITATOR') {
-        isVerified = (rawEntry.staffAccessCode || "").trim().toUpperCase() === inputKey;
-        if (!isVerified && inputKey.startsWith('SEC-')) throw new Error("Admin key detected. Switch to ADMIN mode for master access.");
-      } else {
-        isVerified = (rawEntry.pupilAccessCode || "").trim().toUpperCase() === inputKey;
-        if (!isVerified && inputKey.startsWith('SEC-')) throw new Error("Admin key detected. Switch to ADMIN mode.");
+        sessionPayload = { type: 'ADMIN', hubId: rootHubId };
+      } 
+      else if (authMode === 'FACILITATOR') {
+        if (facilitatorsShard) {
+          // Check if ID is RootHub/FAC-XX and key matches
+          const staff = Object.values(facilitatorsShard).find(f => 
+            `${rootHubId}/${f.enrolledId}` === inputId && (f.passkey || "").toUpperCase() === inputKey
+          );
+          if (staff) {
+            isVerified = true;
+            sessionPayload = { type: 'FACILITATOR', name: staff.name, subject: staff.taughtSubject, hubId: rootHubId };
+          }
+        }
+      } 
+      else if (authMode === 'PUPIL') {
+        if (studentsShard) {
+          // Check if ID is RootHub/PUP-XX and key matches
+          const pupil = studentsShard.find(s => 
+            `${rootHubId}/PUP-${s.id}` === inputId && (s.passkey || "").toUpperCase() === inputKey
+          );
+          if (pupil) {
+            isVerified = true;
+            sessionPayload = { type: 'PUPIL', id: pupil.id, hubId: rootHubId };
+          }
+        }
       }
 
-      if (!isVerified) {
-        throw new Error(`Unauthorized: The provided passkey is incorrect for ${authMode} access.`);
-      }
+      if (!isVerified) throw new Error(`Access Denied: Invalid ${authMode} credentials.`);
 
-      const systemAuthEmail = `${hubId.toLowerCase()}@unitedbaylor.edu`;
-      const masterPassword = (rawEntry.accessCode || "").trim().toUpperCase();
+      // Step 2: Handshake Success -> Trigger OTP
+      setResolvedSession(sessionPayload);
+      generateOtp();
+      setStep('OTP');
+      setIsAuthenticating(false);
+
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsAuthenticating(false);
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
+
+  const handleOtpVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpInput === generatedOtp) {
+      setIsAuthenticating(true);
       
+      // Perform Final Supabase Auth Handshake using Admin credentials for session persistence
+      const { data: registryData } = await supabase
+        .from('uba_persistence')
+        .select('payload')
+        .eq('id', `registry_${resolvedSession.hubId}`)
+        .maybeSingle();
+      
+      const rawEntry = Array.isArray(registryData?.payload) ? registryData?.payload[0] : registryData?.payload;
+      const systemAuthEmail = `${resolvedSession.hubId.toLowerCase()}@unitedbaylor.edu`;
+      const masterPassword = (rawEntry.accessCode || "").trim().toUpperCase();
+
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: systemAuthEmail,
         password: masterPassword 
       });
 
-      if (authError) throw new Error("Security Node Refused: Institutional handshake failed.");
+      if (authError) {
+        setErrorMessage("Node Decryption Failed.");
+        setStep('IDENTITY');
+        setIsAuthenticating(false);
+        return;
+      }
 
-      setIsAuthenticating(false);
-      if (authMode === 'ADMIN') onLoginSuccess(hubId);
-      else if (authMode === 'FACILITATOR') onFacilitatorLogin((credentials.facilitatorName || "").trim().toUpperCase(), credentials.subject, hubId);
-      else onPupilLogin(parseInt(credentials.pupilIndex) || 0, hubId);
-
-    } catch (err: any) {
-      setErrorMessage(err.message || "Access Denied: Verification failed.");
-      setIsAuthenticating(false);
-      setTimeout(() => setErrorMessage(null), 6000);
+      if (resolvedSession.type === 'ADMIN') onLoginSuccess(resolvedSession.hubId);
+      else if (resolvedSession.type === 'FACILITATOR') onFacilitatorLogin(resolvedSession.name, resolvedSession.subject, resolvedSession.hubId);
+      else onPupilLogin(resolvedSession.id, resolvedSession.hubId);
+    } else {
+      setErrorMessage("Handshake Sync Failed: Incorrect OTP.");
+      setTimeout(() => setErrorMessage(null), 3000);
     }
   };
 
   return (
     <div className="w-full max-w-lg animate-in fade-in zoom-in-95 duration-700">
-      <div className="bg-white/95 backdrop-blur-xl p-8 md:p-12 rounded-[3rem] shadow-2xl border border-white/20 relative overflow-hidden">
+      <div className="bg-slate-950 p-8 md:p-12 rounded-[3.5rem] shadow-2xl border border-white/10 relative overflow-hidden">
         
+        {/* Scanline Effect */}
+        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] z-10 opacity-20"></div>
+
         {isAuthenticating && (
           <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center space-y-6">
             <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Establishing Secure Node Link...</p>
+            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Synchronizing Security Nodes...</p>
           </div>
         )}
 
         <div className="text-center relative mb-10">
-          <div className="inline-block px-5 py-1.5 rounded-full bg-blue-900 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-6 shadow-xl">
-             ACADEMY HUB ACCESS
+          <div className="inline-block px-5 py-1.5 rounded-full bg-blue-600 text-white text-[9px] font-black uppercase tracking-[0.3em] mb-6 shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+             INSTITUTIONAL GATEWAY
           </div>
-          <div className="w-20 h-20 bg-white border-2 border-slate-100 text-blue-900 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-lg">
-             <img src={ACADEMY_ICON} alt="Shield" className="w-12 h-12 object-contain" />
+          <div className="w-20 h-20 bg-slate-900 border border-white/5 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
+             <img src={ACADEMY_ICON} alt="UBA Shield" className="w-12 h-12 object-contain opacity-80" />
           </div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Institutional Gate</h2>
-          <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.4em] mt-4">Partitioned Access Protocols Active</p>
+          <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">Access Terminal</h2>
+          <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.4em] mt-4">Security Protocol: v4.22-RLS</p>
         </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 border border-slate-200">
-          {['ADMIN', 'FACILITATOR', 'PUPIL'].map(mode => (
-            <button key={mode} onClick={() => setAuthMode(mode as any)} className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${authMode === mode ? 'bg-blue-900 text-white shadow-lg' : 'text-slate-500'}`}>{mode}</button>
-          ))}
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Hub ID (Enrollment #)</label>
-              <input type="text" value={credentials.schoolNumber} onChange={(e) => setCredentials({...credentials, schoolNumber: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="UBA-YYYY-XXXX" required />
+        {step === 'IDENTITY' ? (
+          <>
+            <div className="flex bg-white/5 p-1 rounded-2xl mb-8 border border-white/5">
+              {['ADMIN', 'FACILITATOR', 'PUPIL'].map(mode => (
+                <button key={mode} onClick={() => setAuthMode(mode as any)} className={`flex-1 py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${authMode === mode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>{mode}</button>
+              ))}
             </div>
 
-            {authMode === 'FACILITATOR' && (
-              <>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Staff Full Name</label>
-                  <input type="text" value={credentials.facilitatorName} onChange={(e) => setCredentials({...credentials, facilitatorName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" placeholder="ENTER NAME..." required />
+            <form onSubmit={handleIdentityCheck} className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Identity UID</label>
+                  <input 
+                    type="text" 
+                    value={credentials.identityId} 
+                    onChange={(e) => setCredentials({...credentials, identityId: e.target.value})} 
+                    className="w-full bg-slate-900 border border-white/5 rounded-2xl px-5 py-4 text-xs font-black text-white outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" 
+                    placeholder={authMode === 'ADMIN' ? 'UBA-YYYY-XXXX' : authMode === 'FACILITATOR' ? 'UBA-YYYY-XXXX/FAC-00' : 'UBA-YYYY-XXXX/PUP-000'} 
+                    required 
+                  />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Specialist Subject</label>
-                  <select value={credentials.subject} onChange={(e) => setCredentials({...credentials, subject: e.target.value})} className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-[10px] font-black outline-none">
-                    {SUBJECT_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+
+                <div className="space-y-1.5 relative">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Passkey</label>
+                  <div className="relative">
+                    <input 
+                      type={showKey ? "text" : "password"} 
+                      value={credentials.accessKey} 
+                      onChange={(e) => setCredentials({...credentials, accessKey: e.target.value})} 
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl px-5 py-4 text-xs font-mono font-black text-blue-400 outline-none focus:ring-4 focus:ring-blue-500/10 uppercase pr-12 tracking-widest" 
+                      placeholder={authMode === 'ADMIN' ? 'SEC-••••••••' : authMode === 'FACILITATOR' ? 'S-••••' : 'P-••••'} 
+                      required 
+                    />
+                    <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white transition-colors">
+                        {showKey ? '👁️' : '🔒'}
+                    </button>
+                  </div>
                 </div>
-              </>
-            )}
-
-            {authMode === 'PUPIL' && (
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest">Candidate Index</label>
-                <input type="text" value={credentials.pupilIndex} onChange={(e) => setCredentials({...credentials, pupilIndex: e.target.value})} className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="E.G. 101" required />
               </div>
-            )}
 
-            <div className="space-y-1 relative">
-              <label className="text-[9px] font-black text-indigo-900 uppercase tracking-widest">
-                {authMode} Access Passkey
-              </label>
-              <div className="relative">
-                <input 
-                  type={showKey ? "text" : "password"} 
-                  value={credentials.accessKey} 
-                  onChange={(e) => setCredentials({...credentials, accessKey: e.target.value})} 
-                  className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 text-xs font-mono font-black outline-none focus:ring-4 focus:ring-indigo-500/10 uppercase pr-12" 
-                  placeholder={authMode === 'ADMIN' ? 'SEC-••••••••' : authMode === 'FACILITATOR' ? 'STAFF-••••' : 'PUPIL-••••'} 
-                  required 
-                />
-                <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                    {showKey ? '👁️' : '🔒'}
-                </button>
-              </div>
-            </div>
-          </div>
+              {errorMessage && <div className="bg-red-500/10 text-red-500 p-4 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20 animate-pulse">{errorMessage}</div>}
 
-          {errorMessage && <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-[10px] font-black uppercase text-center border border-red-100 shadow-sm animate-pulse">{errorMessage}</div>}
+              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-6 rounded-3xl font-black text-[11px] uppercase tracking-[0.3em] shadow-[0_0_30px_rgba(37,99,235,0.3)] transition-all active:scale-95">
+                Initiate Handshake
+              </button>
+            </form>
+          </>
+        ) : (
+          <form onSubmit={handleOtpVerification} className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+             <div className="text-center space-y-2">
+                <div className="bg-emerald-500/10 text-emerald-400 p-4 rounded-3xl border border-emerald-500/20 inline-block mb-4">
+                   <span className="text-3xl font-mono font-black tracking-[0.5em]">{generatedOtp}</span>
+                </div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tight">Security Handshake</h3>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Type the verification code shown above</p>
+             </div>
 
-          <button type="submit" className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 mt-4">
-            Authorize Interface Access
-          </button>
-        </form>
+             <div className="flex justify-center gap-4">
+                {['', '', '', ''].map((_, i) => (
+                  <input
+                    key={i}
+                    type="text"
+                    maxLength={1}
+                    value={otpInput[i] || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (/^\d?$/.test(val)) {
+                        const next = otpInput.split('');
+                        next[i] = val;
+                        setOtpInput(next.join(''));
+                        if (val && i < 3) (e.target.nextSibling as HTMLInputElement)?.focus();
+                      }
+                    }}
+                    className="w-16 h-20 bg-slate-900 border border-white/10 rounded-2xl text-center text-3xl font-black text-white outline-none focus:ring-4 focus:ring-blue-500/20"
+                    autoFocus={i === 0}
+                  />
+                ))}
+             </div>
 
-        <div className="pt-8 text-center border-t border-slate-100 mt-8">
-           <button onClick={onSwitchToRegister} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Enroll New Institution Node?</button>
+             {errorMessage && <div className="text-red-500 text-[9px] font-black uppercase text-center">{errorMessage}</div>}
+
+             <div className="flex flex-col gap-4">
+               <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-6 rounded-3xl font-black text-[11px] uppercase tracking-[0.3em] shadow-xl active:scale-95 transition-all">
+                 Verify & Decrypt
+               </button>
+               <button type="button" onClick={() => setStep('IDENTITY')} className="text-[9px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">
+                 Return to Identity Node
+               </button>
+             </div>
+          </form>
+        )}
+
+        <div className="pt-8 text-center border-t border-white/5 mt-8">
+           <button onClick={onSwitchToRegister} className="text-[9px] font-black text-blue-500/60 uppercase tracking-widest hover:text-blue-400">Enroll New Institutional Node</button>
         </div>
       </div>
     </div>

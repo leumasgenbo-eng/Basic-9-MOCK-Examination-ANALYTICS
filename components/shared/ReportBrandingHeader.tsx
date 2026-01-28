@@ -21,12 +21,12 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
         </div>
       )}
       
-      {/* Network ID Branding - Now Editable in the header particulars */}
+      {/* Network ID Branding */}
       <div className="absolute top-0 right-0 no-print flex flex-col items-end gap-1">
         <div className="flex items-center gap-3 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm">
           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
           <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest">
-            HUB ID: <EditableField value={settings.schoolNumber} onChange={(v) => onSettingChange('schoolNumber', v)} className="border-none ml-1 bg-transparent" />
+            HUB ID: <EditableField value={settings.schoolNumber} onChange={(v) => onSettingChange('schoolNumber', v)} className="border-none ml-1 bg-transparent font-mono" />
           </span>
         </div>
         <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest mr-2 italic">Institutional Particulars Engine</span>
@@ -66,7 +66,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
           </div>
         </div>
 
-        {/* Secondary Report Title - Editable (e.g. 2ND MOCK 2025) */}
+        {/* Secondary Report Title - Editable */}
         <div className="mt-6 bg-red-50 py-3.5 border-y border-red-100 shadow-sm relative overflow-hidden group">
           <div className="absolute inset-y-0 left-0 w-1 bg-red-600"></div>
           <div className="absolute inset-y-0 right-0 w-1 bg-red-600"></div>

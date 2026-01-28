@@ -65,6 +65,7 @@ export interface StaffAssignment {
   role: StaffRole;
   enrolledId: string; 
   taughtSubject?: string;
+  passkey?: string; // Individual unique passkey for staff
   invigilations: InvigilationSlot[];
   marking: {
     dateTaken: string;
@@ -87,8 +88,8 @@ export interface SchoolRegistryEntry {
   name: string;
   registrant: string;
   accessCode: string;
-  staffAccessCode: string; // Unique code for facilitators
-  pupilAccessCode: string; // Unique code for pupils
+  staffAccessCode: string;
+  pupilAccessCode: string;
   enrollmentDate: string;
   studentCount: number;
   avgAggregate: number;
@@ -142,6 +143,7 @@ export interface StudentData {
   parentName?: string;
   parentContact: string;
   parentEmail?: string;
+  passkey?: string; // Individual unique passkey for pupils
   attendance: number;
   conductRemark?: string;
   scores: Record<string, number>;
@@ -159,6 +161,7 @@ export interface ProcessedStudent {
   parentName?: string;
   parentContact: string;
   parentEmail?: string;
+  passkey?: string;
   attendance: number;
   conductRemark?: string;
   subjects: ComputedSubject[];
@@ -228,8 +231,8 @@ export interface GlobalSettings {
   registrantName?: string; 
   registrantEmail?: string;
   accessCode?: string;     
-  staffAccessCode?: string; // Stored unique code for staff
-  pupilAccessCode?: string; // Stored unique code for pupils
+  staffAccessCode?: string; 
+  pupilAccessCode?: string; 
   enrollmentDate?: string; 
   examTitle: string;
   termInfo: string;
