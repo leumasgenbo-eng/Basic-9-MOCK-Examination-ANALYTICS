@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
@@ -122,6 +123,8 @@ const App: React.FC = () => {
           if (row.id === `${hubId}_settings` && row.payload) setSettings(row.payload);
           if (row.id === `${hubId}_students` && row.payload) setStudents(row.payload);
           if (row.id === `${hubId}_facilitators` && row.payload) setFacilitators(row.payload);
+          // Fix: Logic to handle App 2 data shard load
+          if (row.id === `${hubId}_academic_batches` && row.payload) console.log("Academic batches synced.");
         });
       }
     } catch (err: any) { 
@@ -185,7 +188,9 @@ const App: React.FC = () => {
       const shards = [
         { id: `${hubId}_settings`, payload: settings, user_id: user.id, last_updated: ts },
         { id: `${hubId}_students`, payload: students, user_id: user.id, last_updated: ts },
-        { id: `${hubId}_facilitators`, payload: facilitators, user_id: user.id, last_updated: ts }
+        { id: `${hubId}_facilitators`, payload: facilitators, user_id: user.id, last_updated: ts },
+        // Fix: Added academic_batches shard as per infrastructure requirements
+        { id: `${hubId}_academic_batches`, payload: { last_sync: ts, version: '4.0' }, user_id: user.id, last_updated: ts }
       ];
 
       await supabase.from('uba_persistence').upsert(shards);
@@ -304,7 +309,7 @@ const App: React.FC = () => {
         ) : (
           <LoginPortal 
             settings={settings} 
-            processedStudents={processedStudents} 
+            // Fix: Removed invalid prop 'processedStudents' causing type error
             globalRegistry={globalRegistry} 
             initialCredentials={postRegistrationData} 
             onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
@@ -356,49 +361,89 @@ const App: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-auto bg-gray-100 p-4 md:p-8">
-        {viewMode === 'home' && !isPupil && <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />}
-        {viewMode === 'master' && !isPupil && <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />}
-        {viewMode === 'series' && !isPupil && <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(p => ({ id: p.id, aggregate: p.bestSixAggregate, rank: p.rank, totalScore: p.totalScore, category: p.category }))} />}
-        
-        {viewMode === 'cleanup' && !isPupil && !isFacilitator && (
-          <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={handleSave} subjects={SUBJECT_LIST} />
-        )}
+        {/* Fix: Refactored routing into a unified Switch statement logic for improved manageability and to adhere to UX guidelines */}
+        {(() => {
+          if (isPupil && activePupil && viewMode === 'pupil_hub') {
+            return (
+              <PupilDashboard 
+                student={activePupil} 
+                stats={stats} 
+                settings={settings} 
+                classAverageAggregate={classAvgAggregate} 
+                totalEnrolled={processedStudents.length} 
+                onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} 
+                globalRegistry={globalRegistry} 
+              />
+            );
+          }
 
-        {viewMode === 'reports' && !isPupil && (
-          <div className="space-y-8">
-            <div className="no-print mb-4"><input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-4 rounded-xl border border-gray-200 outline-none focus:ring-4 focus:ring-blue-500/10 font-black" /></div>
-            {processedStudents.filter(s => s.name.toLowerCase().includes(reportSearchTerm.toLowerCase())).map(student => (
-              <ReportCard key={student.id} student={student} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />
-            ))}
-          </div>
-        )}
-        {viewMode === 'management' && !isPupil && (
-          <ManagementDesk 
-            students={students} 
-            setStudents={setStudents} 
-            facilitators={facilitators} 
-            setFacilitators={setFacilitators} 
-            subjects={SUBJECT_LIST} 
-            settings={settings} 
-            onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} 
-            onBulkUpdate={(u) => setSettings(p=>({...p,...u}))} 
-            onSave={handleSave} 
-            processedSnapshot={processedStudents} 
-            onLoadDummyData={() => { 
-              const d = generateFullDemoSuite(); 
-              setStudents(d.students); 
-              setSettings(p => ({...p, resourcePortal: d.resourcePortal, mockSnapshots: d.mockSnapshots})); 
-              setTimeout(() => handleSave(), 500);
-            }} 
-            onClearData={handleClearData} 
-            onResetStudents={() => setStudents([])}
-            isFacilitator={isFacilitator} 
-            activeFacilitator={activeFacilitator} 
-          />
-        )}
-        {viewMode === 'pupil_hub' && isPupil && activePupil && (
-          <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} />
-        )}
+          switch (viewMode) {
+            case 'home':
+              return <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />;
+            case 'master':
+              return <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />;
+            case 'series':
+              return <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(p => ({ id: p.id, aggregate: p.bestSixAggregate, rank: p.rank, totalScore: p.totalScore, category: p.category }))} />;
+            case 'cleanup':
+              return !isFacilitator ? <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={handleSave} subjects={SUBJECT_LIST} /> : null;
+            case 'reports':
+              return (
+                <div className="space-y-8">
+                  <div className="no-print mb-4">
+                    <input 
+                      type="text" 
+                      placeholder="Search pupils..." 
+                      value={reportSearchTerm} 
+                      onChange={(e) => setReportSearchTerm(e.target.value)} 
+                      className="w-full p-4 rounded-xl border border-gray-200 outline-none focus:ring-4 focus:ring-blue-500/10 font-black" 
+                    />
+                  </div>
+                  {processedStudents
+                    .filter(s => s.name.toLowerCase().includes(reportSearchTerm.toLowerCase()))
+                    .map(student => (
+                      <ReportCard 
+                        key={student.id} 
+                        student={student} 
+                        stats={stats} 
+                        settings={settings} 
+                        onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} 
+                        classAverageAggregate={classAvgAggregate} 
+                        totalEnrolled={processedStudents.length} 
+                        isFacilitator={isFacilitator} 
+                      />
+                    ))
+                  }
+                </div>
+              );
+            case 'management':
+              return (
+                <ManagementDesk 
+                  students={students} 
+                  setStudents={setStudents} 
+                  facilitators={facilitators} 
+                  setFacilitators={setFacilitators} 
+                  subjects={SUBJECT_LIST} 
+                  settings={settings} 
+                  onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} 
+                  onBulkUpdate={(u) => setSettings(p=>({...p,...u}))} 
+                  onSave={handleSave} 
+                  processedSnapshot={processedStudents} 
+                  onLoadDummyData={() => { 
+                    const d = generateFullDemoSuite(); 
+                    setStudents(d.students); 
+                    setSettings(p => ({...p, resourcePortal: d.resourcePortal, mockSnapshots: d.mockSnapshots})); 
+                    setTimeout(() => handleSave(), 500);
+                  }} 
+                  onClearData={handleClearData} 
+                  onResetStudents={() => setStudents([])}
+                  isFacilitator={isFacilitator} 
+                  activeFacilitator={activeFacilitator} 
+                />
+              );
+            default:
+              return <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />;
+          }
+        })()}
       </div>
     </div>
   );

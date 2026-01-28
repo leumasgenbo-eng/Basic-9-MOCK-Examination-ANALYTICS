@@ -11,6 +11,7 @@ import PupilNetworkRankingView from './PupilNetworkRankingView';
 import NetworkRewardsView from './NetworkRewardsView';
 import NetworkSigDiffView from './NetworkSigDiffView';
 import NetworkAnnualAuditReport from './NetworkAnnualAuditReport';
+import RecruitmentHubView from './RecruitmentHubView';
 
 export interface SubjectDemandMetric {
   subject: string;
@@ -36,7 +37,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
   const [registry, setRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [auditTrail, setAuditTrail] = useState<SystemAuditEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [view, setView] = useState<'registry' | 'rankings' | 'remarks' | 'audit' | 'pupils' | 'rewards' | 'sig-diff' | 'annual-report'>('registry');
+  const [view, setView] = useState<'registry' | 'recruitment' | 'rankings' | 'remarks' | 'audit' | 'pupils' | 'rewards' | 'sig-diff' | 'annual-report'>('registry');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
@@ -79,16 +80,8 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
     fetchHQData();
   }, []);
 
-  // 2. TARGETED SHARD UPDATES
   const handleUpdateRegistry = async (next: SchoolRegistryEntry[]) => {
-    // Determine what changed by comparing current state
-    // For simplicity, find the difference or just update the specific shard
     setRegistry(next);
-    
-    // In a production multi-tenant app, we only push the changed shard.
-    // For this implementation, we ensure the specific registry node is upserted.
-    // Note: next contains all schools. We find the one that doesn't match the current cloud data if needed.
-    // However, to keep it robust for the UI, we assume the RegistryView passes back the full list.
   };
 
   const logAction = async (action: string, target: string, details: string) => {
@@ -130,7 +123,6 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
         const json = JSON.parse(e.target?.result as string);
         if (json.type !== "SSMAP_MASTER_SNAPSHOT") throw new Error("Invalid format.");
         if (window.confirm(`RESTORE PROTOCOL: Overwrite current network with ${json.registry.length} nodes?`)) {
-          // In sharded mode, restore requires pushing each school's registry shard individually
           for (const school of json.registry) {
              await supabase.from('uba_persistence').upsert({ 
                id: `registry_${school.id}`, 
@@ -211,6 +203,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
             <div className="flex bg-slate-900/50 p-1 rounded-2xl border border-slate-800 backdrop-blur-md overflow-x-auto no-scrollbar max-w-full">
               {[
                 { id: 'registry', label: 'Network Ledger' },
+                { id: 'recruitment', label: 'Recruitment Hub' },
                 { id: 'rankings', label: 'Rerating' },
                 { id: 'pupils', label: 'Talent Matrix' },
                 { id: 'rewards', label: 'Global Rewards' },
@@ -238,6 +231,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
           {view === 'registry' && (
             <RegistryView registry={registry} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onRemoteView={onRemoteView} onUpdateRegistry={handleUpdateRegistry} onLogAction={logAction} />
           )}
+          {view === 'recruitment' && <RecruitmentHubView registry={registry} onLogAction={logAction} />}
           {view === 'rankings' && <ReratingView schoolRankings={schoolRankings} />}
           {view === 'remarks' && <RemarkAnalyticsView subjectDemands={subjectDemands} />}
           {view === 'pupils' && <PupilNetworkRankingView registry={registry} onRemoteView={onRemoteView} />}

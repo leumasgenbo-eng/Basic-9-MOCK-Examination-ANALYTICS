@@ -56,7 +56,6 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
     setShowEnrollment(false);
   };
 
-  // AGGREGATION 1: Individual Duty Roster (Chronological list of all person-duties)
   const dutyRoster = useMemo(() => {
     const list: any[] = [];
     (Object.values(facilitators) as StaffAssignment[]).forEach(staff => {
@@ -74,7 +73,6 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
     return list.sort((a, b) => a.dutyDate.localeCompare(b.dutyDate) || a.timeSlot.localeCompare(b.timeSlot));
   }, [facilitators, settings.schoolNumber]);
 
-  // AGGREGATION 2: Master Timetable (Grouped by Date/Time/Subject)
   const masterTimetable = useMemo(() => {
     const slotsMap: Record<string, { date: string, time: string, subject: string, personnel: string[] }> = {};
     
@@ -380,7 +378,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
          <div className="space-y-2">
             <h4 className="text-xs font-black text-slate-900 uppercase">Synchronization Notice</h4>
             <p className="text-[10px] text-slate-500 font-bold leading-relaxed uppercase tracking-widest">
-               Staff invigilation registers are encrypted and mirrored across all network nodes. Data entry on one device will automatically propagate to the Master Timetable and Duty Roster on any other authorized institutional terminal.
+               Staff invigilation registers are encrypted and mirrored on the schools network nodes. Data entry on one device will automatically propagate to the school Mock Timetable and Mock Duty Roster.
             </p>
          </div>
       </div>
