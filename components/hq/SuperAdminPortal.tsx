@@ -192,7 +192,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
         { id: 'registry', label: 'Network Ledger' },
         { id: 'recruitment', label: 'Recruitment Hub' },
         { id: 'serialization', label: 'Serialization Hub' },
-        { id: 'questions', label: 'Question Portal' },
+        { id: 'questions', label: 'Propagate Master Bank' },
       ]
     },
     {
