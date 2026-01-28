@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { StudentData, GlobalSettings } from '../../types';
+import { CORE_SUBJECTS } from '../../constants';
 
 interface PupilSBAPortalProps {
   students: StudentData[];
@@ -84,70 +85,162 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
 
   const activeSbaStudent = students.find(s => s.id === editingSbaId);
 
+  // Group subjects for better UI organization
+  const coreList = subjects.filter(s => CORE_SUBJECTS.includes(s));
+  const electiveList = subjects.filter(s => !CORE_SUBJECTS.includes(s));
+
+  const completionStats = useMemo(() => {
+    if (!activeSbaStudent) return { count: 0, percent: 0 };
+    const count = Object.keys(activeSbaStudent.sbaScores || {}).length;
+    return { count, percent: (count / subjects.length) * 100 };
+  }, [activeSbaStudent, subjects]);
+
   // VIEW: SBA MATRIX FORGE (When editingSbaId is set)
   if (editingSbaId && activeSbaStudent) {
     return (
-      <div className="space-y-8 animate-in slide-in-from-right-8 duration-500">
-         <div className="bg-slate-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-            <div className="relative flex flex-col md:flex-row justify-between items-center gap-8">
-               <div className="space-y-2">
-                  <button onClick={() => setEditingSbaId(null)} className="text-[10px] font-black text-blue-400 uppercase tracking-widest hover:text-white transition-colors mb-4 flex items-center gap-2">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                    Return to Registry
-                  </button>
-                  <h3 className="text-3xl font-black uppercase tracking-tighter">SBA Matrix Forge</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">Continuous Assessment Input for {activeSbaStudent.name}</p>
+      <div className="space-y-8 animate-in slide-in-from-right-8 duration-500 pb-20">
+         {/* TOP NAVIGATION BAR */}
+         <div className="flex items-center justify-between bg-white/50 backdrop-blur-md p-4 rounded-3xl border border-white sticky top-4 z-[60] shadow-sm">
+            <button onClick={() => setEditingSbaId(null)} className="flex items-center gap-3 px-6 py-2.5 rounded-2xl bg-blue-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Return to Registry
+            </button>
+            <div className="flex items-center gap-6">
+               <div className="text-right hidden sm:block">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Mock Session</p>
+                  <p className="text-sm font-black text-blue-900 uppercase">{settings.activeMock}</p>
                </div>
-               <div className="bg-emerald-600/20 px-8 py-4 rounded-3xl border border-emerald-500/30 flex flex-col items-center">
-                  <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest mb-1">Mirror Status</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
-                    <span className="text-sm font-black uppercase">Sync Active</span>
-                  </div>
-               </div>
+               <button onClick={() => { onSave(); setEditingSbaId(null); }} className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-2.5 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all active:scale-95">
+                 Save & Return
+               </button>
             </div>
          </div>
 
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {subjects.map(sub => (
-              <div key={sub} className="bg-white border border-gray-100 p-8 rounded-[2.5rem] shadow-xl group hover:border-emerald-200 transition-all">
-                 <div className="flex justify-between items-start mb-6">
-                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{sub}</span>
-                    <span className="text-[8px] font-black text-gray-300 uppercase">Subject Node</span>
-                 </div>
-                 <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                       <input 
-                         type="number" 
-                         value={activeSbaStudent.sbaScores?.[sub] || 0}
-                         onChange={(e) => handleUpdateSbaScore(activeSbaStudent.id, sub, e.target.value)}
-                         className="flex-1 bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 text-2xl font-black text-blue-900 outline-none focus:border-emerald-400 transition-all text-center"
-                         max="100"
-                       />
-                       <div className="text-center w-12">
-                          <span className="text-[8px] font-black text-gray-400 uppercase block">Max</span>
-                          <span className="text-sm font-black text-gray-400">100</span>
-                       </div>
-                    </div>
-                    <div className="h-1.5 bg-gray-50 rounded-full overflow-hidden">
-                       <div 
-                         className="h-full bg-emerald-500 transition-all duration-700" 
-                         style={{ width: `${activeSbaStudent.sbaScores?.[sub] || 0}%` }}
-                       ></div>
-                    </div>
-                 </div>
-              </div>
-            ))}
-         </div>
+         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            {/* LEFT: PUPIL IDENTITY CARD */}
+            <div className="xl:col-span-4 space-y-6">
+               <div className="bg-slate-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden h-fit">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full -mr-24 -mt-24 blur-3xl"></div>
+                  <div className="relative space-y-8">
+                     <div className="flex flex-col items-center text-center space-y-4">
+                        <div className="w-24 h-24 bg-blue-600 rounded-[2.5rem] flex items-center justify-center font-black text-4xl shadow-xl border-4 border-slate-800">
+                           {activeSbaStudent.name.charAt(0)}
+                        </div>
+                        <div>
+                           <h3 className="text-2xl font-black uppercase tracking-tight leading-none">{activeSbaStudent.name}</h3>
+                           <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.4em] mt-3">Candidate Node: {activeSbaStudent.id}</p>
+                        </div>
+                     </div>
 
-         <div className="pt-8 flex justify-center sticky bottom-8">
-            <button 
-              onClick={() => { onSave(); setEditingSbaId(null); }}
-              className="bg-blue-900 text-white px-24 py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.4em] shadow-[0_20px_50px_rgba(30,58,138,0.4)] hover:bg-black transition-all active:scale-95"
-            >
-              Update SBA Matrix & Return
-            </button>
+                     <div className="space-y-4 border-t border-white/5 pt-8">
+                        <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5">
+                           <span className="text-[8px] font-black text-slate-500 uppercase">Gender Identity</span>
+                           <span className="text-xs font-black uppercase text-blue-400">{activeSbaStudent.gender === 'M' ? 'MALE' : 'FEMALE'}</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5">
+                           <span className="text-[8px] font-black text-slate-500 uppercase">Parent Identity</span>
+                           <span className="text-xs font-black uppercase truncate max-w-[150px]">{activeSbaStudent.parentName || '---'}</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5">
+                           <span className="text-[8px] font-black text-slate-500 uppercase">Gate Passkey</span>
+                           <code className="text-xs font-mono font-black text-emerald-400 tracking-widest">{activeSbaStudent.passkey}</code>
+                        </div>
+                     </div>
+
+                     <div className="bg-blue-600 p-8 rounded-[2.5rem] shadow-xl space-y-4">
+                        <div className="flex justify-between items-center">
+                           <span className="text-[9px] font-black text-blue-100 uppercase tracking-widest">SBA Completion</span>
+                           <span className="text-2xl font-black text-white">{completionStats.count}/{subjects.length}</span>
+                        </div>
+                        <div className="h-3 bg-blue-900/50 rounded-full overflow-hidden p-0.5 border border-blue-400/20 shadow-inner">
+                           <div className="h-full bg-white rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(255,255,255,0.5)]" style={{ width: `${completionStats.percent}%` }}></div>
+                        </div>
+                        <p className="text-[7px] text-blue-100 font-black uppercase tracking-widest text-center">Cloud Synchronization Active</p>
+                     </div>
+                  </div>
+               </div>
+
+               <div className="bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100 flex items-start gap-4 shadow-sm">
+                  <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm shrink-0 border border-blue-100">
+                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  </div>
+                  <div className="space-y-1">
+                     <p className="text-[11px] font-black text-blue-900 uppercase">Matrix Logic Notice</p>
+                     <p className="text-[10px] text-blue-700 leading-relaxed font-medium">
+                       Continuous assessment scores (SBA) contribute 30% to the final institutional grade. These are mirrored to the cloud for all future mock series.
+                     </p>
+                  </div>
+               </div>
+            </div>
+
+            {/* RIGHT: SUBJECT GRID MATRIX */}
+            <div className="xl:col-span-8 space-y-10">
+               {/* CORE DISCIPLINES SECTION */}
+               <div className="space-y-6">
+                  <h4 className="text-sm font-black text-slate-400 uppercase tracking-[0.4em] flex items-center gap-4 px-4">
+                     <div className="w-1.5 h-6 bg-blue-900 rounded-full"></div>
+                     Core Academic Disciplines
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     {coreList.map(sub => (
+                        <div key={sub} className="bg-white border border-gray-100 p-8 rounded-[2.5rem] shadow-xl group hover:border-blue-300 transition-all flex justify-between items-center relative overflow-hidden">
+                           <div className="absolute top-0 left-0 w-1 h-full bg-blue-900 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                           <div className="space-y-1">
+                              <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest block">{sub}</span>
+                              <span className="text-[8px] font-black text-gray-300 uppercase">Core Mastery Module</span>
+                           </div>
+                           <div className="flex items-center gap-4">
+                              <input 
+                                type="number" 
+                                value={activeSbaStudent.sbaScores?.[sub] || ''}
+                                onChange={(e) => handleUpdateSbaScore(activeSbaStudent.id, sub, e.target.value)}
+                                placeholder="0"
+                                className="w-24 bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 text-3xl font-black text-blue-900 outline-none focus:border-blue-400 transition-all text-center placeholder:text-gray-200"
+                                max="100"
+                              />
+                              <div className="text-center w-10">
+                                 <span className="text-[7px] font-black text-gray-400 uppercase block leading-none">Limit</span>
+                                 <span className="text-xs font-black text-gray-400">100</span>
+                              </div>
+                           </div>
+                        </div>
+                     ))}
+                  </div>
+               </div>
+
+               {/* ELECTIVE DISCIPLINES SECTION */}
+               <div className="space-y-6">
+                  <h4 className="text-sm font-black text-slate-400 uppercase tracking-[0.4em] flex items-center gap-4 px-4">
+                     <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
+                     Elective Specializations
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                     {electiveList.map(sub => (
+                        <div key={sub} className="bg-white border border-gray-100 p-6 rounded-[2.5rem] shadow-xl group hover:border-indigo-300 transition-all flex flex-col space-y-6 relative overflow-hidden">
+                           <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-50/50 rounded-bl-full -mr-8 -mt-8"></div>
+                           <div className="space-y-1">
+                              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block truncate pr-4">{sub}</span>
+                              <span className="text-[8px] font-black text-gray-300 uppercase">Specialization Node</span>
+                           </div>
+                           <div className="flex items-center justify-between border-t border-gray-50 pt-4">
+                              <input 
+                                type="number" 
+                                value={activeSbaStudent.sbaScores?.[sub] || ''}
+                                onChange={(e) => handleUpdateSbaScore(activeSbaStudent.id, sub, e.target.value)}
+                                placeholder="0"
+                                className="w-20 bg-gray-50 border-2 border-gray-100 rounded-2xl p-3 text-2xl font-black text-indigo-900 outline-none focus:border-indigo-400 transition-all text-center placeholder:text-gray-200"
+                                max="100"
+                              />
+                              <div className="h-1 flex-1 mx-4 bg-gray-50 rounded-full overflow-hidden">
+                                 <div className="h-full bg-indigo-500 transition-all duration-700 shadow-[0_0_8px_rgba(99,102,241,0.4)]" style={{ width: `${activeSbaStudent.sbaScores?.[sub] || 0}%` }}></div>
+                              </div>
+                              <span className="text-[10px] font-mono font-black text-slate-300">{activeSbaStudent.sbaScores?.[sub] || 0}%</span>
+                           </div>
+                        </div>
+                     ))}
+                  </div>
+               </div>
+            </div>
          </div>
       </div>
     );
