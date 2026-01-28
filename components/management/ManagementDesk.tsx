@@ -16,7 +16,6 @@ import EnrolmentForwardingPortal from './EnrolmentForwardingPortal';
 import LocalSyncPortal from './LocalSyncPortal';
 import RewardPortal from './RewardPortal';
 import SchoolCredentialView from './SchoolCredentialView';
-import DataCleanupPortal from './DataCleanupPortal';
 
 // Extracted UI Layout components
 import ManagementHeader from './ManagementHeader';
@@ -64,10 +63,9 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
           {activeTab === 'enrolmentForward' && <EnrolmentForwardingPortal settings={settings} students={students} facilitators={facilitators} />}
           {activeTab === 'localSync' && <LocalSyncPortal students={students} settings={settings} />}
           {activeTab === 'rewards' && <RewardPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} facilitators={facilitators} onSave={onSave} onSettingChange={onSettingChange} isFacilitator={isFacilitator} />}
-          {activeTab === 'cleanup' && <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={onSave} subjects={subjects} />}
           {activeTab === 'school' && <AcademyIdentityPortal settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
           {activeTab === 'credentials' && <SchoolCredentialView settings={settings} studentCount={students.length} />}
-          {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} onSave={onSave} />}
+          {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} />}
           {activeTab === 'facilitators' && <FacilitatorPortal subjects={subjects} facilitators={facilitators} setFacilitators={setFacilitators} settings={settings} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />}
           {activeTab === 'grading' && <GradingConfigPortal settings={settings} onSettingChange={onSettingChange} />}
           {activeTab === 'history' && <SeriesHistoryPortal students={students} settings={settings} />}

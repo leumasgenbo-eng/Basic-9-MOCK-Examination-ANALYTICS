@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { StudentData, GlobalSettings, ProcessedStudent, StaffAssignment } from '../types';
 import ScoreEntryPortal from './management/ScoreEntryPortal';
@@ -132,8 +133,7 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
               <AcademyIdentityPortal settings={settings} onSettingChange={onSettingChange} onSave={onSave} />
             </div>
           )}
-          {/* Added missing onSave prop to satisfy PupilSBAPortalProps requirement */}
-          {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} onSave={onSave} />}
+          {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} />}
           {/* Added settings={settings} to provide the required GlobalSettings prop to FacilitatorPortal */}
           {activeTab === 'facilitators' && <FacilitatorPortal subjects={subjects} facilitators={facilitators} setFacilitators={setFacilitators} settings={settings} />}
           {activeTab === 'grading' && <GradingConfigPortal settings={settings} onSettingChange={onSettingChange} />}

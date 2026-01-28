@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { GlobalSettings } from '../../types';
 
@@ -31,8 +30,6 @@ const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings,
 
   const fields = [
     { label: 'Academy Name', key: 'schoolName', val: settings.schoolName },
-    { label: 'Academy Motto', key: 'schoolMotto', val: settings.schoolMotto || '' },
-    { label: 'Official Website', key: 'schoolWebsite', val: settings.schoolWebsite || '' },
     { label: 'Report Header Title', key: 'examTitle', val: settings.examTitle },
     { label: 'Telephone Contact', key: 'schoolContact', val: settings.schoolContact },
     { label: 'Email Address', key: 'schoolEmail', val: settings.schoolEmail },
@@ -45,7 +42,7 @@ const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings,
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       
-      {/* Security Node Control */}
+      {/* Security Node Control - NEW */}
       <section className="bg-slate-900 text-white p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
         <div className="relative flex flex-col md:flex-row justify-between items-center gap-8">

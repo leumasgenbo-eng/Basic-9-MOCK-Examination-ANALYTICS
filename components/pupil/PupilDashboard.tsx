@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings, SchoolRegistryEntry } from '../../types';
 import ReportCard from '../reports/ReportCard';
@@ -43,16 +42,9 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({ student, stats, setting
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700 pb-20">
       
-      {/* Branding Header with Editables (Read-Only for Pupils) */}
+      {/* Branding Header with Editables */}
       <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-gray-100">
-         <ReportBrandingHeader 
-           settings={settings} 
-           onSettingChange={onSettingChange} 
-           reportTitle="CANDIDATE PERFORMANCE HUB" 
-           subtitle={`AUTHORIZED ACCESS NODE: ${student.name}`} 
-           isLandscape={true}
-           readOnly={true} 
-         />
+         <ReportBrandingHeader settings={settings} onSettingChange={onSettingChange} reportTitle="CANDIDATE PERFORMANCE HUB" subtitle={`AUTHORIZED ACCESS NODE: ${student.name}`} isLandscape={true} />
          
          <div className="flex flex-col xl:flex-row justify-between items-center gap-8 mt-8">
             <div className="flex items-center gap-6 relative">

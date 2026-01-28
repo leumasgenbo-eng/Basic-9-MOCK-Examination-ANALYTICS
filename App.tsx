@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
@@ -22,10 +21,8 @@ const MOCK_SERIES = Array.from({ length: 10 }, (_, i) => `MOCK ${i + 1}`);
 
 const DEFAULT_SETTINGS: GlobalSettings = {
   schoolName: "UNITED BAYLOR ACADEMY",
-  schoolMotto: "EXCELLENCE IN KNOWLEDGE AND CHARACTER",
-  schoolWebsite: "www.unitedbaylor.edu",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
-  schoolNumber: "", 
+  schoolNumber: "UBA-2026-7448", 
   schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
   examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
   termInfo: "TERM 2",
@@ -43,7 +40,6 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   normalizationConfig: DEFAULT_NORMALIZATION,
   sbaConfig: { enabled: true, isLocked: false, sbaWeight: 30, examWeight: 70 },
   isConductLocked: false,
-  securityPin: "0000",
   scoreEntryMetadata: { mockSeries: "MOCK 2", entryDate: new Date().toISOString().split('T')[0] },
   committedMocks: MOCK_SERIES,
   activeMock: "MOCK 1",
@@ -59,6 +55,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
+  const [networkError, setNetworkError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'home' | 'master' | 'reports' | 'management' | 'series' | 'pupil_hub' | 'cleanup'>('home');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
   
@@ -69,79 +66,28 @@ const App: React.FC = () => {
   const [activeFacilitator, setActiveFacilitator] = useState<{ name: string; subject: string } | null>(null);
   const [activePupil, setActivePupil] = useState<ProcessedStudent | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [postRegistrationData, setPostRegistrationData] = useState<any>(null);
   
   const [globalRegistry, setGlobalRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_SETTINGS);
   const [students, setStudents] = useState<StudentData[]>([]); 
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
+
   const [globalAd, setGlobalAd] = useState<string | null>(null);
 
-  const loadSchoolSession = useCallback(async (hubId: string) => {
-    if (!hubId) return null;
-    try {
-      const { data } = await supabase.from('uba_persistence').select('id, payload').like('id', `${hubId}_%`);
-      if (data) {
-        let loadedStudents: StudentData[] = [];
-        let loadedSettings = DEFAULT_SETTINGS;
-        let loadedFacs = {};
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-        data.forEach(row => {
-          if (row.id === `${hubId}_settings`) {
-            setSettings(row.payload);
-            loadedSettings = row.payload;
-          }
-          if (row.id === `${hubId}_students`) {
-            setStudents(row.payload);
-            loadedStudents = row.payload;
-          }
-          if (row.id === `${hubId}_facilitators`) {
-            setFacilitators(row.payload);
-            loadedFacs = row.payload;
-          }
-        });
-        return { loadedStudents, loadedSettings, loadedFacs };
-      }
-    } catch (e) {
-      console.error("Load failed:", e);
-    }
-    return null;
-  }, []);
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
-      if (regData) setGlobalRegistry(regData.flatMap(r => r.payload));
-
-      if (session) {
-        const userEmail = session.user.email || "";
-        const hubId = userEmail.split('@')[0].toUpperCase();
-        
-        if (userEmail === 'leumasgenbo4@gmail.com') {
-          setIsSuperAdmin(true);
-        } else if (hubId.startsWith('UBA-')) {
-          const sessionData = await loadSchoolSession(hubId);
-          setIsAuthenticated(true);
-          
-          const savedPupilId = localStorage.getItem('uba_active_pupil_id');
-          if (savedPupilId && sessionData) {
-            const stats = calculateClassStatistics(sessionData.loadedStudents, sessionData.loadedSettings);
-            const processed = processStudentData(stats, sessionData.loadedStudents, {}, sessionData.loadedSettings);
-            const pupil = processed.find(p => p.id === parseInt(savedPupilId));
-            if (pupil) {
-              setActivePupil(pupil);
-              setIsPupil(true);
-              setViewMode('pupil_hub');
-            }
-          }
-        }
-      }
+  const fetchRegistry = useCallback(async () => {
+    if (!isSupabaseConfigured()) {
+      setNetworkError("Supabase configuration missing.");
       setIsInitializing(false);
-    };
-
-    checkSession();
-  }, [loadSchoolSession]);
+      return;
+    }
+    try {
+      const { data } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
+      if (data) setGlobalRegistry(data.flatMap(r => r.payload));
+    } catch (e) {} finally { setIsInitializing(false); }
+  }, []);
 
   const fetchGlobalAd = useCallback(async () => {
     try {
@@ -151,10 +97,26 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => { 
+    fetchRegistry(); 
     fetchGlobalAd();
     const interval = setInterval(fetchGlobalAd, 30000); 
     return () => clearInterval(interval);
-  }, [fetchGlobalAd]);
+  }, [fetchRegistry, fetchGlobalAd]);
+
+  const loadSchoolSession = async (hubId: string) => {
+    if (!hubId) return;
+    setIsInitializing(true);
+    try {
+      const { data } = await supabase.from('uba_persistence').select('id, payload').like('id', `${hubId}_%`);
+      if (data) {
+        data.forEach(row => {
+          if (row.id === `${hubId}_settings`) setSettings(row.payload);
+          if (row.id === `${hubId}_students`) setStudents(row.payload);
+          if (row.id === `${hubId}_facilitators`) setFacilitators(row.payload);
+        });
+      }
+    } catch (e) {} finally { setIsInitializing(false); }
+  };
 
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
@@ -173,20 +135,14 @@ const App: React.FC = () => {
       { id: `${hubId}_settings`, payload: settings, last_updated: ts },
       { id: `${hubId}_students`, payload: students, last_updated: ts },
       { id: `${hubId}_facilitators`, payload: facilitators, last_updated: ts },
-      { id: `registry_${hubId}`, payload: [{ ...settings, studentCount: students.length, avgAggregate: classAvgAggregate, status: 'active', lastActivity: ts }], last_updated: ts }
+      { id: `registry_${hubId}`, payload: [{ id: hubId, name: settings.schoolName, studentCount: students.length, avgAggregate: classAvgAggregate, status: 'active', lastActivity: ts }], last_updated: ts }
     ]);
   }, [settings, students, facilitators, classAvgAggregate, isAuthenticated]);
-
-  const handleLogout = async () => {
-    localStorage.removeItem('uba_active_pupil_id');
-    await supabase.auth.signOut();
-    window.location.reload();
-  };
 
   if (isInitializing) return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest animate-pulse">Establishing Hub Link...</p>
+      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest animate-pulse">Syncing Hub Shards...</p>
     </div>
   );
 
@@ -194,45 +150,15 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         {isRegistering ? (
-          <SchoolRegistrationPortal 
-            settings={settings} 
-            onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} 
-            onSave={handleSave} 
-            onComplete={() => window.location.reload()} 
-            onResetStudents={() => setStudents([])} 
-            onSwitchToLogin={() => setIsRegistering(false)} 
-          />
+          <SchoolRegistrationPortal settings={settings} onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} onSave={handleSave} onComplete={(d) => { setPostRegistrationData(d); setIsRegistering(false); }} onResetStudents={() => setStudents([])} onSwitchToLogin={() => setIsRegistering(false)} />
         ) : (
-          <LoginPortal 
-            settings={settings} 
-            globalRegistry={globalRegistry} 
-            onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
-            onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); }); }} 
-            onPupilLogin={(id, hId) => { 
-              loadSchoolSession(hId).then((data) => { 
-                if (data) {
-                  const s = calculateClassStatistics(data.loadedStudents, data.loadedSettings);
-                  const processed = processStudentData(s, data.loadedStudents, {}, data.loadedSettings);
-                  const pupil = processed.find(p => p.id === id);
-                  if(pupil){
-                    localStorage.setItem('uba_active_pupil_id', id.toString());
-                    setActivePupil(pupil);
-                    setIsPupil(true);
-                    setIsAuthenticated(true);
-                    setViewMode('pupil_hub');
-                  }
-                }
-              }); 
-            }} 
-            onSwitchToRegister={() => setIsRegistering(true)} 
-          />
+          <LoginPortal settings={settings} globalRegistry={globalRegistry} initialCredentials={postRegistrationData} onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} onSuperAdminLogin={() => setIsSuperAdmin(true)} onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); }); }} onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} onSwitchToRegister={() => setIsRegistering(true)} />
         )}
       </div>
     );
   }
 
-  if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
+  if (isSuperAdmin) return <SuperAdminPortal onExit={() => setIsSuperAdmin(false)} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
@@ -250,7 +176,6 @@ const App: React.FC = () => {
               <button onClick={() => setViewMode('home')} className={`px-4 py-2 rounded transition-all ${viewMode === 'home' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Home</button>
               <button onClick={() => setViewMode('master')} className={`px-4 py-2 rounded transition-all ${viewMode === 'master' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Sheets</button>
               <button onClick={() => setViewMode('series')} className={`px-4 py-2 rounded transition-all ${viewMode === 'series' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Tracker</button>
-              <button onClick={() => setViewMode('cleanup')} className={`px-4 py-2 rounded transition-all ${viewMode === 'cleanup' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Data Forge</button>
               <button onClick={() => setViewMode('reports')} className={`px-4 py-2 rounded transition-all ${viewMode === 'reports' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Reports</button>
               <button onClick={() => setViewMode('management')} className={`px-4 py-2 rounded transition-all ${viewMode === 'management' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Mgmt Hub</button>
             </>
@@ -258,7 +183,7 @@ const App: React.FC = () => {
         </div>
         <div className="flex gap-2">
            {!isPupil && <button onClick={handleSave} className="bg-yellow-500 text-blue-900 px-5 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Sync Hub</button>}
-           <button onClick={handleLogout} className="bg-red-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Logout</button>
+           <button onClick={() => window.location.reload()} className="bg-red-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Logout</button>
         </div>
       </div>
       <div className="flex-1 overflow-auto p-4 md:p-8">
@@ -268,7 +193,6 @@ const App: React.FC = () => {
             case 'home': return <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />;
             case 'master': return <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />;
             case 'series': return <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents} />;
-            case 'cleanup': return <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={handleSave} subjects={SUBJECT_LIST} />;
             case 'reports': return (
               <div className="space-y-8">
                 <input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-5 rounded-2xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none focus:border-blue-300 transition-all" />

@@ -1,19 +1,15 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { StudentData, GlobalSettings } from '../../types';
-import { CORE_SUBJECTS } from '../../constants';
 
 interface PupilSBAPortalProps {
   students: StudentData[];
   setStudents: React.Dispatch<React.SetStateAction<StudentData[]>>;
   settings: GlobalSettings;
   subjects: string[];
-  onSave: () => void;
 }
 
-const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, settings, subjects, onSave }) => {
+const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, settings, subjects }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingSbaId, setEditingSbaId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     gender: 'M',
@@ -47,34 +43,19 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
     };
     
     setStudents([...students, newStudent]);
-    setFormData({ name: '', gender: 'M', guardianName: '', contact: '', email: '' });
+    setFormData({
+      name: '',
+      gender: 'M',
+      guardianName: '',
+      contact: '',
+      email: ''
+    });
   };
 
   const handleDelete = (id: number) => {
     if (window.confirm("CRITICAL: Decommission pupil from academy registry? This erases all associated data.")) {
       setStudents(prev => prev.filter(s => s.id !== id));
-      setTimeout(onSave, 500);
     }
-  };
-
-  const handleUpdateSbaScore = (studentId: number, subject: string, score: string) => {
-    const val = Math.min(100, Math.max(0, parseInt(score) || 0));
-    setStudents(prev => prev.map(s => {
-      if (s.id !== studentId) return s;
-      const nextSba = { ...(s.sbaScores || {}), [subject]: val };
-      
-      const mockSet = s.mockData?.[settings.activeMock] || { scores: {}, sbaScores: {}, examSubScores: {}, facilitatorRemarks: {}, observations: { facilitator: "", invigilator: "", examiner: "" }, attendance: 0, conductRemark: "" };
-      const updatedMockSba = { ...(mockSet.sbaScores || {}), [subject]: val };
-      
-      return { 
-        ...s, 
-        sbaScores: nextSba,
-        mockData: {
-          ...(s.mockData || {}),
-          [settings.activeMock]: { ...mockSet, sbaScores: updatedMockSba }
-        }
-      };
-    }));
   };
 
   const filtered = students.filter(s => 
@@ -82,166 +63,173 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
     s.id.toString().includes(searchTerm)
   );
 
-  const activeSbaStudent = students.find(s => s.id === editingSbaId);
-
-  const completionStats = useMemo(() => {
-    if (!activeSbaStudent) return { count: 0, percent: 0 };
-    const count = Object.keys(activeSbaStudent.sbaScores || {}).length;
-    return { count, percent: (count / subjects.length) * 100 };
-  }, [activeSbaStudent, subjects]);
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-600';
-    if (score >= 60) return 'text-blue-600';
-    if (score >= 40) return 'text-amber-600';
-    return 'text-red-600';
-  };
-
-  if (editingSbaId && activeSbaStudent) {
-    return (
-      <div className="space-y-8 animate-in slide-in-from-right-8 duration-500 pb-20">
-         {/* TOP NAVIGATION BAR */}
-         <div className="flex items-center justify-between bg-white/70 backdrop-blur-md p-4 rounded-3xl border border-white sticky top-4 z-[60] shadow-xl">
-            <button onClick={() => setEditingSbaId(null)} className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-              Return to Registry
-            </button>
-            <div className="flex items-center gap-6">
-               <div className="text-right">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Series</p>
-                  <p className="text-sm font-black text-blue-900 uppercase">{settings.activeMock}</p>
-               </div>
-               <button onClick={() => { onSave(); setEditingSbaId(null); }} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all active:scale-95 tracking-widest">
-                 Update Matrix & Close
-               </button>
-            </div>
-         </div>
-
-         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-            {/* SIDEBAR: PUPIL STATS */}
-            <div className="xl:col-span-3 space-y-6">
-               <div className="bg-slate-950 text-white p-8 rounded-[3rem] shadow-2xl relative overflow-hidden h-fit">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                  <div className="relative space-y-6">
-                     <div className="text-center">
-                        <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center font-black text-3xl shadow-xl border-4 border-slate-800 mx-auto mb-4">
-                           {activeSbaStudent.name.charAt(0)}
-                        </div>
-                        <h3 className="text-xl font-black uppercase tracking-tight leading-none">{activeSbaStudent.name}</h3>
-                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.4em] mt-3">HUB_ID: {activeSbaStudent.id}</p>
-                     </div>
-
-                     <div className="bg-blue-900/50 p-6 rounded-[2rem] border border-white/5 space-y-4">
-                        <div className="flex justify-between items-center">
-                           <span className="text-[9px] font-black text-blue-300 uppercase">Input Status</span>
-                           <span className="text-xl font-black font-mono">{completionStats.count}/{subjects.length}</span>
-                        </div>
-                        <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
-                           <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${completionStats.percent}%` }}></div>
-                        </div>
-                     </div>
-                  </div>
-               </div>
-               
-               <div className="bg-amber-50 p-6 rounded-[2.5rem] border border-amber-100 flex items-start gap-4">
-                  <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center text-amber-600 shadow-sm shrink-0">!</div>
-                  <p className="text-[9px] text-amber-900 font-bold uppercase tracking-widest leading-relaxed">SBA marks are finalized upon series snapshot. Verify all 10 academic nodes before exit.</p>
-               </div>
-            </div>
-
-            {/* MAIN AREA: GRID MATRIX */}
-            <div className="xl:col-span-9">
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {subjects.map(sub => (
-                    <div key={sub} className="bg-white border border-gray-100 p-6 rounded-[2.5rem] shadow-xl hover:border-blue-300 transition-all flex flex-col justify-between group">
-                       <div className="flex justify-between items-start mb-4">
-                          <div className="space-y-1">
-                             <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Discipline Node</span>
-                             <h4 className="text-[11px] font-black text-blue-900 uppercase leading-tight">{sub}</h4>
-                          </div>
-                          {CORE_SUBJECTS.includes(sub) && <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full text-[7px] font-black uppercase">CORE</span>}
-                       </div>
-                       
-                       <div className="flex items-center gap-4 border-t border-gray-50 pt-4">
-                          <input 
-                            type="number" 
-                            value={activeSbaStudent.sbaScores?.[sub] || ''}
-                            onChange={(e) => handleUpdateSbaScore(activeSbaStudent.id, sub, e.target.value)}
-                            placeholder="0"
-                            className={`w-20 bg-gray-50 border-2 border-gray-100 rounded-2xl p-3 text-2xl font-black text-center outline-none focus:border-blue-400 transition-all ${getScoreColor(activeSbaStudent.sbaScores?.[sub] || 0)}`}
-                            max="100"
-                          />
-                          <div className="flex-1">
-                             <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-blue-900 transition-all duration-500" 
-                                  style={{ width: `${activeSbaStudent.sbaScores?.[sub] || 0}%` }}
-                                ></div>
-                             </div>
-                             <span className="text-[8px] font-black text-gray-300 uppercase tracking-widest mt-1 block">Mastery Index: {activeSbaStudent.sbaScores?.[sub] || 0}%</span>
-                          </div>
-                       </div>
-                    </div>
-                  ))}
-               </div>
-            </div>
-         </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-10 animate-in fade-in duration-500 pb-20">
-      <section className="bg-white p-10 rounded-[3.5rem] border border-gray-100 shadow-2xl relative overflow-hidden">
+      
+      {/* Enrollment Protocol Form */}
+      <section className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
         <div className="relative mb-8">
            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Institutional Enrollment</h3>
-           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.4em]">Adding new candidates to {settings.schoolName}</p>
+           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.4em]">Registering new candidate nodes to {settings.schoolName}</p>
         </div>
 
         <form onSubmit={handleAddStudent} className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
-          <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Full Name</label><input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="SURNAME FIRST..." required /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Sex</label><select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-black outline-none"><option value="M">MALE</option><option value="F">FEMALE</option></select></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Guardian Identity</label><input type="text" value={formData.guardianName} onChange={e => setFormData({...formData, guardianName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold uppercase outline-none" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Primary Contact</label><input type="text" value={formData.contact} onChange={e => setFormData({...formData, contact: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Registry Email</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none" /></div>
-          <div className="md:col-span-3 pt-4"><button type="submit" className="w-full bg-blue-900 text-white py-6 rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:bg-black transition-all active:scale-95">Enroll Pupil into Academy</button></div>
+          <div className="md:col-span-2 space-y-1.5">
+            <label className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Full Pupil Name</label>
+            <input 
+              type="text" 
+              value={formData.name} 
+              onChange={e => setFormData({...formData, name: e.target.value})} 
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" 
+              placeholder="SURNAME FIRST..." 
+              required 
+            />
+          </div>
+          
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Gender</label>
+            <select 
+              value={formData.gender} 
+              onChange={e => setFormData({...formData, gender: e.target.value})} 
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-black outline-none"
+            >
+              <option value="M">MALE</option>
+              <option value="F">FEMALE</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Guardian Name</label>
+            <input 
+              type="text" 
+              value={formData.guardianName} 
+              onChange={e => setFormData({...formData, guardianName: e.target.value})} 
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" 
+              placeholder="FULL NAME..." 
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contact</label>
+            <input 
+              type="text" 
+              value={formData.contact} 
+              onChange={e => setFormData({...formData, contact: e.target.value})} 
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" 
+              placeholder="PHONE..." 
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Guardian Email</label>
+            <input 
+              type="email" 
+              value={formData.email} 
+              onChange={e => setFormData({...formData, email: e.target.value})} 
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" 
+              placeholder="EMAIL@DOMAIN.COM" 
+            />
+          </div>
+
+          <div className="md:col-span-3 pt-4">
+            <button type="submit" className="w-full bg-blue-900 text-white py-6 rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:bg-black transition-all active:scale-95">
+              Enroll Pupil into Academy
+            </button>
+          </div>
         </form>
       </section>
 
+      {/* Database Search Hub */}
       <div className="relative group">
-         <div className="absolute inset-y-0 left-8 flex items-center text-slate-300"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
-         <input type="text" placeholder="Search pupil nodes..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-20 pr-10 py-6 border-2 border-gray-100 rounded-[2.5rem] text-sm font-bold bg-white shadow-xl outline-none focus:ring-8 focus:ring-blue-500/5 transition-all" />
+         <div className="absolute inset-y-0 left-8 flex items-center text-slate-300">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+         </div>
+         <input 
+           type="text" 
+           placeholder="Search by name, ID, or index..." 
+           value={searchTerm} 
+           onChange={e => setSearchTerm(e.target.value)} 
+           className="w-full pl-20 pr-10 py-6 border-2 border-gray-100 rounded-[2.5rem] text-sm font-bold bg-white shadow-xl outline-none focus:ring-8 focus:ring-blue-500/5 transition-all" 
+         />
       </div>
 
+      {/* Pupil Grid Matrix */}
       <div className="grid grid-cols-1 gap-6">
         {filtered.map((s, idx) => (
-          <div key={s.id} className="bg-white border border-gray-100 rounded-[3rem] p-10 shadow-lg hover:shadow-2xl transition-all group overflow-hidden relative">
+          <div key={s.id} className="bg-white border border-gray-100 rounded-[3rem] p-10 shadow-lg hover:shadow-2xl transition-all duration-500 group overflow-hidden relative">
+             <div className="absolute top-0 left-0 w-2 h-full bg-blue-900 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+             
              <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-10">
                 <div className="flex items-center gap-8">
-                   <div className="w-20 h-20 bg-blue-50 text-blue-900 flex items-center justify-center rounded-[2rem] font-black text-2xl group-hover:bg-blue-900 group-hover:text-white transition-all duration-500">{(idx + 1).toString().padStart(2, '0')}</div>
+                   <div className="w-20 h-20 bg-blue-50 text-blue-900 flex items-center justify-center rounded-[2rem] font-black text-2xl shadow-inner group-hover:bg-blue-900 group-hover:text-white transition-all duration-500 transform group-hover:rotate-6">
+                      {(idx + 1).toString().padStart(2, '0')}
+                   </div>
                    <div className="space-y-2">
                       <div className="flex items-center gap-3">
                          <h4 className="text-xl font-black text-gray-900 uppercase leading-none">{s.name}</h4>
-                         <span className={`px-3 py-0.5 rounded-full text-[8px] font-black uppercase border ${s.gender === 'M' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-pink-50 text-pink-600 border-pink-100'}`}>{s.gender === 'M' ? 'MALE' : 'FEMALE'}</span>
+                         <span className={`px-3 py-0.5 rounded-full text-[8px] font-black uppercase border ${s.gender === 'M' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-pink-50 text-pink-600 border-pink-100'}`}>
+                            {s.gender === 'M' ? 'MALE' : 'FEMALE'}
+                         </span>
                       </div>
-                      <code className="text-[11px] font-mono font-black text-blue-900 tracking-tighter">INDEX: {settings.schoolNumber}/PUP-{s.id}</code>
+                      <div className="flex flex-col gap-1">
+                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Institutional Node Identity:</span>
+                         <code className="text-[11px] font-mono font-black text-blue-900 tracking-tighter">INDEX: {settings.schoolNumber}/PUP-{s.id}</code>
+                      </div>
                    </div>
                 </div>
 
-                <div className="flex gap-10 flex-1 w-full xl:w-auto">
-                   <div className="space-y-1"><span className="text-[8px] font-black text-slate-400 uppercase">Contact</span><p className="text-xs font-black text-slate-800">{s.parentContact || "—"}</p></div>
-                   <div className="space-y-1 text-center"><span className="text-[8px] font-black text-emerald-500 uppercase">SBA Matrix</span><p className="text-lg font-black text-emerald-600">{Object.keys(s.sbaScores || {}).length} / 10</p></div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 w-full xl:w-auto">
+                   <div className="space-y-1">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Parent Name</span>
+                      <p className="text-xs font-black text-slate-800 uppercase truncate">{s.parentName || "—"}</p>
+                   </div>
+                   <div className="space-y-1">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Contact Phone</span>
+                      <p className="text-xs font-black text-slate-800 font-mono">{s.parentContact || "—"}</p>
+                   </div>
+                   <div className="space-y-1">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Email Address</span>
+                      <p className="text-xs font-bold text-blue-600 lowercase truncate">{s.parentEmail || "—"}</p>
+                   </div>
                 </div>
 
                 <div className="flex gap-3 w-full xl:w-auto">
-                   <button onClick={() => setEditingSbaId(s.id)} className="flex-1 xl:flex-none bg-blue-900 text-white px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all">Open SBA Matrix</button>
-                   <button onClick={() => handleDelete(s.id)} className="bg-red-50 text-red-600 px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-all">Delete</button>
+                   <button className="flex-1 xl:flex-none bg-blue-900 text-white px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition-all">
+                      Open SBA
+                   </button>
+                   <button 
+                     onClick={() => handleDelete(s.id)}
+                     className="bg-red-50 text-red-600 px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-all border border-red-100"
+                   >
+                      Delete
+                   </button>
+                </div>
+             </div>
+
+             <div className="mt-8 pt-6 border-t border-gray-50 flex flex-wrap gap-10">
+                <div className="flex items-center gap-3">
+                   <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Gate Access Passkey:</span>
+                   <code className="bg-slate-100 px-3 py-1 rounded-lg text-[10px] font-mono font-black text-slate-600">{s.passkey}</code>
+                </div>
+                <div className="flex items-center gap-3">
+                   <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Cloud Sync:</span>
+                   <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                      <span className="text-[9px] font-black text-emerald-600 uppercase">Handshake Active</span>
+                   </div>
                 </div>
              </div>
           </div>
         ))}
       </div>
+
+      {filtered.length === 0 && (
+         <div className="py-40 text-center opacity-30 flex flex-col items-center gap-6">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <p className="font-black uppercase text-sm tracking-[0.5em]">No matching candidate profiles detected</p>
+         </div>
+      )}
     </div>
   );
 };
