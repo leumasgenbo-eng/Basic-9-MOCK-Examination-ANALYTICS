@@ -28,12 +28,11 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [targetEmail, setTargetEmail] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [resolvedSession, setResolvedSession] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Filter global registry for Discovery mode
   const discoveryResults = useMemo(() => {
     if (!searchQuery) return [];
     return globalRegistry.filter(r => 
@@ -51,6 +50,12 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
     }
   }, [initialCredentials]);
 
+  const generateOtp = () => {
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedOtp(code);
+    setOtpInput('');
+  };
+
   const handleIdentityCheck = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
@@ -67,19 +72,17 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
 
     try {
       const rootHubId = inputId.split('/')[0];
-      const { data: persistenceData } = await supabase
+      const { data: persistenceData, error: fetchError } = await supabase
         .from('uba_persistence')
         .select('id, payload')
-        .or(`id.eq.registry_${rootHubId},id.eq.${rootHubId}_facilitators,id.eq.${rootHubId}_students,id.eq.${rootHubId}_settings`);
+        .or(`id.eq.registry_${rootHubId},id.eq.${rootHubId}_facilitators,id.eq.${rootHubId}_students`);
 
-      if (!persistenceData || persistenceData.length === 0) {
+      if (fetchError || !persistenceData || persistenceData.length === 0) {
          throw new Error("Handshake Failed: Identity Node not found.");
       }
 
       const registryShard = persistenceData.find(d => d.id === `registry_${rootHubId}`)?.payload;
       const rawEntry = Array.isArray(registryShard) ? registryShard[0] : registryShard;
-      const schoolSettings = persistenceData.find(d => d.id === `${rootHubId}_settings`)?.payload;
-
       if (!rawEntry) throw new Error("Institutional registry is offline.");
 
       const facilitatorsShard = persistenceData.find(d => d.id === `${rootHubId}_facilitators`)?.payload as Record<string, StaffAssignment>;
@@ -87,49 +90,41 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
 
       let isVerified = false;
       let sessionPayload: any = null;
-      let destinationEmail = "";
 
       if (authMode === 'ADMIN') {
         if (inputId !== rootHubId) throw new Error("Admin access requires the Root Hub ID.");
         isVerified = (rawEntry.accessCode || "").trim().toUpperCase() === inputKey;
         sessionPayload = { type: 'ADMIN', hubId: rootHubId };
-        destinationEmail = schoolSettings?.registrantEmail || schoolSettings?.schoolEmail || "administrative-node@uba-network.edu";
       } 
       else if (authMode === 'FACILITATOR') {
-        const staff = Object.values(facilitatorsShard || {}).find(f => 
-          `${rootHubId}/${f.enrolledId}` === inputId && (f.passkey || "").toUpperCase() === inputKey
-        );
-        if (staff) {
-          isVerified = true;
-          sessionPayload = { type: 'FACILITATOR', name: staff.name, subject: staff.taughtSubject, hubId: rootHubId };
-          destinationEmail = `${staff.enrolledId.toLowerCase()}@${rootHubId.toLowerCase()}.edu`;
+        if (facilitatorsShard) {
+          const staff = Object.values(facilitatorsShard).find(f => 
+            `${rootHubId}/${f.enrolledId}` === inputId && (f.passkey || "").toUpperCase() === inputKey
+          );
+          if (staff) {
+            isVerified = true;
+            sessionPayload = { type: 'FACILITATOR', name: staff.name, subject: staff.taughtSubject, hubId: rootHubId };
+          }
         }
       } 
       else if (authMode === 'PUPIL') {
-        const pupil = studentsShard?.find(s => 
-          `${rootHubId}/PUP-${s.id}` === inputId && (s.passkey || "").toUpperCase() === inputKey
-        );
-        if (pupil) {
-          isVerified = true;
-          sessionPayload = { type: 'PUPIL', id: pupil.id, hubId: rootHubId };
-          destinationEmail = pupil.parentEmail || "parent-node@uba-network.edu";
+        if (studentsShard) {
+          const pupil = studentsShard.find(s => 
+            `${rootHubId}/PUP-${s.id}` === inputId && (s.passkey || "").toUpperCase() === inputKey
+          );
+          if (pupil) {
+            isVerified = true;
+            sessionPayload = { type: 'PUPIL', id: pupil.id, hubId: rootHubId };
+          }
         }
       }
 
       if (!isVerified) throw new Error(`Access Denied: Invalid ${authMode} credentials.`);
 
-      const code = Math.floor(1000 + Math.random() * 9000).toString();
-      setGeneratedOtp(code);
-      setTargetEmail(destinationEmail);
       setResolvedSession(sessionPayload);
-      
-      // Simulate Email Dispatch
-      setIsSendingEmail(true);
-      setTimeout(() => {
-        setIsSendingEmail(false);
-        setStep('OTP');
-        setIsAuthenticating(false);
-      }, 2000);
+      generateOtp();
+      setStep('OTP');
+      setIsAuthenticating(false);
 
     } catch (err: any) {
       setErrorMessage(err.message);
@@ -152,10 +147,17 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
       const systemAuthEmail = `${resolvedSession.hubId.toLowerCase()}@unitedbaylor.edu`;
       const masterPassword = (rawEntry.accessCode || "").trim().toUpperCase();
 
-      await supabase.auth.signInWithPassword({
+      const { error: authError } = await supabase.auth.signInWithPassword({
         email: systemAuthEmail,
         password: masterPassword 
       });
+
+      if (authError) {
+        setErrorMessage("Node Decryption Failed.");
+        setStep('IDENTITY');
+        setIsAuthenticating(false);
+        return;
+      }
 
       if (resolvedSession.type === 'ADMIN') onLoginSuccess(resolvedSession.hubId);
       else if (resolvedSession.type === 'FACILITATOR') onFacilitatorLogin(resolvedSession.name, resolvedSession.subject, resolvedSession.hubId);
@@ -178,12 +180,10 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
         
         <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] z-10 opacity-20"></div>
 
-        {(isAuthenticating || isSendingEmail) && (
+        {isAuthenticating && (
           <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center space-y-6">
             <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">
-               {isSendingEmail ? `Dispatching Secure Code to ${targetEmail}...` : 'Synchronizing Security Nodes...'}
-            </p>
+            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Synchronizing Security Nodes...</p>
           </div>
         )}
 
@@ -244,7 +244,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
               {errorMessage && <div className="bg-red-500/10 text-red-500 p-4 rounded-2xl text-[8px] font-black uppercase text-center border border-red-500/20 animate-pulse">{errorMessage}</div>}
 
               <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-[0_0_30px_rgba(37,99,235,0.3)] transition-all active:scale-95">
-                Initiate OTP Dispatch
+                Initiate Handshake
               </button>
             </form>
           </>
@@ -253,12 +253,11 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
         {step === 'OTP' && (
           <form onSubmit={handleOtpVerification} className="space-y-8 animate-in slide-in-from-right-4 duration-500">
              <div className="text-center space-y-2">
-                <div className="bg-emerald-500/10 text-emerald-400 p-6 rounded-3xl border border-emerald-500/20 inline-block mb-4 shadow-inner">
-                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="mx-auto mb-2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                   <span className="text-[10px] font-black uppercase tracking-widest">Code Delivered</span>
+                <div className="bg-emerald-500/10 text-emerald-400 p-4 rounded-3xl border border-emerald-500/20 inline-block mb-4">
+                   <span className="text-3xl font-mono font-black tracking-[0.5em]">{generatedOtp}</span>
                 </div>
-                <h3 className="text-lg font-black text-white uppercase tracking-tight">Email Handshake</h3>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Verify the 4-digit code sent to <span className="text-blue-400 lowercase">{targetEmail}</span></p>
+                <h3 className="text-lg font-black text-white uppercase tracking-tight">Security Handshake</h3>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Type verification code for mobile sync</p>
              </div>
 
              <div className="flex justify-center gap-3">
@@ -283,15 +282,10 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
                 ))}
              </div>
 
-             <div className="flex flex-col gap-4">
-                <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-xl active:scale-95 transition-all">
-                  Verify Identity
-                </button>
-                <div className="flex justify-between items-center px-4">
-                  <button type="button" onClick={() => setStep('IDENTITY')} className="text-[8px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Wrong Email?</button>
-                  <button type="button" onClick={handleIdentityCheck} className="text-[8px] font-black text-blue-400 uppercase tracking-widest hover:text-white transition-colors">Resend Code</button>
-                </div>
-             </div>
+             <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-xl active:scale-95 transition-all">
+               Verify & Decrypt
+             </button>
+             <button type="button" onClick={() => setStep('IDENTITY')} className="w-full text-[8px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Return to Identity Node</button>
           </form>
         )}
 
