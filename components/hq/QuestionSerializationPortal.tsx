@@ -7,8 +7,7 @@ import {
   SerializedExam, 
   QuestionPack, 
   SerializationData,
-  BloomsScale,
-  QuestionSubPart
+  BloomsScale
 } from '../../types';
 import { SUBJECT_LIST } from '../../constants';
 import EditableField from '../shared/EditableField';
@@ -19,17 +18,23 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
   const [selectedSubject, setSelectedSubject] = useState(SUBJECT_LIST[0]);
   const [selectedMock, setSelectedMock] = useState('MOCK 1');
   const [selectedSchoolId, setSelectedSchoolId] = useState('');
-  const [activeTab, setActiveTab] = useState<'INGEST' | 'PACKS' | 'MATRIX' | 'EMBOSS' | 'SUBMISSIONS'>('INGEST');
+  const [activeTab, setActiveTab] = useState<'INGEST' | 'PACKS' | 'MATRIX' | 'EMBOSS' | 'NETWORK'>('INGEST');
   
   const [masterQuestions, setMasterQuestions] = useState<MasterQuestion[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [schoolSerialization, setSchoolSerialization] = useState<SerializationData | null>(null);
   const [serializedExam, setSerializedExam] = useState<SerializedExam | null>(null);
-  const [submissionMatrix, setSubmissionMatrix] = useState<Record<string, Record<string, boolean>>>({});
+  const [schoolSerialization, setSchoolSerialization] = useState<SerializationData | null>(null);
 
-  const [generalRules, setGeneralRules] = useState('Candidates must answer all questions in Section A. Use black or blue pen only.');
-  const [sectionInstructions, setSectionInstructions] = useState({ A: 'Answer all 40 items. 1 mark each.', B: 'Answer any 4 questions. Each question carries sub-parts.' });
+  // Editable Academy Particulars for Embossing
+  const [embossConfig, setEmbossConfig] = useState({
+    academyName: 'UNITED BAYLOR ACADEMY',
+    academyAddress: 'ACCRA DIGITAL CENTRE, GHANA',
+    academyContact: '+233 24 350 4091',
+    generalRules: '1. Candidates must answer all questions in Section A.\n2. Use black or blue ink only.\n3. Mobile devices are strictly prohibited.',
+    sectionAInstructions: 'ANSWER ALL QUESTIONS. EACH ITEM CARRIES 1 MARK.',
+    sectionBInstructions: 'ANSWER ANY FOUR QUESTIONS. ALL QUESTIONS CARRY EQUAL MARKS.'
+  });
 
   const bankId = `master_bank_${selectedSubject.replace(/\s+/g, '')}`;
 
@@ -43,25 +48,17 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
   }, [selectedSubject, bankId]);
 
   useEffect(() => {
-    const fetchSubmissionStatus = async () => {
-       const mockKey = selectedMock.replace(/\s+/g, '');
-       const { data } = await supabase.from('uba_persistence').select('id').like('id', `serialized_exam_%_${mockKey}_%`);
-       
-       if (data) {
-          const matrix: Record<string, Record<string, boolean>> = {};
-          data.forEach(row => {
-             // ID format: serialized_exam_SCHOOLID_MOCK_SUBJECT
-             const parts = row.id.split('_');
-             const sId = parts[2];
-             const sub = parts[4];
-             if (!matrix[sId]) matrix[sId] = {};
-             matrix[sId][sub] = true;
-          });
-          setSubmissionMatrix(matrix);
-       }
+    const fetchNodeSerials = async () => {
+      if (!selectedSchoolId) return;
+      const mockKey = selectedMock.replace(/\s+/g, '');
+      const { data: serData } = await supabase.from('uba_persistence').select('payload').eq('id', `serialization_${selectedSchoolId}_${mockKey}`).maybeSingle();
+      const { data: examData } = await supabase.from('uba_persistence').select('payload').eq('id', `serialized_exam_${selectedSchoolId}_${mockKey}_${selectedSubject.replace(/\s+/g, '')}`).maybeSingle();
+      
+      if (serData?.payload) setSchoolSerialization(serData.payload);
+      if (examData?.payload) setSerializedExam(examData.payload);
     };
-    if (activeTab === 'SUBMISSIONS') fetchSubmissionStatus();
-  }, [activeTab, selectedMock]);
+    fetchNodeSerials();
+  }, [selectedSchoolId, selectedMock, selectedSubject]);
 
   const shuffle = <T,>(array: T[]): T[] => [...array].sort(() => Math.random() - 0.5);
 
@@ -69,6 +66,7 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
     const objs = bank.filter(q => q.type === 'OBJECTIVE');
     const theories = bank.filter(q => q.type === 'THEORY');
     
+    // Pack A is always the Master Sequence
     const scrambledObjs = variant === 'A' ? objs : shuffle(objs);
     const scrambledTheories = variant === 'A' ? theories : shuffle(theories);
 
@@ -82,8 +80,8 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
 
     return {
       variant,
-      generalRules,
-      sectionInstructions,
+      generalRules: embossConfig.generalRules,
+      sectionInstructions: { A: embossConfig.sectionAInstructions, B: embossConfig.sectionBInstructions },
       objectives: scrambledObjs,
       theory: scrambledTheories,
       schemeCode: `UBA-SC-${variant}-${Math.random().toString(36).substring(7).toUpperCase()}`,
@@ -93,7 +91,7 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
 
   const propagateToAllNodes = async () => {
     if (masterQuestions.length === 0) return alert("Populate the Master Bank first.");
-    if (!window.confirm(`FEDERATED DEPLOYMENT: This will generate and sync unique Packs (A-D) for ALL ${registry.length} nodes using the ${selectedSubject} Master Bank. Proceed?`)) return;
+    if (!window.confirm(`BULK DEPLOYMENT: Generate unique scrambled packs for ALL ${registry.length} nodes?`)) return;
 
     setIsProcessing(true);
     setProgress(0);
@@ -125,169 +123,168 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
     }
 
     setIsProcessing(false);
-    alert(`NETWORK SYNCHRONIZED: ${selectedSubject} variants deployed to ${registry.length} institutional nodes.`);
-    setActiveTab('SUBMISSIONS');
-  };
-
-  const generateSingleVariant = async () => {
-    if (!selectedSchoolId) return alert("Select an institutional node.");
-    setIsProcessing(true);
-    
-    const mockKey = selectedMock.replace(/\s+/g, '');
-    const subKey = selectedSubject.replace(/\s+/g, '');
-
-    const newExam: SerializedExam = {
-      schoolId: selectedSchoolId,
-      mockSeries: selectedMock,
-      subject: selectedSubject,
-      packs: { 
-        A: createPack('A', masterQuestions), 
-        B: createPack('B', masterQuestions), 
-        C: createPack('C', masterQuestions), 
-        D: createPack('D', masterQuestions) 
-      },
-      timestamp: new Date().toISOString()
-    };
-
-    await supabase.from('uba_persistence').upsert({ 
-      id: `serialized_exam_${selectedSchoolId}_${mockKey}_${subKey}`, 
-      payload: newExam, 
-      last_updated: new Date().toISOString() 
-    });
-    
-    setSerializedExam(newExam);
-    setIsProcessing(false);
-    setActiveTab('PACKS');
+    alert("GLOBAL SYNCHRONIZATION COMPLETE.");
+    setActiveTab('NETWORK');
   };
 
   return (
-    <div className="animate-in fade-in duration-700 h-full flex flex-col p-8 font-sans bg-slate-950 text-slate-100">
+    <div className="animate-in fade-in duration-700 h-full flex flex-col p-6 bg-slate-950 text-slate-100 overflow-hidden">
       
-      {/* Header Controller */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-10 border-b border-slate-800 pb-8">
+      {/* Top Command Bar */}
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 border-b border-slate-800 pb-8">
         <div className="space-y-1">
-          <h2 className="text-3xl font-black uppercase text-white tracking-tighter flex items-center gap-4">
-             <div className="w-4 h-4 bg-indigo-500 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.6)] animate-pulse"></div>
-             Multi-Variant Scrambling Engine
+          <h2 className="text-2xl font-black uppercase text-white tracking-tighter flex items-center gap-3">
+             <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.5)]"></div>
+             Master Serialization Hub
           </h2>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Master Bank: {selectedSubject} / {selectedMock}</p>
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em]">Integrated Examination & Embossing Engine</p>
         </div>
         
-        <div className="flex flex-wrap gap-4">
-          <select value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-3 text-[10px] font-black text-white outline-none">
+        <div className="flex flex-wrap gap-3">
+          <select value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-black text-white outline-none">
             {SUBJECT_LIST.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
           </select>
-          <select value={selectedMock} onChange={e => setSelectedMock(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-3 text-[10px] font-black text-white outline-none">
-            {Array.from({ length: 10 }, (_, i) => `MOCK ${i+1}`).map(m => <option key={m} value={m}>{m}</option>)}
+          <select value={selectedMock} onChange={e => setSelectedMock(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-black text-white outline-none">
+            {['MOCK 1', 'MOCK 2', 'MOCK 3', 'MOCK 4', 'MOCK 5'].map(m => <option key={m} value={m}>{m}</option>)}
           </select>
-          <div className="flex gap-2">
-             <button onClick={propagateToAllNodes} disabled={isProcessing} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-xl transition-all flex items-center gap-2 border border-indigo-400/20">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                Apply to All Nodes
-             </button>
-             <select value={selectedSchoolId} onChange={e => setSelectedSchoolId(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-3 text-[10px] font-black text-white outline-none">
-                <option value="">SELECT TARGET NODE...</option>
-                {registry.map(r => <option key={r.id} value={r.id}>{r.name} ({r.id})</option>)}
-             </select>
-          </div>
+          <button onClick={propagateToAllNodes} disabled={isProcessing} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all active:scale-95 disabled:opacity-50">
+             {isProcessing ? 'Syncing...' : 'Propagate to Network'}
+          </button>
         </div>
       </div>
 
-      {/* Processing Overlay */}
-      {isProcessing && progress > 0 && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-10 space-y-10">
-           <div className="text-center space-y-4">
-              <h3 className="text-4xl font-black uppercase text-white tracking-widest">Federated Propagation</h3>
-              <p className="text-indigo-400 font-bold uppercase tracking-[0.4em] animate-pulse">Mirroring Data Shards to Global Registry</p>
+      {/* Progress Overlay */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-10 space-y-8">
+           <h3 className="text-4xl font-black uppercase text-white tracking-widest">Federated Deployment</h3>
+           <div className="w-full max-w-2xl h-6 bg-slate-900 rounded-full border border-slate-800 p-1">
+              <div className="h-full bg-blue-600 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
            </div>
-           <div className="w-full max-w-2xl h-8 bg-slate-900 rounded-full border border-slate-800 p-1 relative shadow-[0_0_50px_rgba(79,70,229,0.2)]">
-              <div className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full transition-all duration-500 flex items-center justify-center" style={{ width: `${progress}%` }}>
-                 <span className="text-[10px] font-black text-white">{progress}%</span>
-              </div>
-           </div>
-           <div className="grid grid-cols-5 gap-4">
-              {registry.slice(0, 10).map((s, i) => (
-                <div key={i} className={`w-3 h-3 rounded-full ${i < (progress/10) ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-800'}`}></div>
-              ))}
-           </div>
+           <p className="text-indigo-400 font-bold uppercase tracking-[0.4em] animate-pulse">Mirroring shards to global registry: {progress}%</p>
         </div>
       )}
 
-      {/* Navigation Tabs */}
+      {/* Tab Navigation */}
       <div className="flex gap-2 mb-8 bg-slate-900/50 p-1 rounded-2xl border border-slate-800 w-fit">
-        {(['INGEST', 'PACKS', 'MATRIX', 'EMBOSS', 'SUBMISSIONS'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-8 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${activeTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
-            {tab === 'INGEST' ? 'Master Ingestion' : tab === 'PACKS' ? 'Variant Monitor' : tab === 'MATRIX' ? 'Answer Key' : tab === 'EMBOSS' ? 'Single Emboss' : 'Network Submissions'}
+        {(['INGEST', 'PACKS', 'EMBOSS', 'NETWORK'] as const).map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${activeTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
+            {tab === 'INGEST' ? 'Master Ingestion' : tab === 'PACKS' ? 'Pack Monitor' : tab === 'EMBOSS' ? 'Academy Embossing' : 'Network Readiness'}
           </button>
         ))}
       </div>
 
-      <div className="flex-1 overflow-hidden min-h-[600px] flex flex-col">
-        {activeTab === 'INGEST' && (
-          <div className="flex flex-col gap-6 animate-in slide-in-from-left-4 h-full">
-            {/* ... Existing Ingestion Grid ... */}
-            <div className="bg-slate-900 rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-2xl flex flex-col flex-1">
-               <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-950">
-                  <div className="flex gap-8 text-[9px] font-black uppercase tracking-widest text-slate-600">
-                     <span>Total Master Items: {masterQuestions.length}</span>
-                  </div>
-                  <button onClick={generateSingleVariant} disabled={!selectedSchoolId} className="bg-indigo-600 hover:bg-indigo-500 text-white px-12 py-4 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.4em] shadow-2xl transition-all">Compile Packs for Targeted Node</button>
-               </div>
-               {/* Ingestion Table logic remains same as provided in previous turn */}
-               <div className="p-20 text-center opacity-30 italic">INGESTION GRID ACTIVE - EDIT MASTER BANK ABOVE</div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'SUBMISSIONS' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-[3rem] p-10 h-full flex flex-col shadow-2xl animate-in zoom-in-95">
-             <div className="flex justify-between items-center mb-10">
+      <div className="flex-1 overflow-hidden min-h-[500px]">
+        {activeTab === 'EMBOSS' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 h-full overflow-hidden">
+             {/* CONFIG PANEL */}
+             <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl flex flex-col space-y-8 overflow-y-auto no-scrollbar">
                 <div className="space-y-1">
-                   <h3 className="text-2xl font-black text-white uppercase tracking-tight">Global Paper Readiness Matrix</h3>
-                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Network-Wide Serialization Monitor: {selectedMock}</p>
+                   <h3 className="text-lg font-black uppercase text-blue-400">Embossing Controller</h3>
+                   <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Customize printable paper particulars</p>
                 </div>
-                <div className="flex gap-4">
-                   <div className="flex items-center gap-2"><div className="w-2 h-2 bg-emerald-500 rounded-full"></div><span className="text-[8px] font-black text-slate-500 uppercase">Synced</span></div>
-                   <div className="flex items-center gap-2"><div className="w-2 h-2 bg-slate-800 rounded-full"></div><span className="text-[8px] font-black text-slate-500 uppercase">Pending</span></div>
+
+                <div className="space-y-6">
+                   <div className="space-y-2">
+                      <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-2">Official Academy Identity</label>
+                      <input value={embossConfig.academyName} onChange={e=>setEmbossConfig({...embossConfig, academyName: e.target.value.toUpperCase()})} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-xs font-black text-white outline-none focus:border-blue-500" />
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-2">Postal Node Address</label>
+                      <input value={embossConfig.academyAddress} onChange={e=>setEmbossConfig({...embossConfig, academyAddress: e.target.value.toUpperCase()})} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-xs font-black text-white outline-none focus:border-blue-500" />
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-2">Examination General Rules</label>
+                      <textarea value={embossConfig.generalRules} onChange={e=>setEmbossConfig({...embossConfig, generalRules: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-5 text-[10px] font-bold text-slate-300 outline-none focus:border-blue-500 min-h-[120px]" />
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-2">Target Node for Preview</label>
+                      <select value={selectedSchoolId} onChange={e=>setSelectedSchoolId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-xs font-black text-white outline-none">
+                         <option value="">SELECT SCHOOL...</option>
+                         {registry.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                      </select>
+                   </div>
+                </div>
+
+                <div className="pt-4">
+                   <button onClick={() => window.print()} className="w-full bg-white text-slate-950 py-5 rounded-2xl font-black text-[10px] uppercase shadow-2xl transition-all active:scale-95 tracking-widest">Dispatch to Printer</button>
                 </div>
              </div>
-             <div className="flex-1 overflow-auto border border-slate-800 rounded-3xl bg-slate-950 custom-scrollbar">
-                <table className="w-full text-left border-collapse">
-                   <thead className="bg-slate-900 text-[8px] font-black text-slate-500 uppercase tracking-widest sticky top-0 z-10 border-b border-slate-800">
-                      <tr>
-                         <th className="px-8 py-5 min-w-[250px] sticky left-0 bg-slate-900 border-r border-slate-800 shadow-xl">Institutional Node</th>
-                         {SUBJECT_LIST.map(s => <th key={s} className="px-4 py-5 text-center min-w-[100px]">{s.substring(0, 8)}</th>)}
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y divide-slate-900">
-                      {registry.map(school => (
-                        <tr key={school.id} className="hover:bg-blue-900/10 transition-colors">
-                           <td className="px-8 py-4 font-black text-white text-xs sticky left-0 bg-slate-950 border-r border-slate-800 shadow-xl">
-                              <div className="flex flex-col">
-                                 <span className="uppercase">{school.name}</span>
-                                 <span className="text-[8px] font-mono text-slate-500">{school.id}</span>
+
+             {/* PREVIEW PANEL */}
+             <div className="lg:col-span-8 h-full overflow-y-auto custom-scrollbar bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-inner">
+                {schoolSerialization && serializedExam ? (
+                   <div className="space-y-20">
+                      {schoolSerialization.pupils.slice(0, 3).map((p, i) => (
+                        <div key={i} className="bg-white p-12 rounded-sm border-t-[15px] border-indigo-950 shadow-2xl text-slate-900 font-serif max-w-[210mm] mx-auto min-h-[297mm] flex flex-col scale-[0.9] origin-top">
+                           {/* HEADER */}
+                           <div className="border-b-4 border-slate-900 pb-6 mb-8 flex justify-between items-start">
+                              <div className="space-y-2">
+                                 <h1 className="text-3xl font-black uppercase tracking-tighter leading-none">{embossConfig.academyName}</h1>
+                                 <p className="text-[12px] font-black text-blue-800 uppercase tracking-[0.4em]">{selectedMock} — {selectedSubject.toUpperCase()}</p>
+                                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{embossConfig.academyAddress}</p>
                               </div>
-                           </td>
-                           {SUBJECT_LIST.map(sub => {
-                              const subKey = sub.replace(/\s+/g, '');
-                              const isSynced = submissionMatrix[school.id]?.[subKey];
-                              return (
-                                <td key={sub} className="px-4 py-4 text-center">
-                                   <div className={`w-5 h-5 rounded-full mx-auto flex items-center justify-center transition-all ${isSynced ? 'bg-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-slate-900 border border-slate-800'}`}>
-                                      {isSynced && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" className="text-white"><polyline points="20 6 9 17 4 12"/></svg>}
-                                   </div>
-                                </td>
-                              );
-                           })}
-                        </tr>
+                              <div className="bg-slate-900 text-white px-6 py-4 rounded-xl flex flex-col items-center justify-center min-w-[100px]">
+                                 <span className="text-[10px] font-black uppercase">PACK</span>
+                                 <span className="text-5xl font-black leading-none">{p.serial}</span>
+                              </div>
+                           </div>
+
+                           {/* CANDIDATE BOX */}
+                           <div className="grid grid-cols-2 gap-10 mb-8 text-[12px] font-bold border-b-2 border-slate-200 pb-6">
+                              <div className="space-y-2">
+                                 <div className="flex gap-3"><span>NAME:</span> <span className="border-b border-slate-900 flex-1 font-black uppercase">{p.name}</span></div>
+                                 <div className="flex gap-3"><span>INDEX:</span> <span className="border-b border-slate-900 flex-1 font-mono">{selectedSchoolId}/PUP-{p.id}</span></div>
+                              </div>
+                              <div className="space-y-2 text-right">
+                                 <div className="flex gap-3 justify-end"><span>EXAM DATE:</span> <span className="font-black">{schoolSerialization.startDate}</span></div>
+                                 <div className="flex gap-3 justify-end"><span>SERIAL:</span> <span className="font-mono text-indigo-700 bg-indigo-50 px-2 font-black">{p.questionCode}</span></div>
+                              </div>
+                           </div>
+
+                           {/* RULES */}
+                           <div className="border-2 border-slate-900 p-4 rounded-xl mb-8 bg-slate-50">
+                              <h5 className="text-[9px] font-black uppercase tracking-widest mb-1 border-b border-slate-200 pb-1">GENERAL RULES</h5>
+                              <p className="text-[11px] italic leading-relaxed whitespace-pre-wrap">{embossConfig.generalRules}</p>
+                           </div>
+
+                           {/* CONTENT PREVIEW */}
+                           <div className="flex-1 space-y-10">
+                              <div className="space-y-4">
+                                 <div className="bg-slate-900 text-white p-2 rounded-t-lg text-[10px] font-black uppercase tracking-[0.2em]">Section A: Objectives (40 Marks)</div>
+                                 <div className="border-2 border-slate-900 p-4 rounded-b-lg italic text-xs text-slate-500 min-h-[100px] flex items-center justify-center">
+                                    [ VARIANT {p.serial} SEQUENCE EMBEDDED — 40 ITEMS ]
+                                 </div>
+                              </div>
+                              <div className="space-y-4">
+                                 <div className="bg-indigo-900 text-white p-2 rounded-t-lg text-[10px] font-black uppercase tracking-[0.2em]">Section B: Theory (60 Marks)</div>
+                                 <div className="border-2 border-slate-900 p-4 rounded-b-lg italic text-xs text-slate-500 min-h-[150px] flex items-center justify-center">
+                                    [ VARIANT {p.serial} SEQUENCE EMBEDDED — 5 QUESTIONS ]
+                                 </div>
+                              </div>
+                           </div>
+
+                           {/* FOOTER */}
+                           <div className="mt-10 pt-6 border-t-4 border-double border-slate-900 flex justify-between items-end">
+                              <div className="w-[30%] text-center border-t border-slate-400 pt-1 text-[8px] font-black uppercase text-slate-500">Chief Examiner Signature</div>
+                              <p className="text-[8px] font-black uppercase tracking-[1em] opacity-40">UBA NETWORK HUB</p>
+                              <div className="w-[30%] text-center border-t border-slate-400 pt-1 text-[8px] font-black uppercase text-slate-500">Candidate Signature</div>
+                           </div>
+                        </div>
                       ))}
-                   </tbody>
-                </table>
+                      <p className="text-center text-[10px] font-black text-slate-700 uppercase tracking-[0.5em]">Previewing 3 of {schoolSerialization.pupils.length} papers</p>
+                   </div>
+                ) : (
+                   <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-6 py-20">
+                      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                      <p className="font-black uppercase text-sm tracking-[0.4em]">Select serialized node for embossing preview</p>
+                   </div>
+                )}
              </div>
           </div>
         )}
-
-        {/* Other tabs (PACKS, MATRIX, EMBOSS) logic remains same, filtered by selectedSchoolId */}
+        
+        {/* Placeholder for other tabs logic... */}
+        {activeTab !== 'EMBOSS' && <div className="p-20 text-center opacity-20 uppercase font-black tracking-widest">{activeTab} MODULE ACTIVE</div>}
       </div>
     </div>
   );

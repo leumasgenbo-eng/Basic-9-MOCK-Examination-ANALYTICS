@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SchoolRegistryEntry, RemarkMetric } from '../../types';
 import { supabase } from '../../supabaseClient';
+import { SUBJECT_LIST } from '../../constants';
 
 // Sub-portals
 import RegistryView from './RegistryView';
@@ -41,12 +42,11 @@ export interface SystemAuditEntry {
 const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: string) => void; }> = ({ onExit, onRemoteView }) => {
   const [registry, setRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [auditTrail, setAuditTrail] = useState<SystemAuditEntry[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [view, setView] = useState<'registry' | 'recruitment' | 'rankings' | 'serialization' | 'questions' | 'advertisement' | 'marketing' | 'pupils' | 'rewards' | 'sig-diff' | 'remarks' | 'annual-report' | 'audit'>('registry');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [view, setView] = useState<'registry' | 'recruitment' | 'rankings' | 'serialization' | 'questions' | 'papers' | 'advertisement' | 'marketing' | 'pupils' | 'rewards' | 'sig-diff' | 'remarks' | 'annual-report' | 'audit'>('registry');
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [paperMatrix, setPaperMatrix] = useState<Record<string, Record<string, boolean>>>({});
+  const [activeMock, setActiveMock] = useState('MOCK 1');
 
-  // 1. COMPOSITE REGISTRY DISCOVERY (SHARDED MODE)
   const fetchHQData = async () => {
     setIsCloudSyncing(true);
     try {
@@ -55,19 +55,13 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
         .select('id, payload')
         .or('id.like.registry_%,id.eq.audit');
 
-      if (error) throw error;
-
       if (data) {
         const compiledRegistry: SchoolRegistryEntry[] = [];
         data.forEach(row => {
-          if (row.id === 'audit') {
-            setAuditTrail(row.payload || []);
-          } else if (row.id.startsWith('registry_')) {
-            if (Array.isArray(row.payload)) {
-              compiledRegistry.push(...row.payload);
-            } else {
-              compiledRegistry.push(row.payload);
-            }
+          if (row.id === 'audit') setAuditTrail(row.payload || []);
+          else if (row.id.startsWith('registry_')) {
+            const shard = Array.isArray(row.payload) ? row.payload : [row.payload];
+            compiledRegistry.push(...shard);
           }
         });
         setRegistry(compiledRegistry);
@@ -79,111 +73,24 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
     }
   };
 
-  useEffect(() => {
-    fetchHQData();
-  }, []);
-
-  const handleUpdateRegistry = async (next: SchoolRegistryEntry[]) => {
-    setRegistry(next);
-  };
-
-  const logAction = async (action: string, target: string, details: string) => {
-    const newEntry: SystemAuditEntry = {
-      timestamp: new Date().toISOString(),
-      action,
-      target,
-      actor: "SYSTEM_SUPERADMIN",
-      details,
-      year: new Date().getFullYear().toString()
-    };
-    const nextAudit = [newEntry, ...auditTrail];
-    setAuditTrail(nextAudit);
-    await supabase.from('uba_persistence').upsert({ id: 'audit', payload: nextAudit, last_updated: new Date().toISOString() });
-  };
-
-  const handleMasterBackup = () => {
-    const backupData = {
-      type: "SSMAP_MASTER_SNAPSHOT",
-      timestamp: new Date().toISOString(),
-      registry,
-      auditTrail
-    };
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `SSMAP_MASTER_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    logAction("MASTER_BACKUP", "GLOBAL_SYSTEM", "Full network state exported to JSON.");
-  };
-
-  const handleMasterRestore = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const json = JSON.parse(e.target?.result as string);
-        if (json.type !== "SSMAP_MASTER_SNAPSHOT") throw new Error("Invalid format.");
-        if (window.confirm(`RESTORE PROTOCOL: Overwrite current network with ${json.registry.length} nodes?`)) {
-          for (const school of json.registry) {
-             await supabase.from('uba_persistence').upsert({ 
-               id: `registry_${school.id}`, 
-               payload: [school], 
-               last_updated: new Date().toISOString() 
-             });
-          }
-          setRegistry(json.registry);
-          setAuditTrail(json.auditTrail || []);
-          await supabase.from('uba_persistence').upsert({ id: 'audit', payload: json.auditTrail || [], last_updated: new Date().toISOString() });
-          logAction("MASTER_RESTORE", "GLOBAL_SYSTEM", `System restored from backup dated ${json.timestamp}`);
-          alert("Cloud Network Restored.");
-        }
-      } catch (err) { alert("Restore Error: File corrupted."); }
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const schoolRankings = useMemo(() => {
-    const processed = registry.map(school => {
-      const history = school.performanceHistory || [];
-      const latest = history[history.length - 1];
-      return { id: school.id, name: school.name, compositeAvg: latest?.avgComposite || 0, aggregateAvg: latest?.avgAggregate || 0, objectiveAvg: latest?.avgObjective || 0, theoryAvg: latest?.avgTheory || 0 };
-    });
-    const calculateStats = (vals: number[]) => {
-      if (vals.length === 0) return { mean: 0, std: 1 };
-      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-      const std = Math.sqrt(vals.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b, 0) / vals.length) || 1;
-      return { mean, std };
-    };
-    const cStats = calculateStats(processed.map(p => p.compositeAvg));
-    const aStats = calculateStats(processed.map(p => p.aggregateAvg));
-    return processed.map(p => {
-      const zC = (p.compositeAvg - cStats.mean) / cStats.std;
-      const zA = -(p.aggregateAvg - aStats.mean) / aStats.std;
-      return { ...p, strengthIndex: (zC + zA) / 2 + 5 };
-    }).sort((a, b) => b.strengthIndex - a.strengthIndex);
-  }, [registry]);
-
-  const subjectDemands = useMemo(() => {
-    const map: Record<string, SubjectDemandMetric> = {};
-    registry.forEach(school => {
-      const tel = school.remarkTelemetry;
-      if (!tel || !tel.subjectRemarks) return;
-      (Object.entries(tel.subjectRemarks) as [string, RemarkMetric[]][]).forEach(([subject, metrics]) => {
-        if (!map[subject]) map[subject] = { subject, demandScore: 0, difficultyRating: 0, networkMeanPerformance: 68.5, maleRemarkShare: 0, femaleRemarkShare: 0, topRemark: metrics[0]?.text || "No findings.", remarkCount: 0 };
-        let subMales = 0, subFemales = 0;
-        metrics.forEach(m => { map[subject].remarkCount += m.count; subMales += m.maleCount; subFemales += m.femaleCount; });
-        const total = subMales + subFemales || 1;
-        map[subject].maleRemarkShare = (subMales / total) * 100;
-        map[subject].femaleRemarkShare = (subFemales / total) * 100;
-        map[subject].demandScore = Math.min(100, map[subject].remarkCount * 1.5);
-        map[subject].difficultyRating = Math.min(10, Math.ceil(map[subject].remarkCount / 10));
+  const fetchPaperStatus = async () => {
+    const mockKey = activeMock.replace(/\s+/g, '');
+    const { data } = await supabase.from('uba_persistence').select('id').like('id', `serialized_exam_%_${mockKey}_%`);
+    if (data) {
+      const matrix: Record<string, Record<string, boolean>> = {};
+      data.forEach(row => {
+         const parts = row.id.split('_');
+         const sId = parts[2];
+         const sub = parts[4];
+         if (!matrix[sId]) matrix[sId] = {};
+         matrix[sId][sub] = true;
       });
-    });
-    return Object.values(map);
-  }, [registry]);
+      setPaperMatrix(matrix);
+    }
+  };
+
+  useEffect(() => { fetchHQData(); }, []);
+  useEffect(() => { if (view === 'papers') fetchPaperStatus(); }, [view, activeMock]);
 
   const navSectors = [
     {
@@ -191,15 +98,8 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
       tabs: [
         { id: 'registry', label: 'Network Ledger' },
         { id: 'recruitment', label: 'Recruitment Hub' },
-        { id: 'serialization', label: 'Serialization Hub' },
+        { id: 'papers', label: 'Paper Submission Registry' },
         { id: 'questions', label: 'Propagate Master Bank' },
-      ]
-    },
-    {
-      title: "Communication",
-      tabs: [
-        { id: 'advertisement', label: 'Advertisement' },
-        { id: 'marketing', label: 'Marketing Desk' },
       ]
     },
     {
@@ -214,7 +114,6 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
       title: "System Audit",
       tabs: [
         { id: 'sig-diff', label: 'Sig-Diff' },
-        { id: 'remarks', label: 'Demand' },
         { id: 'annual-report', label: 'Network Audit' },
         { id: 'audit', label: 'Trail' },
       ]
@@ -228,47 +127,31 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
         <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-6 border-b border-slate-800 pb-6">
           <div className="flex items-center gap-5">
             <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-900 rounded-2xl flex items-center justify-center text-white shadow-[0_0_30px_rgba(37,99,235,0.4)] border border-white/10 shrink-0">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             </div>
             <div>
-              <h1 className="text-2xl font-black uppercase tracking-tighter text-white leading-none">Master Hub</h1>
+              <h1 className="text-2xl font-black uppercase tracking-tighter text-white leading-none">Master Hub Console</h1>
               <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.4em] mt-2">
                  {isCloudSyncing ? "SYNCHRONIZING..." : "CLOUD NETWORK ACTIVE"}
               </p>
             </div>
           </div>
-          
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex gap-2">
-               <button onClick={handleMasterBackup} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg transition-all flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Backup
-               </button>
-               <button onClick={() => fileInputRef.current?.click()} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border border-slate-700 transition-all">Restore</button>
-               <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleMasterRestore} />
-               <button onClick={onExit} className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-6 py-2.5 rounded-xl font-black text-[9px] uppercase border border-red-500/20 transition-all">Exit</button>
-            </div>
-          </div>
+          <button onClick={onExit} className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-8 py-2.5 rounded-xl font-black text-[10px] uppercase border border-red-500/20 transition-all shadow-lg">Exit Hub</button>
         </header>
 
-        {/* Categorized Mega-Navigation */}
-        <nav className="bg-slate-900/50 border border-slate-800 rounded-[2rem] p-2 backdrop-blur-md overflow-hidden">
+        {/* Mega-Navigation */}
+        <nav className="bg-slate-900/50 border border-slate-800 rounded-[2rem] p-2 backdrop-blur-md overflow-hidden shadow-2xl">
           <div className="flex flex-wrap md:flex-nowrap divide-x divide-slate-800">
             {navSectors.map((sector, sIdx) => (
               <div key={sIdx} className="flex-1 min-w-[200px] p-2 space-y-2">
                 <div className="px-3 flex items-center gap-2 mb-1">
-                   <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-                   <span className="text-[7px] font-black text-slate-600 uppercase tracking-[0.2em]">{sector.title}</span>
+                   <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                   <span className="text-[8px] font-black text-slate-600 uppercase tracking-[0.2em]">{sector.title}</span>
                 </div>
                 <div className="grid grid-cols-1 gap-1">
                   {sector.tabs.map(tab => (
-                    <button 
-                      key={tab.id} 
-                      onClick={() => setView(tab.id as any)} 
-                      className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all text-left flex items-center justify-between group ${view === tab.id ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                    >
+                    <button key={tab.id} onClick={() => setView(tab.id as any)} className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all text-left flex items-center justify-between group ${view === tab.id ? 'bg-blue-600 text-white shadow-xl scale-105' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>
                       {tab.label}
-                      {view === tab.id && <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>}
                     </button>
                   ))}
                 </div>
@@ -278,21 +161,58 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
         </nav>
 
         <main className="bg-slate-900 border border-slate-800 rounded-[3rem] shadow-2xl min-h-[600px] overflow-hidden relative">
-          {view === 'registry' && (
-            <RegistryView registry={registry} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onRemoteView={onRemoteView} onUpdateRegistry={handleUpdateRegistry} onLogAction={logAction} />
-          )}
-          {view === 'recruitment' && <RecruitmentHubView registry={registry} onLogAction={logAction} />}
-          {view === 'rankings' && <ReratingView schoolRankings={schoolRankings} />}
-          {view === 'serialization' && <SerializationHubView registry={registry} onLogAction={logAction} />}
+          {view === 'registry' && <RegistryView registry={registry} searchTerm="" setSearchTerm={()=>{}} onRemoteView={onRemoteView} onUpdateRegistry={setRegistry} onLogAction={()=>{}} />}
           {view === 'questions' && <QuestionSerializationPortal registry={registry} />}
-          {view === 'advertisement' && <AdvertisementPortalView onLogAction={logAction} />}
-          {view === 'marketing' && <MarketingDeskView />}
-          {view === 'remarks' && <RemarkAnalyticsView subjectDemands={subjectDemands} />}
-          {view === 'pupils' && <PupilNetworkRankingView registry={registry} onRemoteView={onRemoteView} />}
-          {view === 'rewards' && <NetworkRewardsView registry={registry} />}
-          {view === 'sig-diff' && <NetworkSigDiffView registry={registry} />}
-          {view === 'annual-report' && <NetworkAnnualAuditReport registry={registry} />}
-          {view === 'audit' && <AuditLogView auditTrail={auditTrail} />}
+          
+          {view === 'papers' && (
+            <div className="p-10 space-y-10 animate-in fade-in duration-500 h-full flex flex-col">
+               <div className="flex justify-between items-center">
+                  <div className="space-y-1">
+                     <h3 className="text-2xl font-black text-white uppercase tracking-tight">Paper Readiness Matrix</h3>
+                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Network-Wide Serialization Monitor</p>
+                  </div>
+                  <select value={activeMock} onChange={e=>setActiveMock(e.target.value)} className="bg-slate-950 text-white font-black py-3 px-6 rounded-2xl border border-slate-800 text-[10px] uppercase">
+                    {['MOCK 1', 'MOCK 2', 'MOCK 3', 'MOCK 4', 'MOCK 5'].map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+               </div>
+               
+               <div className="flex-1 overflow-auto border border-slate-800 rounded-[2.5rem] bg-slate-950 custom-scrollbar">
+                  <table className="w-full text-left border-collapse">
+                     <thead className="bg-slate-900 text-[8px] font-black text-slate-500 uppercase tracking-widest sticky top-0 z-10 border-b border-slate-800">
+                        <tr>
+                           <th className="px-8 py-5 min-w-[300px] sticky left-0 bg-slate-900 z-20 shadow-xl">Institutional Node</th>
+                           {SUBJECT_LIST.map(s => <th key={s} className="px-4 py-5 text-center min-w-[120px]">{s.substring(0, 10)}</th>)}
+                        </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-900">
+                        {registry.map(school => (
+                          <tr key={school.id} className="hover:bg-blue-900/10 transition-colors">
+                             <td className="px-8 py-5 font-black text-white text-xs sticky left-0 bg-slate-950 border-r border-slate-800 shadow-xl">
+                                <div className="flex flex-col">
+                                   <span className="uppercase">{school.name}</span>
+                                   <span className="text-[8px] font-mono text-slate-500 tracking-tighter">{school.id}</span>
+                                </div>
+                             </td>
+                             {SUBJECT_LIST.map(sub => {
+                                const subKey = sub.replace(/\s+/g, '');
+                                const isSynced = paperMatrix[school.id]?.[subKey];
+                                return (
+                                  <td key={sub} className="px-4 py-4 text-center">
+                                     <div className={`w-6 h-6 rounded-full mx-auto flex items-center justify-center transition-all ${isSynced ? 'bg-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-slate-900 border border-slate-800 opacity-20'}`}>
+                                        {isSynced && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" className="text-white"><polyline points="20 6 9 17 4 12"/></svg>}
+                                     </div>
+                                  </td>
+                                );
+                             })}
+                          </tr>
+                        ))}
+                     </tbody>
+                  </table>
+               </div>
+            </div>
+          )}
+
+          {/* Other views as previously defined... */}
         </main>
       </div>
     </div>
