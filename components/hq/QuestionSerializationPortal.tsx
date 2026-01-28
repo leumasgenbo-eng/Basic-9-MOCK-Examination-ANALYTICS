@@ -24,8 +24,6 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
   const [masterQuestions, setMasterQuestions] = useState<MasterQuestion[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [serializedExam, setSerializedExam] = useState<SerializedExam | null>(null);
-  const [schoolSerialization, setSchoolSerialization] = useState<SerializationData | null>(null);
 
   // Global Instructions Control
   const [embossConfig, setEmbossConfig] = useState({
@@ -41,9 +39,18 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
 
   useEffect(() => {
     const fetchExisting = async () => {
-      const { data } = await supabase.from('uba_persistence').select('payload').eq('id', bankId).maybeSingle();
-      if (data?.payload) setMasterQuestions(data.payload);
-      else setMasterQuestions([]);
+      try {
+        const { data } = await supabase.from('uba_persistence').select('payload').eq('id', bankId).maybeSingle();
+        // Defensive check: Ensure payload is an array
+        if (data?.payload && Array.isArray(data.payload)) {
+          setMasterQuestions(data.payload);
+        } else {
+          setMasterQuestions([]);
+        }
+      } catch (err) {
+        console.error("Fetch Error:", err);
+        setMasterQuestions([]);
+      }
     };
     fetchExisting();
   }, [selectedSubject, bankId]);
@@ -54,19 +61,18 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
       id: `MQ-${Date.now()}-${nextIdx}`,
       originalIndex: nextIdx,
       type: 'THEORY',
-      strand: 'Strand Name',
+      strand: 'New Strand',
       subStrand: 'Sub-Strand',
-      indicator: 'B9.1.1.1',
-      questionText: 'Main question body text...',
-      instruction: 'Question instruction...',
+      indicator: 'B9.x.x.x',
+      questionText: 'ENTER MAIN QUESTION TEXT...',
+      instruction: 'Answer all parts.',
       correctKey: 'RUBRIC',
       weight: 10,
       blooms: 'Knowledge',
       parts: [
-        { partLabel: 'a.i', text: 'Part text...', possibleAnswers: '', markingScheme: 'Scheme...', weight: 2, blooms: 'Knowledge' },
-        { partLabel: 'a.ii', text: 'Part text...', possibleAnswers: '', markingScheme: 'Scheme...', weight: 2, blooms: 'Knowledge' }
+        { partLabel: 'a.i', text: 'Part description...', possibleAnswers: '', markingScheme: 'Marking scheme...', weight: 2, blooms: 'Knowledge' }
       ],
-      answerScheme: 'Detailed answer scheme for this theory item...'
+      answerScheme: 'Overall assessment criteria...'
     };
     setMasterQuestions([...masterQuestions, newQ]);
   };
@@ -76,29 +82,34 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
       id: `MQ-OBJ-${Date.now()}-${i + 1}`,
       originalIndex: masterQuestions.length + i + 1,
       type: 'OBJECTIVE',
-      strand: 'ENGLISH',
-      subStrand: 'Standard Grammar',
+      strand: 'GENERAL',
+      subStrand: 'CORE',
       indicator: `B9.1.1.1.${i + 1}`,
-      questionText: `Standard English Item #${i + 1}`,
-      instruction: 'Choose the best option.',
+      questionText: `Objective Item #${i + 1}`,
+      instruction: 'Choose the most appropriate option.',
       correctKey: 'A',
       weight: 1,
       blooms: 'Knowledge',
       parts: [],
-      answerScheme: 'Standard Option A'
+      answerScheme: 'Option A'
     }));
     setMasterQuestions([...masterQuestions, ...newObjs]);
   };
 
   const handleSaveMasterBank = async () => {
     setIsProcessing(true);
-    await supabase.from('uba_persistence').upsert({
-      id: bankId,
-      payload: masterQuestions,
-      last_updated: new Date().toISOString()
-    });
-    setIsProcessing(false);
-    alert("MASTER BANK SYNCHRONIZED.");
+    try {
+      await supabase.from('uba_persistence').upsert({
+        id: bankId,
+        payload: masterQuestions,
+        last_updated: new Date().toISOString()
+      });
+      alert("MASTER HUB SYNCHRONIZED.");
+    } catch (e) {
+      alert("Persistence Failure.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const updateQuestion = (id: string, field: keyof MasterQuestion, value: any) => {
@@ -128,39 +139,44 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
   };
 
   const propagateToAllNodes = async () => {
-    if (masterQuestions.length === 0) return alert("Populate Master Bank.");
+    if (!masterQuestions || masterQuestions.length === 0) return alert("Populate Master Bank.");
     setIsProcessing(true);
     setProgress(0);
     const mockKey = selectedMock.replace(/\s+/g, '');
     const subKey = selectedSubject.replace(/\s+/g, '');
 
-    for (let i = 0; i < registry.length; i++) {
-      const school = registry[i];
-      const newExam: SerializedExam = {
-        schoolId: school.id,
-        mockSeries: selectedMock,
-        subject: selectedSubject,
-        packs: { A: createPack('A', masterQuestions), B: createPack('B', masterQuestions), C: createPack('C', masterQuestions), D: createPack('D', masterQuestions) },
-        timestamp: new Date().toISOString()
-      };
-      await supabase.from('uba_persistence').upsert({ id: `serialized_exam_${school.id}_${mockKey}_${subKey}`, payload: newExam });
-      setProgress(Math.round(((i + 1) / registry.length) * 100));
+    try {
+      for (let i = 0; i < registry.length; i++) {
+        const school = registry[i];
+        const newExam: SerializedExam = {
+          schoolId: school.id,
+          mockSeries: selectedMock,
+          subject: selectedSubject,
+          packs: { A: createPack('A', masterQuestions), B: createPack('B', masterQuestions), C: createPack('C', masterQuestions), D: createPack('D', masterQuestions) },
+          timestamp: new Date().toISOString()
+        };
+        await supabase.from('uba_persistence').upsert({ id: `serialized_exam_${school.id}_${mockKey}_${subKey}`, payload: newExam });
+        setProgress(Math.round(((i + 1) / registry.length) * 100));
+      }
+      alert("NETWORK DEPLOYMENT COMPLETE.");
+    } catch (e) {
+      alert("Deployment Interrupted.");
+    } finally {
+      setIsProcessing(false);
     }
-    setIsProcessing(false);
-    alert("NETWORK DEPLOYMENT COMPLETE.");
   };
 
   return (
     <div className="animate-in fade-in duration-700 h-full flex flex-col p-6 bg-slate-950 text-slate-100 overflow-hidden font-sans">
       
-      {/* Dynamic Command Header */}
+      {/* Command Header */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-6 border-b border-slate-800 pb-6">
         <div className="space-y-1">
           <h2 className="text-2xl font-black uppercase text-white tracking-tighter flex items-center gap-3">
              <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.5)]"></div>
-             Multi-Variant Ingestion & Serialization
+             Master Hub Ingestion & Serialization
           </h2>
-          <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em]">Integrated Hub Engine: {selectedSubject}</p>
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em]">Active Node: {selectedSubject}</p>
         </div>
         
         <div className="flex flex-wrap gap-3">
@@ -171,16 +187,16 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
             {['MOCK 1', 'MOCK 2', 'MOCK 3', 'MOCK 4', 'MOCK 5'].map(m => <option key={m} value={m}>{m}</option>)}
           </select>
           <button onClick={propagateToAllNodes} disabled={isProcessing} className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all active:scale-95 disabled:opacity-50">
-             {isProcessing ? 'Syncing...' : 'Apply to All Nodes'}
+             {isProcessing ? `Deploying ${progress}%` : 'Apply to Network'}
           </button>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Navigation Tabs */}
       <div className="flex gap-2 mb-6 bg-slate-900/50 p-1 rounded-2xl border border-slate-800 w-fit">
-        {(['INGEST', 'PACKS', 'MATRIX', 'EMBOSS', 'NETWORK'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${activeTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
-            {tab === 'INGEST' ? 'Hub Ingestion' : tab === 'PACKS' ? 'Variant Monitor' : tab === 'MATRIX' ? 'Answer Key' : tab === 'EMBOSS' ? 'Paper Embossing' : 'Readiness'}
+        {(['INGEST', 'PACKS', 'EMBOSS'] as const).map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${activeTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
+            {tab === 'INGEST' ? 'Question Ingestion' : tab === 'PACKS' ? 'Variant Monitor' : 'Paper Embossing'}
           </button>
         ))}
       </div>
@@ -189,113 +205,97 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
         {activeTab === 'INGEST' && (
           <div className="h-full flex flex-col space-y-6">
             
-            {/* NO SCHOOL HAS SUBMITTED STATE / ZERO DATA STATE */}
-            {masterQuestions.length === 0 ? (
+            {(!masterQuestions || masterQuestions.length === 0) ? (
                <div className="flex-1 flex flex-col items-center justify-center space-y-8 bg-slate-900/50 border border-slate-800 border-dashed rounded-[3rem] p-20 text-center animate-in zoom-in-95">
                   <div className="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700 shadow-inner">
                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-500"><path d="M12 2v20m10-10H2"/></svg>
                   </div>
                   <div className="space-y-2">
-                     <h3 className="text-2xl font-black text-white uppercase tracking-tight">Ingestion Hub Empty</h3>
-                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.4em] max-w-sm">No institutional question submissions detected for {selectedSubject}. Start by generating objectives or manual entry.</p>
+                     <h3 className="text-2xl font-black text-white uppercase tracking-tight">Ingestion Hub Ready</h3>
+                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.4em] max-w-sm">No institutional submissions found for {selectedSubject}. Start by auto-generating or manual entry.</p>
                   </div>
                   <div className="flex gap-4">
-                     <button onClick={handleAdd40Objectives} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-xl hover:bg-blue-500 transition-all">+ Auto 40 Objectives</button>
-                     <button onClick={handleAddTheoryRow} className="bg-white/10 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase border border-white/20 hover:bg-white/20 transition-all">+ Manual Entry</button>
+                     <button onClick={handleAdd40Objectives} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-xl hover:bg-blue-500 transition-all">+ 40 Objectives</button>
+                     <button onClick={handleAddTheoryRow} className="bg-white/10 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase border border-white/20 hover:bg-white/20 transition-all">+ Add Theory</button>
                   </div>
                </div>
             ) : (
                <>
-                {/* Global Instructions Control */}
                 <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2rem] grid grid-cols-1 md:grid-cols-3 gap-6 shadow-xl">
                    <div className="space-y-2">
-                      <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">General Rules</label>
+                      <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Global Instructions</label>
                       <textarea value={embossConfig.generalRules} onChange={e=>setEmbossConfig({...embossConfig, generalRules: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] text-slate-300 min-h-[60px]" />
                    </div>
                    <div className="space-y-2">
-                      <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Section A Instructions</label>
+                      <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Sec A Instructions</label>
                       <textarea value={embossConfig.sectionAInstructions} onChange={e=>setEmbossConfig({...embossConfig, sectionAInstructions: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] text-slate-300 min-h-[60px]" />
                    </div>
                    <div className="space-y-2">
-                      <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Section B Instructions</label>
+                      <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Sec B Instructions</label>
                       <textarea value={embossConfig.sectionBInstructions} onChange={e=>setEmbossConfig({...embossConfig, sectionBInstructions: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] text-slate-300 min-h-[60px]" />
                    </div>
                 </div>
 
                 <div className="flex gap-4">
-                   <button onClick={handleAdd40Objectives} className="bg-blue-600/20 text-blue-400 px-6 py-3 rounded-xl font-black text-[10px] uppercase border border-blue-500/30 hover:bg-blue-600 hover:text-white transition-all">+ 40 Objectives</button>
-                   <button onClick={handleAddTheoryRow} className="bg-indigo-600/20 text-indigo-400 px-6 py-3 rounded-xl font-black text-[10px] uppercase border border-indigo-500/30 hover:bg-indigo-600 hover:text-white transition-all">+ Theory Row</button>
-                   <button onClick={handleSaveMasterBank} className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-xl ml-auto">Save Master Bank</button>
+                   <button onClick={handleAdd40Objectives} className="bg-blue-600/20 text-blue-400 px-6 py-3 rounded-xl font-black text-[10px] uppercase border border-blue-500/30 hover:bg-blue-600 transition-all">+ Objective</button>
+                   <button onClick={handleAddTheoryRow} className="bg-indigo-600/20 text-indigo-400 px-6 py-3 rounded-xl font-black text-[10px] uppercase border border-indigo-500/30 hover:bg-indigo-600 transition-all">+ Theory</button>
+                   <button onClick={handleSaveMasterBank} className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-xl ml-auto">Sync Master Hub</button>
                 </div>
 
                 <div className="flex-1 overflow-auto bg-slate-900 rounded-[2rem] border border-slate-800 custom-scrollbar">
                    <table className="w-full text-left border-collapse">
                       <thead className="bg-slate-950 sticky top-0 z-10 text-[8px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-800">
                          <tr>
-                            <th className="px-6 py-4 w-12">Sec</th>
+                            <th className="px-6 py-4 w-12 text-center">Sec</th>
                             <th className="px-4 py-4 w-12 text-center">Q#</th>
-                            <th className="px-6 py-4 w-40">Classification</th>
-                            <th className="px-6 py-4">Content & Instruction</th>
-                            <th className="px-6 py-4 w-60">Sub-Parts / Options</th>
-                            <th className="px-6 py-4 w-60">Answer Scheme</th>
-                            <th className="px-4 py-4 text-center">Blooms</th>
-                            <th className="px-4 py-4 text-center">Wgt</th>
-                            <th className="px-4 py-4 text-center">Del</th>
+                            <th className="px-6 py-4">Content & Instructions</th>
+                            <th className="px-6 py-4 w-64">Assessment Key/Parts</th>
+                            <th className="px-4 py-4 text-center">Weight</th>
+                            <th className="px-4 py-4 text-center">Action</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800">
                          {masterQuestions.map((q) => (
                             <tr key={q.id} className="hover:bg-blue-900/10 group transition-colors">
-                               <td className="px-6 py-4">
-                                  <span className={`px-2 py-0.5 rounded text-[8px] font-black ${q.type === 'THEORY' ? 'bg-indigo-500 text-white' : 'bg-blue-500 text-white'}`}>
+                               <td className="px-6 py-4 text-center">
+                                  <span className={`px-2 py-0.5 rounded text-[8px] font-black ${q.type === 'THEORY' ? 'bg-indigo-500' : 'bg-blue-500'} text-white`}>
                                      {q.type === 'THEORY' ? 'B' : 'A'}
                                   </span>
                                </td>
                                <td className="px-4 py-4 text-center font-black text-slate-500">{q.originalIndex}</td>
-                               <td className="px-6 py-4 space-y-1">
-                                  <input value={q.strand} onChange={e=>updateQuestion(q.id, 'strand', e.target.value.toUpperCase())} className="w-full bg-transparent outline-none border-b border-transparent focus:border-blue-500 text-[10px] font-black uppercase text-blue-400" placeholder="Strand..." />
-                                  <input value={q.indicator} onChange={e=>updateQuestion(q.id, 'indicator', e.target.value.toUpperCase())} className="w-full bg-transparent outline-none border-b border-transparent focus:border-blue-500 text-[9px] font-mono font-bold text-slate-500" placeholder="Indicator..." />
-                               </td>
                                <td className="px-6 py-4 space-y-2">
                                   <input value={q.instruction} onChange={e=>updateQuestion(q.id, 'instruction', e.target.value)} className="w-full bg-transparent outline-none italic text-[9px] text-slate-500" placeholder="Instruction..." />
-                                  <textarea value={q.questionText} onChange={e=>updateQuestion(q.id, 'questionText', e.target.value.toUpperCase())} className="w-full bg-transparent outline-none text-[11px] font-bold text-slate-200 resize-none no-scrollbar" rows={2} placeholder="Main question body..." />
-                                  <button className="text-[7px] font-black uppercase text-blue-500 hover:text-white flex items-center gap-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Attach Diagram</button>
+                                  <textarea value={q.questionText} onChange={e=>updateQuestion(q.id, 'questionText', e.target.value.toUpperCase())} className="w-full bg-transparent outline-none text-[11px] font-bold text-slate-200 resize-none" rows={2} />
+                                  <div className="flex gap-4">
+                                     <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Strand: {q.strand}</span>
+                                     <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Indicator: {q.indicator}</span>
+                                  </div>
                                </td>
                                <td className="px-6 py-4 space-y-2">
                                   {q.type === 'OBJECTIVE' ? (
-                                    <div className="grid grid-cols-1 gap-1">
-                                       {['A.', 'B.', 'C.', 'D.'].map(l => (
-                                         <div key={l} className="text-[9px] font-bold text-slate-600 flex items-center gap-2">
-                                           <span className="w-4">{l}</span>
-                                           <input className="bg-transparent outline-none border-b border-slate-800 focus:border-blue-500 flex-1 text-slate-400" placeholder="Option text..." />
-                                         </div>
-                                       ))}
+                                    <div className="flex items-center gap-3">
+                                       <span className="text-[8px] font-black text-slate-600 uppercase">Master Key:</span>
+                                       <select value={q.correctKey} onChange={e=>updateQuestion(q.id, 'correctKey', e.target.value)} className="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] font-black text-blue-400 outline-none">
+                                          {['A', 'B', 'C', 'D'].map(l => <option key={l} value={l}>{l}</option>)}
+                                       </select>
                                     </div>
                                   ) : (
                                     <div className="space-y-2">
-                                       {q.parts.map((p, pi) => (
-                                          <div key={pi} className="flex gap-2 items-start">
-                                             <span className="text-[8px] font-black text-indigo-400 w-6">{p.partLabel}</span>
+                                       {/* Optional chaining on parts to prevent crash */}
+                                       {q.parts?.map((p, pi) => (
+                                          <div key={pi} className="flex gap-2 items-center">
+                                             <span className="text-[8px] font-black text-indigo-400 w-6 uppercase">{p.partLabel}</span>
                                              <input value={p.text} onChange={e=>{
-                                                const nextParts = [...q.parts];
+                                                const nextParts = [...(q.parts || [])];
                                                 nextParts[pi].text = e.target.value;
                                                 updateQuestion(q.id, 'parts', nextParts);
-                                             }} className="bg-transparent outline-none border-b border-slate-800 text-[10px] font-medium text-slate-300 flex-1" placeholder="Part text..." />
-                                             <span className="text-[8px] font-black text-slate-600">{p.blooms.charAt(0)}</span>
+                                             }} className="bg-transparent border-b border-slate-800 text-[10px] text-slate-300 flex-1 outline-none" />
                                           </div>
                                        ))}
                                     </div>
                                   )}
                                </td>
-                               <td className="px-6 py-4">
-                                  <textarea value={q.answerScheme} onChange={e=>updateQuestion(q.id, 'answerScheme', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-[10px] font-medium text-emerald-400 min-h-[60px]" placeholder="Answer Scheme..." />
-                               </td>
-                               <td className="px-4 py-4 text-center">
-                                  <select value={q.blooms} onChange={e=>updateQuestion(q.id, 'blooms', e.target.value)} className="bg-transparent outline-none text-[9px] font-black uppercase text-indigo-400">
-                                     {BLOOMS.map(b => <option key={b} value={b} className="text-slate-900">{b.toUpperCase()}</option>)}
-                                  </select>
-                               </td>
-                               <td className="px-4 py-4 text-center font-mono font-black text-slate-400 text-sm">
+                               <td className="px-4 py-4 text-center font-mono font-black text-slate-400">
                                   <input type="number" value={q.weight} onChange={e=>updateQuestion(q.id, 'weight', parseInt(e.target.value)||0)} className="w-10 bg-transparent text-center outline-none" />
                                </td>
                                <td className="px-4 py-4 text-center">
@@ -308,23 +308,29 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
                       </tbody>
                    </table>
                 </div>
-
-                <div className="bg-slate-950 p-6 rounded-[2rem] border border-slate-800 flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-inner">
-                   <div className="flex gap-8">
-                      <span>Total Weight: {masterQuestions.reduce((a,b)=>a+b.weight, 0)} pts</span>
-                      <span className="text-blue-400">OBJ: {masterQuestions.filter(q=>q.type==='OBJECTIVE').length}</span>
-                      <span className="text-indigo-400">THY: {masterQuestions.filter(q=>q.type==='THEORY').length}</span>
-                   </div>
-                   <button className="bg-indigo-600/20 text-indigo-400 px-6 py-2 rounded-xl border border-indigo-500/30 hover:bg-indigo-600 hover:text-white transition-all">Compile 4-Pack Network Matrix</button>
-                </div>
                </>
             )}
           </div>
         )}
 
-        {/* ... Rest of QuestionSerializationPortal Tabs ... */}
-        {activeTab !== 'INGEST' && <div className="p-20 text-center opacity-20 uppercase font-black tracking-widest">{activeTab} MODULE ACTIVE</div>}
+        {activeTab === 'EMBOSS' && (
+          <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-4">
+             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+             <p className="font-black uppercase text-xs tracking-widest">Embossing Module Active — Live Preview Pending Serialization</p>
+          </div>
+        )}
+
+        {activeTab === 'PACKS' && (
+           <div className="h-full flex flex-col items-center justify-center opacity-30 text-center space-y-4">
+             <p className="font-black uppercase text-xs tracking-widest">Variant Generation Monitor Operational</p>
+           </div>
+        )}
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+      `}} />
     </div>
   );
 };
