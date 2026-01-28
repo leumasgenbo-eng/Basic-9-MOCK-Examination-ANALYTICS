@@ -80,7 +80,7 @@ const App: React.FC = () => {
   const loadSchoolSession = useCallback(async (hubId: string) => {
     if (!hubId) return null;
     try {
-      const { data } = await supabase.from('uba_persistence').select('id, payload').like('id', `${hubId}_%`);
+      const { data } = await supabase.from('uba_persistence').select('id, payload').eq('hub_id', hubId);
       if (data) {
         let loadedStudents: StudentData[] = [];
         let loadedSettings = DEFAULT_SETTINGS;
@@ -129,6 +129,7 @@ const App: React.FC = () => {
           if (role === 'facilitator') {
             setIsFacilitator(true);
             setActiveFacilitator({ name: metadata.name, subject: metadata.subject });
+            setViewMode('management');
           } else if (role === 'pupil' && sessionData) {
             const stats = calculateClassStatistics(sessionData.loadedStudents, sessionData.loadedSettings);
             const processed = processStudentData(stats, sessionData.loadedStudents, {}, sessionData.loadedSettings);
@@ -161,12 +162,19 @@ const App: React.FC = () => {
     const ts = new Date().toISOString();
     const { data: { user } } = await supabase.auth.getUser();
     
-    await supabase.from('uba_persistence').upsert([
-      { id: `${hubId}_settings`, payload: settings, last_updated: ts, user_id: user?.id },
-      { id: `${hubId}_students`, payload: students, last_updated: ts, user_id: user?.id },
-      { id: `${hubId}_facilitators`, payload: facilitators, last_updated: ts, user_id: user?.id },
-      { id: `registry_${hubId}`, payload: [{ ...settings, studentCount: students.length, avgAggregate: classAvgAggregate, status: 'active', lastActivity: ts }], last_updated: ts, user_id: user?.id }
+    const { error } = await supabase.from('uba_persistence').upsert([
+      { id: `${hubId}_settings`, hub_id: hubId, payload: settings, last_updated: ts, user_id: user?.id },
+      { id: `${hubId}_students`, hub_id: hubId, payload: students, last_updated: ts, user_id: user?.id },
+      { id: `${hubId}_facilitators`, hub_id: hubId, payload: facilitators, last_updated: ts, user_id: user?.id },
+      { id: `registry_${hubId}`, hub_id: hubId, payload: [{ ...settings, studentCount: students.length, avgAggregate: classAvgAggregate, status: 'active', lastActivity: ts }], last_updated: ts, user_id: user?.id }
     ]);
+
+    if (error) {
+      console.error("Sync Error:", error.message);
+      alert("Cloud Sync Failed: " + error.message);
+    } else {
+      console.log("Shards Synchronized successfully.");
+    }
   }, [settings, students, facilitators, classAvgAggregate, isAuthenticated]);
 
   const handleLogout = async () => {

@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { StaffAssignment, StaffRole, GlobalSettings } from '../../types';
 import { supabase } from '../../supabaseClient';
@@ -25,7 +26,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
     try {
       // Trigger Sign In with OTP for new staff to create their auth account and send PIN
       const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: newStaff.email.toLowerCase(),
+        email: newStaff.email.toLowerCase().trim(),
         options: {
           data: { 
             role: 'facilitator', 
@@ -67,7 +68,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
          <h3 className="text-xl font-black text-slate-900 uppercase mb-8">Faculty Deployment Hub</h3>
          <form onSubmit={handleAddStaff} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <input type="text" value={newStaff.name} onChange={e=>setNewStaff({...newStaff, name: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none" placeholder="STAFF NAME..." required />
-            <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none" placeholder="FACILITATOR EMAIL..." required />
+            <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none" placeholder="FACILITATOR EMAIL..." required />
             <select value={newStaff.subject} onChange={e=>setNewStaff({...newStaff, subject: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none">
                <option value="">SELECT SUBJECT...</option>
                {subjects.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
@@ -79,7 +80,8 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-         {Object.entries(facilitators).map(([key, f]) => (
+         {/* Fix: Explicitly cast Object.entries(facilitators) to [string, StaffAssignment][] to resolve 'unknown' type errors during property access */}
+         {(Object.entries(facilitators) as [string, StaffAssignment][]).map(([key, f]) => (
             <div key={key} className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-xl flex justify-between items-center group">
                <div className="space-y-2">
                   <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">{f.taughtSubject || f.role}</span>
@@ -90,7 +92,8 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
                   <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[8px] font-black uppercase border border-emerald-100">PIN Access Ready</div>
                   <button 
                     onClick={async () => {
-                      await supabase.auth.signInWithOtp({ email: f.email });
+                      // Fix: Request OTP for existing faculty node
+                      await supabase.auth.signInWithOtp({ email: f.email, options: { shouldCreateUser: false } });
                       alert("PIN REISSUED: Check email inbox.");
                     }}
                     className="text-[8px] font-black text-blue-600 uppercase underline decoration-blue-200 hover:decoration-blue-600 transition-all"

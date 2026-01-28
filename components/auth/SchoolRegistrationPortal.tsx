@@ -64,7 +64,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       downloadCredentials(hubId, accessKey);
       setTempCredentials({ hubId, accessKey });
 
-      // 2. Trigger OTP dispatch to email. Use shouldCreateUser: true for first time registration.
+      // 2. Trigger OTP dispatch to email.
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email.toLowerCase().trim(),
         options: {
@@ -93,8 +93,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     setIsLoading(true);
 
     try {
-      // CRITICAL FIX: type must be 'email' for signInWithOtp flow, even for new users.
-      // 'signup' is only for the traditional password-based signup flow.
       const { data, error } = await supabase.auth.verifyOtp({
         email: formData.email.toLowerCase().trim(),
         token: pin.trim(),
@@ -118,23 +116,26 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         reportDate: new Date().toLocaleDateString()
       };
 
-      // 3. Persist Institutional Shards
-      await supabase.from('uba_persistence').insert([
-        { id: `${hubId}_settings`, payload: newSettings, user_id: data.user.id },
-        { id: `${hubId}_students`, payload: [], user_id: data.user.id },
-        { id: `${hubId}_facilitators`, payload: {}, user_id: data.user.id },
+      // 3. Persist Institutional Shards with explicit hub_id
+      const { error: insertError } = await supabase.from('uba_persistence').insert([
+        { id: `${hubId}_settings`, hub_id: hubId, payload: newSettings, user_id: data.user.id },
+        { id: `${hubId}_students`, hub_id: hubId, payload: [], user_id: data.user.id },
+        { id: `${hubId}_facilitators`, hub_id: hubId, payload: {}, user_id: data.user.id },
         { 
           id: `registry_${hubId}`, 
+          hub_id: hubId,
           payload: [{ ...newSettings, studentCount: 0, avgAggregate: 0, status: 'active', lastActivity: ts }],
           user_id: data.user.id 
         }
       ]);
 
+      if (insertError) throw insertError;
+
       onBulkUpdate(newSettings);
       if (onResetStudents) onResetStudents();
       onComplete?.();
     } catch (err: any) {
-      alert("Activation Error: " + err.message + "\n\nNote: Please ensure OTP Expiry is increased in Supabase Dashboard (Auth -> Providers -> Email).");
+      alert("Activation Error: " + err.message);
     } finally {
       setIsLoading(false);
     }
