@@ -87,6 +87,7 @@ export interface PaymentParticulars {
   amount: number;
   paidBy: string;
   sentBy: string;
+  transactionId: string;
   date: string;
   isBulk: boolean;
   isVerified: boolean;
