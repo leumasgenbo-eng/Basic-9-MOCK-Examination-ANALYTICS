@@ -13,6 +13,8 @@ import MockResourcesPortal from './MockResourcesPortal';
 import FacilitatorDesk from './FacilitatorDesk';
 import LikelyQuestionDesk from './LikelyQuestionDesk';
 import EnrolmentForwardingPortal from './EnrolmentForwardingPortal';
+import LocalSyncPortal from './LocalSyncPortal';
+import RewardPortal from './RewardPortal';
 
 // Extracted UI Layout components
 import ManagementHeader from './ManagementHeader';
@@ -58,6 +60,8 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
           {activeTab === 'facilitatorDesk' && <FacilitatorDesk students={students} setStudents={setStudents} settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
           {activeTab === 'likelyQuestions' && <LikelyQuestionDesk activeFacilitator={activeFacilitator} />}
           {activeTab === 'enrolmentForward' && <EnrolmentForwardingPortal settings={settings} students={students} facilitators={facilitators} />}
+          {activeTab === 'localSync' && <LocalSyncPortal students={students} settings={settings} />}
+          {activeTab === 'rewards' && <RewardPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} facilitators={facilitators} onSave={onSave} onSettingChange={onSettingChange} isFacilitator={isFacilitator} />}
           {activeTab === 'school' && <AcademyIdentityPortal settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
           {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} />}
           {activeTab === 'facilitators' && <FacilitatorPortal subjects={subjects} facilitators={facilitators} setFacilitators={setFacilitators} settings={settings} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />}
