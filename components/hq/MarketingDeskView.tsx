@@ -16,12 +16,13 @@ const MarketingDeskView: React.FC = () => {
 
   useEffect(() => { fetchSubmissions(); }, []);
 
+  // Removed duplicated stats memo block and fixed type inference for revenue calculation
   const stats = useMemo(() => {
     let pupils = 0, facs = 0, revenue = 0;
     submissions.forEach(s => {
        const ps = Object.values(s.pupilPayments || {});
        pupils += ps.length;
-       // Added explicit <number> generic to reduce to fix "Operator '+=' cannot be applied to types 'number' and 'unknown'"
+       // Added explicit type parameter <number> to fix 'unknown' type error in += operation on line 24
        revenue += ps.reduce<number>((sum, p: any) => sum + (p.particulars?.amount || 0), 0);
        facs += Object.keys(s.facilitatorPayments || {}).length;
     });
@@ -96,7 +97,8 @@ const MarketingDeskView: React.FC = () => {
                         <div className="grid grid-cols-1 gap-4">
                            <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex justify-between items-center">
                               <span className="text-[10px] font-black text-slate-400 uppercase">Pupil Revenue</span>
-                              <span className="text-xl font-black text-white font-mono">GHS {Object.values(selectedSub.pupilPayments || {}).reduce((sum, p:any)=>sum+(p.particulars?.amount||0), 0).toLocaleString()}</span>
+                              {/* Added explicit type parameter <number> to fix 'unknown' type inference in reduce */}
+                              <span className="text-xl font-black text-white font-mono">GHS {Object.values(selectedSub.pupilPayments || {}).reduce<number>((sum, p:any)=>sum+(p.particulars?.amount||0), 0).toLocaleString()}</span>
                            </div>
                            <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex justify-between items-center">
                               <span className="text-[10px] font-black text-slate-400 uppercase">Faculty Load</span>
