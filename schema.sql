@@ -70,5 +70,5 @@ END $$;
 
 -- 5. INITIAL SYSTEM NODES
 INSERT INTO public.uba_persistence (id, payload, last_updated)
-VALUES ('global_advertisements', '{"message": "SYSTEM ONLINE: WELCOME TO UNITED BAYLOR ACADEMY NETWORK", "author": "HQ"}', NOW())
+VALUES ('global_advertisements', '{"message": "SYSTEM ONLINE: WELCOME TO SS-MAP NETWORK", "author": "HQ"}', NOW())
 ON CONFLICT (id) DO NOTHING;
