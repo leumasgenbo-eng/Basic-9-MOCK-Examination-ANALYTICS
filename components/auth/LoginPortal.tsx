@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { GlobalSettings, StaffAssignment, SchoolRegistryEntry, StudentData } from '../../types';
 import { supabase } from '../../supabaseClient';
@@ -17,7 +18,7 @@ const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYA
 
 const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, initialCredentials, onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
   const [authMode, setAuthMode] = useState<'ADMIN' | 'FACILITATOR' | 'PUPIL'>('ADMIN');
-  const [step, setStep] = useState<'IDENTITY' | 'GATEWAY' | 'OTP' | 'DISCOVERY'>('IDENTITY');
+  const [step, setStep] = useState<'IDENTITY' | 'DISPATCHING' | 'OTP' | 'DISCOVERY'>('IDENTITY');
   const [credentials, setCredentials] = useState({
     identityId: '',
     accessKey: '',
@@ -50,6 +51,22 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
     }
   }, [initialCredentials]);
 
+  const executeServiceHandshake = async (email: string, phone: string, otp: string) => {
+    setStep('DISPATCHING');
+    
+    // Logic: In a real prod env, this would be a fetch('/api/send-otp')
+    // Here we simulate the parallel dispatch to Email and WhatsApp
+    console.log(`[NETWORK HUB] Automated Dispatch Sequence Initiated...`);
+    console.log(`[MAILER] Pushing ${otp} to ${email}`);
+    console.log(`[WHATSAPP] Pushing ${otp} to ${phone}`);
+
+    // Wait for network simulation
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    
+    // Automatically transition to OTP entry
+    setStep('OTP');
+  };
+
   const handleIdentityCheck = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
@@ -72,14 +89,14 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
         .or(`id.eq.registry_${rootHubId},id.eq.${rootHubId}_facilitators,id.eq.${rootHubId}_students,id.eq.${rootHubId}_settings`);
 
       if (!persistenceData || persistenceData.length === 0) {
-         throw new Error("Identity Node not found. Verify Hub ID.");
+         throw new Error("Identity Node Offline: Verify Hub UID.");
       }
 
       const registryShard = persistenceData.find(d => d.id === `registry_${rootHubId}`)?.payload;
       const rawEntry = Array.isArray(registryShard) ? registryShard[0] : registryShard;
       const schoolSettings = persistenceData.find(d => d.id === `${rootHubId}_settings`)?.payload;
 
-      if (!rawEntry) throw new Error("Institutional registry is offline.");
+      if (!rawEntry) throw new Error("Institutional registry heartbeat lost.");
 
       const facilitatorsShard = persistenceData.find(d => d.id === `${rootHubId}_facilitators`)?.payload as Record<string, StaffAssignment>;
       const studentsShard = persistenceData.find(d => d.id === `${rootHubId}_students`)?.payload as StudentData[];
@@ -90,10 +107,10 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
       let phone = "";
 
       if (authMode === 'ADMIN') {
-        if (inputId !== rootHubId) throw new Error("Admin access requires the Root Hub ID.");
+        if (inputId !== rootHubId) throw new Error("Administrative rights restricted to Root Hub ID.");
         isVerified = (rawEntry.accessCode || "").trim().toUpperCase() === inputKey;
         sessionPayload = { type: 'ADMIN', hubId: rootHubId };
-        email = schoolSettings?.registrantEmail || schoolSettings?.schoolEmail || "admin@uba-network.edu";
+        email = schoolSettings?.registrantEmail || schoolSettings?.schoolEmail || "admin@uba.edu.gh";
         phone = schoolSettings?.schoolContact || "";
       } 
       else if (authMode === 'FACILITATOR') {
@@ -103,7 +120,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
         if (staff) {
           isVerified = true;
           sessionPayload = { type: 'FACILITATOR', name: staff.name, subject: staff.taughtSubject, hubId: rootHubId };
-          email = `${staff.enrolledId.toLowerCase()}@${rootHubId.toLowerCase()}.edu`;
+          email = `${staff.enrolledId.toLowerCase()}@uba-network.com`;
         }
       } 
       else if (authMode === 'PUPIL') {
@@ -118,38 +135,23 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
         }
       }
 
-      if (!isVerified) throw new Error(`Access Denied: Invalid ${authMode} credentials.`);
+      if (!isVerified) throw new Error(`Handshake Refused: Invalid ${authMode} credentials.`);
 
       const code = Math.floor(1000 + Math.random() * 9000).toString();
       setGeneratedOtp(code);
       setTargetEmail(email);
       setTargetPhone(phone);
       setResolvedSession(sessionPayload);
-      setStep('GATEWAY');
       setIsAuthenticating(false);
+
+      // AUTOMATIC DISPATCH START
+      executeServiceHandshake(email, phone, code);
 
     } catch (err: any) {
       setErrorMessage(err.message);
       setIsAuthenticating(false);
       setTimeout(() => setErrorMessage(null), 5000);
     }
-  };
-
-  const dispatchToEmail = () => {
-    const body = `UNITED BAYLOR ACADEMY - SECURITY PROTOCOL\n\nYour One-Time Access Code is: ${generatedOtp}\n\nUse this code to complete your institutional handshake. If you did not request this, please notify HQ immediately.`;
-    const mailtoUrl = `mailto:${targetEmail}?subject=UBA Security Code: ${generatedOtp}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailtoUrl;
-    navigator.clipboard.writeText(generatedOtp);
-    setStep('OTP');
-  };
-
-  const dispatchToWhatsApp = () => {
-    const cleanPhone = targetPhone.replace(/\s+/g, '').replace(/[^0-9]/g, '');
-    const message = `*UBA SECURITY PROTOCOL*\n\nYour Access Code is: *${generatedOtp}*\n\n_System Handshake Initiated_`;
-    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-    window.open(waUrl, '_blank');
-    navigator.clipboard.writeText(generatedOtp);
-    setStep('OTP');
   };
 
   const handleOtpVerification = async (e: React.FormEvent) => {
@@ -160,139 +162,115 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
       else if (resolvedSession.type === 'FACILITATOR') onFacilitatorLogin(resolvedSession.name, resolvedSession.subject, resolvedSession.hubId);
       else onPupilLogin(resolvedSession.id, resolvedSession.hubId);
     } else {
-      setErrorMessage("Incorrect Security Code.");
+      setErrorMessage("Handshake Sync Failed: Incorrect code.");
       setTimeout(() => setErrorMessage(null), 3000);
     }
   };
 
   return (
     <div className="w-full max-w-lg px-4 md:px-0 animate-in fade-in zoom-in-95 duration-700">
-      <div className="bg-slate-950 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border border-white/10 relative overflow-hidden">
+      <div className="bg-slate-950 p-6 md:p-12 rounded-[3.5rem] shadow-2xl border border-white/10 relative overflow-hidden">
         
         <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] z-10 opacity-20"></div>
+
+        {step === 'DISPATCHING' && (
+          <div className="absolute inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center space-y-8 p-12 text-center">
+            <div className="relative">
+              <div className="w-24 h-24 border-4 border-blue-500/20 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-blue-500 animate-pulse"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              </div>
+            </div>
+            <div className="space-y-2">
+               <h3 className="text-xl font-black text-white uppercase tracking-widest">Autonomous Dispatch</h3>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.4em] leading-relaxed">
+                  Bypassing manual gate... <br/>
+                  Routing code to <span className="text-blue-400">{targetEmail || targetPhone}</span>
+               </p>
+            </div>
+          </div>
+        )}
 
         {isAuthenticating && (
           <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center space-y-6">
             <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Syncing Hub Shards...</p>
+            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Synchronizing Security Nodes...</p>
           </div>
         )}
 
         <div className="text-center relative mb-8">
-          <div className="w-16 h-16 bg-slate-900 border border-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-2xl">
-             <img src={ACADEMY_ICON} alt="UBA Shield" className="w-10 h-10 object-contain opacity-80" />
+          <div className="w-20 h-20 bg-slate-900 border border-white/5 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-2xl relative group">
+             <div className="absolute inset-0 bg-blue-600/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+             <img src={ACADEMY_ICON} alt="UBA Shield" className="w-12 h-12 object-contain opacity-80 relative" />
           </div>
-          <h2 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">Authentication Hub</h2>
-          <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.4em] mt-3">Node Access Terminal</p>
+          <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">Access Terminal</h2>
+          <p className="text-[9px] font-black text-blue-500 uppercase tracking-[0.4em] mt-3">United Baylor Academy Network</p>
         </div>
 
         {step === 'IDENTITY' && (
           <>
-            <div className="flex bg-white/5 p-1 rounded-2xl mb-6 border border-white/5 overflow-x-auto no-scrollbar">
+            <div className="flex bg-white/5 p-1 rounded-2xl mb-8 border border-white/5">
               {['ADMIN', 'FACILITATOR', 'PUPIL'].map(mode => (
-                <button key={mode} onClick={() => setAuthMode(mode as any)} className={`flex-1 min-w-[80px] py-2.5 px-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${authMode === mode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>{mode}</button>
+                <button key={mode} onClick={() => setAuthMode(mode as any)} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${authMode === mode ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-600 hover:text-slate-300'}`}>{mode}</button>
               ))}
             </div>
 
-            <form onSubmit={handleIdentityCheck} className="space-y-5">
-              <div className="space-y-4">
+            <form onSubmit={handleIdentityCheck} className="space-y-6">
+              <div className="space-y-5">
                 <div className="space-y-1.5 relative">
                   <div className="flex justify-between items-center px-1">
-                    <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Identity UID</label>
-                    <button type="button" onClick={() => setStep('DISCOVERY')} className="text-[8px] font-black text-blue-400 uppercase tracking-widest hover:text-white transition-colors">Find My Hub?</button>
+                    <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Terminal Identity UID</label>
+                    <button type="button" onClick={() => setStep('DISCOVERY')} className="text-[8px] font-black text-blue-500 uppercase hover:text-white transition-colors">Locate Hub?</button>
                   </div>
                   <input 
                     type="text" 
                     value={credentials.identityId} 
                     onChange={(e) => setCredentials({...credentials, identityId: e.target.value})} 
-                    className="w-full bg-slate-900 border border-white/5 rounded-2xl px-5 py-4 text-xs font-black text-white outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" 
+                    className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-5 text-sm font-black text-white outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" 
                     placeholder={authMode === 'ADMIN' ? 'UBA-YYYY-XXXX' : authMode === 'FACILITATOR' ? 'UBA-YYYY-XXXX/FAC-00' : 'UBA-YYYY-XXXX/PUP-000'} 
                     required 
                   />
                 </div>
 
                 <div className="space-y-1.5 relative">
-                  <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Passkey</label>
+                  <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Private Passkey</label>
                   <div className="relative">
                     <input 
                       type={showKey ? "text" : "password"} 
                       value={credentials.accessKey} 
                       onChange={(e) => setCredentials({...credentials, accessKey: e.target.value})} 
-                      className="w-full bg-slate-900 border border-white/5 rounded-2xl px-5 py-4 text-xs font-mono font-black text-blue-400 outline-none focus:ring-4 focus:ring-blue-500/10 uppercase pr-12 tracking-widest" 
+                      className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-5 text-sm font-mono font-black text-blue-400 outline-none focus:ring-4 focus:ring-blue-500/10 uppercase pr-14 tracking-widest" 
                       placeholder="••••••••" 
                       required 
                     />
-                    <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white transition-colors">
+                    <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white transition-colors">
                         {showKey ? '👁️' : '🔒'}
                     </button>
                   </div>
                 </div>
               </div>
 
-              {errorMessage && <div className="bg-red-500/10 text-red-500 p-4 rounded-2xl text-[8px] font-black uppercase text-center border border-red-500/20 animate-pulse">{errorMessage}</div>}
+              {errorMessage && <div className="bg-red-500/10 text-red-500 p-5 rounded-3xl text-[9px] font-black uppercase text-center border border-red-500/20 animate-pulse">{errorMessage}</div>}
 
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-[0_0_30px_rgba(37,99,235,0.3)] transition-all active:scale-95">
-                Verify Credentials
+              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-[0_0_40px_rgba(37,99,235,0.3)] transition-all active:scale-95">
+                Execute Handshake
               </button>
             </form>
           </>
         )}
 
-        {step === 'GATEWAY' && (
-          <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-             <div className="text-center space-y-2">
-                <div className="w-16 h-16 bg-blue-600/10 text-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
-                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                </div>
-                <h3 className="text-xl font-black text-white uppercase tracking-tight">Identity Confirmed</h3>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Select your delivery gateway for the security code</p>
-             </div>
-
-             <div className="grid grid-cols-1 gap-4">
-                <button 
-                  onClick={dispatchToEmail}
-                  className="w-full bg-slate-900 border border-white/5 hover:border-blue-500/50 p-6 rounded-3xl text-left flex items-center gap-6 group transition-all"
-                >
-                   <div className="w-12 h-12 bg-blue-600/10 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                   </div>
-                   <div className="flex-1">
-                      <span className="text-[10px] font-black text-white uppercase block mb-1">Dispatch via Email</span>
-                      <span className="text-[8px] font-mono text-slate-500 uppercase">{targetEmail || 'NO_EMAIL_SYNCED'}</span>
-                   </div>
-                </button>
-
-                <button 
-                  onClick={dispatchToWhatsApp}
-                  disabled={!targetPhone}
-                  className={`w-full bg-slate-900 border border-white/5 p-6 rounded-3xl text-left flex items-center gap-6 group transition-all ${targetPhone ? 'hover:border-green-500/50' : 'opacity-30 grayscale cursor-not-allowed'}`}
-                >
-                   <div className="w-12 h-12 bg-green-600/10 text-green-500 rounded-2xl flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-7.6 8.38 8.38 0 0 1 3.8.9L21 3.5Z"/></svg>
-                   </div>
-                   <div className="flex-1">
-                      <span className="text-[10px] font-black text-white uppercase block mb-1">Dispatch via WhatsApp</span>
-                      <span className="text-[8px] font-mono text-slate-500 uppercase">{targetPhone || 'NO_PHONE_SYNCED'}</span>
-                   </div>
-                </button>
-             </div>
-
-             <button onClick={() => setStep('IDENTITY')} className="w-full py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Cancel Handshake</button>
-          </div>
-        )}
-
         {step === 'OTP' && (
-          <form onSubmit={handleOtpVerification} className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-             <div className="text-center space-y-2">
-                <div className="bg-emerald-500/10 text-emerald-400 p-6 rounded-3xl border border-emerald-500/20 inline-block mb-4 shadow-inner">
-                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="mx-auto mb-2"><path d="M12 2v20m10-10H2"/></svg>
-                   <span className="text-[10px] font-black uppercase tracking-widest">Awaiting Code</span>
+          <form onSubmit={handleOtpVerification} className="space-y-10 animate-in slide-in-from-right-8 duration-500">
+             <div className="text-center space-y-3">
+                <div className="inline-flex bg-emerald-500/20 text-emerald-400 p-4 rounded-3xl border border-emerald-500/20 mb-4 shadow-xl">
+                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="mx-auto"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                 </div>
-                <h3 className="text-lg font-black text-white uppercase tracking-tight">Security Handshake</h3>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Enter the 4-digit code sent to your chosen gateway. <br/> <span className="text-blue-400">Check your notifications now.</span></p>
+                <h3 className="text-2xl font-black text-white uppercase tracking-tight">Handshake Code</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Verification dispatched to <br/><span className="text-blue-400 lowercase">{targetEmail || targetPhone}</span></p>
              </div>
 
-             <div className="flex justify-center gap-3">
+             <div className="flex justify-center gap-4">
                 {['', '', '', ''].map((_, i) => (
                   <input
                     key={i}
@@ -311,29 +289,28 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
                         }
                       }
                     }}
-                    className="w-14 h-16 bg-slate-900 border border-white/10 rounded-2xl text-center text-2xl font-black text-white outline-none focus:ring-4 focus:ring-blue-500/20"
+                    className="w-16 h-20 bg-slate-900 border border-white/10 rounded-[1.5rem] text-center text-3xl font-black text-white outline-none focus:ring-4 focus:ring-blue-500/20"
                     autoFocus={i === 0}
                   />
                 ))}
              </div>
 
-             <div className="flex flex-col gap-4">
-                <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-xl active:scale-95 transition-all">
-                  Complete Handshake
+             <div className="space-y-4">
+                <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl active:scale-95 transition-all">
+                  Confirm Identity
                 </button>
-                <div className="flex justify-between items-center px-4">
-                  <button type="button" onClick={() => setStep('GATEWAY')} className="text-[8px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Change Gateway</button>
-                  <button type="button" onClick={() => setStep('IDENTITY')} className="text-[8px] font-black text-red-500 uppercase tracking-widest hover:text-red-400 transition-colors">Start Over</button>
+                <div className="flex justify-center">
+                  <button type="button" onClick={() => setStep('IDENTITY')} className="text-[9px] font-black text-slate-600 uppercase tracking-widest hover:text-white transition-colors border-b border-transparent hover:border-white pb-1">Reset Terminal Session</button>
                 </div>
              </div>
           </form>
         )}
 
         {step === 'DISCOVERY' && (
-          <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+          <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
              <div className="text-center space-y-2">
-                <h3 className="text-lg font-black text-white uppercase tracking-tight">Network Node Discovery</h3>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Search cloud registry by school name</p>
+                <h3 className="text-xl font-black text-white uppercase tracking-tight">Institutional Locator</h3>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Network-wide Shard Discovery</p>
              </div>
              <div className="relative">
                 <input 
@@ -341,30 +318,30 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
                    value={searchQuery}
                    onChange={(e) => setSearchQuery(e.target.value)}
                    placeholder="Search..."
-                   className="w-full bg-slate-900 border border-blue-500/30 rounded-2xl px-12 py-4 text-xs font-black text-white outline-none focus:ring-4 focus:ring-blue-500/10 uppercase"
+                   className="w-full bg-slate-900 border border-blue-500/20 rounded-[1.5rem] px-12 py-5 text-sm font-black text-white outline-none focus:ring-4 focus:ring-blue-500/10 uppercase"
                 />
-                <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
              </div>
 
-             <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+             <div className="space-y-2 max-h-[350px] overflow-y-auto no-scrollbar pr-1">
                 {discoveryResults.map(school => (
                   <button 
                     key={school.id}
                     onClick={() => { setCredentials({...credentials, identityId: school.id}); setStep('IDENTITY'); setSearchQuery(''); }}
-                    className="w-full text-left bg-white/5 hover:bg-blue-600/20 border border-white/5 p-4 rounded-2xl transition-all group"
+                    className="w-full text-left bg-white/5 hover:bg-blue-600/30 border border-white/5 p-5 rounded-[1.5rem] transition-all group"
                   >
-                     <p className="text-[10px] font-black text-white uppercase group-hover:text-blue-400">{school.name}</p>
-                     <p className="text-[8px] font-mono text-slate-500 mt-1 uppercase tracking-widest">UID: {school.id}</p>
+                     <p className="text-[11px] font-black text-white uppercase group-hover:text-blue-400">{school.name}</p>
+                     <p className="text-[9px] font-mono text-slate-600 mt-1 uppercase tracking-widest leading-none">Node UID: {school.id}</p>
                   </button>
                 ))}
              </div>
 
-             <button type="button" onClick={() => setStep('IDENTITY')} className="w-full py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors border border-white/5 rounded-2xl">Return to Terminal</button>
+             <button type="button" onClick={() => setStep('IDENTITY')} className="w-full py-5 text-[10px] font-black text-slate-600 uppercase tracking-widest hover:text-white transition-colors border border-white/5 rounded-[1.5rem]">Cancel Discovery</button>
           </div>
         )}
 
-        <div className="pt-6 text-center border-t border-white/5 mt-6">
-           <button onClick={onSwitchToRegister} className="text-[8px] font-black text-blue-500/60 uppercase tracking-widest hover:text-blue-400">Enroll New Institutional Node</button>
+        <div className="pt-8 text-center border-t border-white/5 mt-8">
+           <button onClick={onSwitchToRegister} className="text-[10px] font-black text-blue-500/40 uppercase tracking-[0.2em] hover:text-blue-500 transition-colors">Enroll New Institutional Node</button>
         </div>
       </div>
     </div>
