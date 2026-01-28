@@ -132,15 +132,6 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
            </div>
         </div>
       </div>
-      
-      {!readOnly && (
-        <div className="absolute top-0 right-0 no-print">
-           <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-2xl border border-emerald-100 flex items-center gap-3">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              <span className="text-[9px] font-black uppercase tracking-widest">Master Admin Mode: All Fields Editable</span>
-           </div>
-        </div>
-      )}
     </div>
   );
 };

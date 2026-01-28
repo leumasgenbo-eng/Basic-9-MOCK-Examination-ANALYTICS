@@ -266,6 +266,7 @@ export interface MockSnapshotMetadata {
   approvedBy: string;
 }
 
+/* Fix: Updated indicators type to use QuestionIndicatorMapping */
 export interface MockResource {
   indicators: QuestionIndicatorMapping[];
   questionUrl?: string;
@@ -273,7 +274,7 @@ export interface MockResource {
   generalReport?: string;
 }
 
-// Added missing interface definitions for components
+/* Fix: Added missing QuestionIndicatorMapping interface */
 export interface QuestionIndicatorMapping {
   id: string;
   section: 'A' | 'B';
@@ -285,6 +286,7 @@ export interface QuestionIndicatorMapping {
   weight: number;
 }
 
+/* Fix: Added missing PaymentParticulars interface */
 export interface PaymentParticulars {
   amount: number;
   paidBy: string;
@@ -295,23 +297,25 @@ export interface PaymentParticulars {
   isVerified: boolean;
 }
 
+/* Fix: Added missing ForwardingData interface */
 export interface ForwardingData {
   schoolId: string;
   schoolName: string;
   feedback: string;
-  pupilPayments: Record<number, {
-    paid: boolean;
-    language: string;
-    particulars: PaymentParticulars;
+  pupilPayments: Record<number, { 
+    paid: boolean; 
+    language: string; 
+    particulars: PaymentParticulars 
   }>;
-  facilitatorPayments: Record<string, {
-    paid: boolean;
-    particulars: PaymentParticulars;
+  facilitatorPayments: Record<string, { 
+    paid: boolean; 
+    particulars: PaymentParticulars 
   }>;
   submissionTimestamp: string;
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
+/* Fix: Added missing SerializedPupil interface */
 export interface SerializedPupil {
   id: number;
   name: string;
@@ -319,6 +323,7 @@ export interface SerializedPupil {
   questionCode: string;
 }
 
+/* Fix: Added missing SerializationData interface */
 export interface SerializationData {
   schoolId: string;
   schoolName: string;
@@ -330,17 +335,20 @@ export interface SerializationData {
   timestamp: string;
 }
 
+/* Fix: Added missing BloomsScale type */
 export type BloomsScale = 'Knowledge' | 'Understanding' | 'Application' | 'Analysis' | 'Synthesis' | 'Evaluation';
 
+/* Fix: Added missing QuestionSubPart interface */
 export interface QuestionSubPart {
   partLabel: string;
   text: string;
-  possibleAnswers?: string;
+  possibleAnswers: string;
   markingScheme: string;
   weight: number;
   blooms: BloomsScale;
 }
 
+/* Fix: Added missing MasterQuestion interface */
 export interface MasterQuestion {
   id: string;
   originalIndex: number;
@@ -354,10 +362,11 @@ export interface MasterQuestion {
   answerScheme: string;
   weight: number;
   blooms: BloomsScale;
-  parts?: QuestionSubPart[];
+  parts: QuestionSubPart[];
   diagramUrl?: string;
 }
 
+/* Fix: Added missing QuestionPack interface */
 export interface QuestionPack {
   variant: 'A' | 'B' | 'C' | 'D';
   generalRules: string;
@@ -368,10 +377,11 @@ export interface QuestionPack {
   matchingMatrix: Record<string, { masterIdx: number; key: string; scheme: string }>;
 }
 
+/* Fix: Added missing SerializedExam interface */
 export interface SerializedExam {
   schoolId: string;
   mockSeries: string;
   subject: string;
-  packs: Record<'A' | 'B' | 'C' | 'D', QuestionPack>;
+  packs: { A: QuestionPack; B: QuestionPack; C: QuestionPack; D: QuestionPack };
   timestamp: string;
 }
