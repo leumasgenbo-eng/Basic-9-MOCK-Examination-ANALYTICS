@@ -21,7 +21,8 @@ const MarketingDeskView: React.FC = () => {
     submissions.forEach(s => {
        const ps = Object.values(s.pupilPayments || {});
        pupils += ps.length;
-       revenue += ps.reduce((sum, p: any) => sum + (p.particulars?.amount || 0), 0);
+       // Added explicit <number> generic to reduce to fix "Operator '+=' cannot be applied to types 'number' and 'unknown'"
+       revenue += ps.reduce<number>((sum, p: any) => sum + (p.particulars?.amount || 0), 0);
        facs += Object.keys(s.facilitatorPayments || {}).length;
     });
     return { pupils, facs, revenue, pending: submissions.filter(s=>s.approvalStatus==='PENDING').length };

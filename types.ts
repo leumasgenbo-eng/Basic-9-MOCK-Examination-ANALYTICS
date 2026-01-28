@@ -92,8 +92,6 @@ export interface SerializationData {
   timestamp: string;
 }
 
-// --- ADVANCED QUESTION SERIALIZATION TYPES ---
-
 export type BloomsScale = 'Knowledge' | 'Understanding' | 'Application' | 'Analysis' | 'Synthesis' | 'Evaluation';
 
 export interface QuestionSubPart {
@@ -292,6 +290,7 @@ export interface GlobalSettings {
   accessCode?: string;     
   staffAccessCode?: string; 
   pupilAccessCode?: string; 
+  securityPin: string;     // Added for desk PIN entry
   enrollmentDate?: string; 
   examTitle: string;
   termInfo: string;

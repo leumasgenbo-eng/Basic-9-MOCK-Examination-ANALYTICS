@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { GlobalSettings } from '../../types';
 
@@ -42,7 +43,7 @@ const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings,
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       
-      {/* Security Node Control - NEW */}
+      {/* Security Node Control */}
       <section className="bg-slate-900 text-white p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
         <div className="relative flex flex-col md:flex-row justify-between items-center gap-8">
@@ -60,7 +61,7 @@ const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings,
         </div>
 
         {showKeys && (
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-top-4">
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4 animate-in slide-in-from-top-4">
              <div className="bg-white/5 border border-white/10 p-5 rounded-2xl">
                 <span className="text-[8px] font-black text-slate-500 uppercase block mb-1">Master Admin Key</span>
                 <p className="text-sm font-mono font-black text-red-400">{settings.accessCode}</p>
@@ -82,6 +83,17 @@ const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings,
                 <button onClick={() => handleResetRoleCode('pupil')} className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-white transition-opacity">
                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                 </button>
+             </div>
+             <div className="bg-blue-600/10 border border-blue-500/30 p-5 rounded-2xl">
+                <span className="text-[8px] font-black text-blue-400 uppercase block mb-1">Handshake PIN</span>
+                <input 
+                  type="text" 
+                  maxLength={4}
+                  value={settings.securityPin} 
+                  onChange={(e) => onSettingChange('securityPin', e.target.value.replace(/[^0-9]/g, ''))}
+                  className="bg-transparent border-none p-0 text-sm font-mono font-black text-white focus:ring-0 outline-none w-full"
+                  placeholder="0000"
+                />
              </div>
           </div>
         )}

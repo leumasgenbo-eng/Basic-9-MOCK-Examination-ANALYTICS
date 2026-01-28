@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
@@ -7,7 +8,7 @@ import { supabase, isSupabaseConfigured } from './supabaseClient';
 import MasterSheet from './components/reports/MasterSheet';
 import ReportCard from './components/reports/ReportCard';
 import SeriesBroadSheet from './components/reports/SeriesBroadSheet';
-import ManagementDesk from './components/management/ManagementDesk';
+import ManagementDesk from './components/ManagementDesk';
 import SuperAdminPortal from './components/hq/SuperAdminPortal';
 import LoginPortal from './components/auth/LoginPortal';
 import SchoolRegistrationPortal from './components/auth/SchoolRegistrationPortal';
@@ -40,6 +41,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   normalizationConfig: DEFAULT_NORMALIZATION,
   sbaConfig: { enabled: true, isLocked: false, sbaWeight: 30, examWeight: 70 },
   isConductLocked: false,
+  securityPin: "0000",
   scoreEntryMetadata: { mockSeries: "MOCK 2", entryDate: new Date().toISOString().split('T')[0] },
   committedMocks: MOCK_SERIES,
   activeMock: "MOCK 1",
