@@ -75,19 +75,34 @@ const App: React.FC = () => {
   const [globalAd, setGlobalAd] = useState<string | null>(null);
 
   const loadSchoolSession = useCallback(async (hubId: string) => {
-    if (!hubId) return;
+    if (!hubId) return null;
     try {
       const { data } = await supabase.from('uba_persistence').select('id, payload').like('id', `${hubId}_%`);
       if (data) {
+        let loadedStudents: StudentData[] = [];
+        let loadedSettings = DEFAULT_SETTINGS;
+        let loadedFacs = {};
+
         data.forEach(row => {
-          if (row.id === `${hubId}_settings`) setSettings(row.payload);
-          if (row.id === `${hubId}_students`) setStudents(row.payload);
-          if (row.id === `${hubId}_facilitators`) setFacilitators(row.payload);
+          if (row.id === `${hubId}_settings`) {
+            setSettings(row.payload);
+            loadedSettings = row.payload;
+          }
+          if (row.id === `${hubId}_students`) {
+            setStudents(row.payload);
+            loadedStudents = row.payload;
+          }
+          if (row.id === `${hubId}_facilitators`) {
+            setFacilitators(row.payload);
+            loadedFacs = row.payload;
+          }
         });
+        return { loadedStudents, loadedSettings, loadedFacs };
       }
     } catch (e) {
       console.error("Load failed:", e);
     }
+    return null;
   }, []);
 
   // SESSION PERSISTENCE HANDLER
@@ -95,20 +110,31 @@ const App: React.FC = () => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Fetch registry regardless of login status for discovery
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload));
 
       if (session) {
         const userEmail = session.user.email || "";
-        // Extract Hub ID from email (hubid@unitedbaylor.edu)
         const hubId = userEmail.split('@')[0].toUpperCase();
         
         if (userEmail === 'leumasgenbo4@gmail.com') {
           setIsSuperAdmin(true);
         } else if (hubId.startsWith('UBA-')) {
-          await loadSchoolSession(hubId);
+          const sessionData = await loadSchoolSession(hubId);
           setIsAuthenticated(true);
+          
+          // Check if user was a pupil by looking at metadata or trying to match a saved preference
+          const savedPupilId = localStorage.getItem('uba_active_pupil_id');
+          if (savedPupilId && sessionData) {
+            const stats = calculateClassStatistics(sessionData.loadedStudents, sessionData.loadedSettings);
+            const processed = processStudentData(stats, sessionData.loadedStudents, {}, sessionData.loadedSettings);
+            const pupil = processed.find(p => p.id === parseInt(savedPupilId));
+            if (pupil) {
+              setActivePupil(pupil);
+              setIsPupil(true);
+              setViewMode('pupil_hub');
+            }
+          }
         }
       }
       setIsInitializing(false);
@@ -152,6 +178,7 @@ const App: React.FC = () => {
   }, [settings, students, facilitators, classAvgAggregate, isAuthenticated]);
 
   const handleLogout = async () => {
+    localStorage.removeItem('uba_active_pupil_id');
     await supabase.auth.signOut();
     window.location.reload();
   };
@@ -182,7 +209,22 @@ const App: React.FC = () => {
             onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
             onSuperAdminLogin={() => setIsSuperAdmin(true)} 
             onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); }); }} 
-            onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} 
+            onPupilLogin={(id, hId) => { 
+              loadSchoolSession(hId).then((data) => { 
+                if (data) {
+                  const s = calculateClassStatistics(data.loadedStudents, data.loadedSettings);
+                  const processed = processStudentData(s, data.loadedStudents, {}, data.loadedSettings);
+                  const pupil = processed.find(p => p.id === id);
+                  if(pupil){
+                    localStorage.setItem('uba_active_pupil_id', id.toString());
+                    setActivePupil(pupil);
+                    setIsPupil(true);
+                    setIsAuthenticated(true);
+                    setViewMode('pupil_hub');
+                  }
+                }
+              }); 
+            }} 
             onSwitchToRegister={() => setIsRegistering(true)} 
           />
         )}
