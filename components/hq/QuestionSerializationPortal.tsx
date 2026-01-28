@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import { 
@@ -25,6 +24,7 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
 
+  // Global Instructions Control
   const [embossConfig, setEmbossConfig] = useState({
     academyName: 'UNITED BAYLOR ACADEMY',
     academyAddress: 'ACCRA DIGITAL CENTRE, GHANA',
@@ -40,14 +40,12 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
     const fetchExisting = async () => {
       try {
         const { data } = await supabase.from('uba_persistence').select('payload').eq('id', bankId).maybeSingle();
-        // Reinforced check for array data
         if (data?.payload && Array.isArray(data.payload)) {
           setMasterQuestions(data.payload);
         } else {
           setMasterQuestions([]);
         }
       } catch (err) {
-        console.error("Hub Ingestion Error:", err);
         setMasterQuestions([]);
       }
     };
@@ -55,7 +53,7 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
   }, [selectedSubject, bankId]);
 
   const handleAddTheoryRow = () => {
-    const nextIdx = (masterQuestions?.length || 0) + 1;
+    const nextIdx = masterQuestions.length + 1;
     const newQ: MasterQuestion = {
       id: `MQ-${Date.now()}-${nextIdx}`,
       originalIndex: nextIdx,
@@ -73,14 +71,13 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
       ],
       answerScheme: 'Overall assessment criteria...'
     };
-    setMasterQuestions([...(masterQuestions || []), newQ]);
+    setMasterQuestions([...masterQuestions, newQ]);
   };
 
   const handleAdd40Objectives = () => {
-    const startIdx = masterQuestions?.length || 0;
     const newObjs: MasterQuestion[] = Array.from({ length: 40 }, (_, i) => ({
       id: `MQ-OBJ-${Date.now()}-${i + 1}`,
-      originalIndex: startIdx + i + 1,
+      originalIndex: masterQuestions.length + i + 1,
       type: 'OBJECTIVE',
       strand: 'GENERAL',
       subStrand: 'CORE',
@@ -93,7 +90,7 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
       parts: [],
       answerScheme: 'Option A'
     }));
-    setMasterQuestions([...(masterQuestions || []), ...newObjs]);
+    setMasterQuestions([...masterQuestions, ...newObjs]);
   };
 
   const handleSaveMasterBank = async () => {
@@ -113,15 +110,14 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
   };
 
   const updateQuestion = (id: string, field: keyof MasterQuestion, value: any) => {
-    setMasterQuestions(prev => prev?.map(q => q.id === id ? { ...q, [field]: value } : q) || []);
+    setMasterQuestions(prev => prev.map(q => q.id === id ? { ...q, [field]: value } : q));
   };
 
   const shuffle = <T,>(array: T[]): T[] => [...array].sort(() => Math.random() - 0.5);
 
   const createPack = (variant: 'A' | 'B' | 'C' | 'D', bank: MasterQuestion[]): QuestionPack => {
-    const safeBank = bank || [];
-    const objs = safeBank.filter(q => q.type === 'OBJECTIVE');
-    const theories = safeBank.filter(q => q.type === 'THEORY');
+    const objs = bank.filter(q => q.type === 'OBJECTIVE');
+    const theories = bank.filter(q => q.type === 'THEORY');
     const scrambledObjs = variant === 'A' ? objs : shuffle(objs);
     const scrambledTheories = variant === 'A' ? theories : shuffle(theories);
     const matchingMatrix: Record<string, { masterIdx: number; key: string; scheme: string }> = {};
@@ -216,7 +212,7 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.4em] max-w-sm">No institutional submissions found for {selectedSubject}. Start by auto-generating or manual entry.</p>
                   </div>
                   <div className="flex gap-4">
-                     <button onClick={handleAdd40Objectives} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-xl hover:bg-blue-50 transition-all">+ 40 Objectives</button>
+                     <button onClick={handleAdd40Objectives} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-xl hover:bg-blue-500 transition-all">+ 40 Objectives</button>
                      <button onClick={handleAddTheoryRow} className="bg-white/10 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase border border-white/20 hover:bg-white/20 transition-all">+ Add Theory</button>
                   </div>
                </div>
@@ -287,10 +283,8 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
                                              <span className="text-[8px] font-black text-indigo-400 w-6 uppercase">{p.partLabel}</span>
                                              <input value={p.text} onChange={e=>{
                                                 const nextParts = [...(q.parts || [])];
-                                                if (nextParts[pi]) {
-                                                  nextParts[pi].text = e.target.value;
-                                                  updateQuestion(q.id, 'parts', nextParts);
-                                                }
+                                                nextParts[pi].text = e.target.value;
+                                                updateQuestion(q.id, 'parts', nextParts);
                                              }} className="bg-transparent border-b border-slate-800 text-[10px] text-slate-300 flex-1 outline-none" />
                                           </div>
                                        ))}

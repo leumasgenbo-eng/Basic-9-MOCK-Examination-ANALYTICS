@@ -46,7 +46,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
         {/* Editable Address */}
         <p className="text-[11px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed">
           <EditableField 
-            value={settings.schoolAddress || "ACCRA DIGITAL CENTRE, GHANA"} 
+            value={settings.schoolAddress} 
             onChange={(v) => onSettingChange('schoolAddress', v)} 
             className="text-center w-full"
             placeholder="LOCALITY / POSTAL ADDRESS"
@@ -56,13 +56,13 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
         {/* Contact Particulars - All Editable */}
         <div className="flex justify-center items-center gap-6 text-[10px] font-black text-blue-800 uppercase tracking-widest mt-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-gray-400">TEL:</span>
-            <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} placeholder="+233 24 000 0000" />
+            <span>TEL:</span>
+            <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} placeholder="PHONE CONTACT..." />
           </div>
           <div className="w-1.5 h-1.5 bg-blue-100 rounded-full"></div>
           <div className="flex items-center gap-1.5">
-            <span className="text-gray-400">EMAIL:</span>
-            <EditableField value={settings.schoolEmail} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="info@uba.edu.gh" className="lowercase" />
+            <span>EMAIL:</span>
+            <EditableField value={settings.schoolEmail} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="OFFICIAL EMAIL..." className="lowercase" />
           </div>
         </div>
 
