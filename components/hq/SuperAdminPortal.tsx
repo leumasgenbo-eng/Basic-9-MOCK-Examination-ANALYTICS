@@ -184,55 +184,98 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
     return Object.values(map);
   }, [registry]);
 
+  const navSectors = [
+    {
+      title: "Infrastructure",
+      tabs: [
+        { id: 'registry', label: 'Network Ledger' },
+        { id: 'recruitment', label: 'Recruitment Hub' },
+        { id: 'serialization', label: 'Serialization Hub' },
+      ]
+    },
+    {
+      title: "Communication",
+      tabs: [
+        { id: 'advertisement', label: 'Advertisement' },
+        { id: 'marketing', label: 'Marketing Desk' },
+      ]
+    },
+    {
+      title: "Performance Matrix",
+      tabs: [
+        { id: 'rankings', label: 'Rerating' },
+        { id: 'pupils', label: 'Talent Matrix' },
+        { id: 'rewards', label: 'Global Rewards' },
+      ]
+    },
+    {
+      title: "System Audit",
+      tabs: [
+        { id: 'sig-diff', label: 'Sig-Diff' },
+        { id: 'remarks', label: 'Demand' },
+        { id: 'annual-report', label: 'Network Audit' },
+        { id: 'audit', label: 'Trail' },
+      ]
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 md:p-8 animate-in fade-in duration-700">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-6">
         
-        <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-6 border-b border-slate-800 pb-8">
+        <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-6 border-b border-slate-800 pb-6">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-900 rounded-2xl flex items-center justify-center text-white shadow-[0_0_30px_rgba(37,99,235,0.4)] border border-white/10">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-900 rounded-2xl flex items-center justify-center text-white shadow-[0_0_30px_rgba(37,99,235,0.4)] border border-white/10 shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             </div>
             <div>
-              <h1 className="text-3xl font-black uppercase tracking-tighter text-white">Superadmin Master Hub</h1>
-              <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.4em] mt-1">
-                 {isCloudSyncing ? "SHARDS SYNCHRONIZING..." : "Institutional Network Cloud Active"}
+              <h1 className="text-2xl font-black uppercase tracking-tighter text-white leading-none">Master Hub</h1>
+              <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.4em] mt-2">
+                 {isCloudSyncing ? "SYNCHRONIZING..." : "CLOUD NETWORK ACTIVE"}
               </p>
             </div>
           </div>
           
-          <div className="flex flex-wrap gap-4">
-            <div className="flex bg-slate-900/50 p-1 rounded-2xl border border-slate-800 backdrop-blur-md overflow-x-auto no-scrollbar max-w-full">
-              {[
-                { id: 'registry', label: 'Network Ledger' },
-                { id: 'recruitment', label: 'Recruitment Hub' },
-                { id: 'rankings', label: 'Rerating' },
-                { id: 'serialization', label: 'Serialization Hub' },
-                { id: 'advertisement', label: 'Advertisement Portal' },
-                { id: 'marketing', label: 'Marketing Desk' },
-                { id: 'pupils', label: 'Talent Matrix' },
-                { id: 'rewards', label: 'Global Rewards' },
-                { id: 'sig-diff', label: 'Sig-Diff Matrix' },
-                { id: 'remarks', label: 'Demand Matrix' },
-                { id: 'annual-report', label: 'Network Audit' },
-                { id: 'audit', label: 'Audit Trail' },
-              ].map(tab => (
-                <button key={tab.id} onClick={() => setView(tab.id as any)} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all whitespace-nowrap ${view === tab.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>{tab.label}</button>
-              ))}
-            </div>
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex gap-2">
-               <button onClick={handleMasterBackup} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Master Backup
+               <button onClick={handleMasterBackup} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg transition-all flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Backup
                </button>
-               <button onClick={() => fileInputRef.current?.click()} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-3 rounded-2xl font-black text-[10px] uppercase border border-slate-700 transition-all">Restore</button>
+               <button onClick={() => fileInputRef.current?.click()} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border border-slate-700 transition-all">Restore</button>
                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleMasterRestore} />
-               <button onClick={onExit} className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase border border-red-500/20 transition-all">Exit HQ</button>
+               <button onClick={onExit} className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-6 py-2.5 rounded-xl font-black text-[9px] uppercase border border-red-500/20 transition-all">Exit</button>
             </div>
           </div>
         </header>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-[3rem] shadow-2xl min-h-[600px] overflow-hidden relative">
+        {/* Categorized Mega-Navigation */}
+        <nav className="bg-slate-900/50 border border-slate-800 rounded-[2rem] p-2 backdrop-blur-md overflow-hidden">
+          <div className="flex flex-wrap md:flex-nowrap divide-x divide-slate-800">
+            {navSectors.map((sector, sIdx) => (
+              <div key={sIdx} className="flex-1 min-w-[200px] p-2 space-y-2">
+                <div className="px-3 flex items-center gap-2 mb-1">
+                   <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
+                   <span className="text-[7px] font-black text-slate-600 uppercase tracking-[0.2em]">{sector.title}</span>
+                </div>
+                <div className="grid grid-cols-1 gap-1">
+                  {sector.tabs.map(tab => (
+                    <button 
+                      key={tab.id} 
+                      onClick={() => setView(tab.id as any)} 
+                      className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all text-left flex items-center justify-between group ${view === tab.id ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                    >
+                      {tab.label}
+                      {view === tab.id && <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </nav>
+
+        <main className="bg-slate-900 border border-slate-800 rounded-[3rem] shadow-2xl min-h-[600px] overflow-hidden relative">
           {view === 'registry' && (
             <RegistryView registry={registry} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onRemoteView={onRemoteView} onUpdateRegistry={handleUpdateRegistry} onLogAction={logAction} />
           )}
@@ -247,7 +290,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
           {view === 'sig-diff' && <NetworkSigDiffView registry={registry} />}
           {view === 'annual-report' && <NetworkAnnualAuditReport registry={registry} />}
           {view === 'audit' && <AuditLogView auditTrail={auditTrail} />}
-        </div>
+        </main>
       </div>
     </div>
   );
