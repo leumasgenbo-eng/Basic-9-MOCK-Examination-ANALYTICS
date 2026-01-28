@@ -99,14 +99,14 @@ const App: React.FC = () => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Global Registry fetch for routing and ranking
+      // Global Registry fetch
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
-      if (regData) setGlobalRegistry(regData.flatMap(r => r.payload));
+      if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
       if (session) {
-        const userEmail = session.user.email?.toLowerCase();
+        const userEmail = (session.user.email || "").toLowerCase();
         
-        // MASTER OVERRIDE: Prioritize SuperAdmin View to prevent White Screen
+        // MASTER OVERRIDE
         if (userEmail === 'leumasgenbo4@gmail.com') {
           setIsSuperAdmin(true);
           setIsAuthenticated(true);
@@ -114,7 +114,7 @@ const App: React.FC = () => {
           return;
         }
 
-        const metadata = session.user.user_metadata;
+        const metadata = session.user.user_metadata || {};
         const hubId = metadata.hubId;
         const role = metadata.role;
 
@@ -123,10 +123,9 @@ const App: React.FC = () => {
         
         if (role === 'facilitator') {
           setIsFacilitator(true);
-          setActiveFacilitator({ name: metadata.name, subject: metadata.subject });
+          setActiveFacilitator({ name: metadata.name || "STAFF", subject: metadata.subject || "GENERAL" });
           setViewMode('management');
         } else if (role === 'pupil' && sessionLoaded) {
-          // Process pupil data for dashboard
           const stats = calculateClassStatistics(students, settings);
           const processed = processStudentData(stats, students, {}, settings);
           const pupil = processed.find(p => p.id === metadata.studentId);
@@ -145,9 +144,12 @@ const App: React.FC = () => {
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
     const staffNames: Record<string, string> = {};
-    Object.keys(facilitators).forEach(k => { if (facilitators[k]) staffNames[k] = facilitators[k].name; });
+    Object.keys(facilitators).forEach(k => { 
+      const fac = facilitators[k];
+      if (fac && fac.name) staffNames[k] = fac.name; 
+    });
     const processed = processStudentData(s, students, staffNames, settings);
-    const avgAgg = processed.reduce((sum, st) => sum + st.bestSixAggregate, 0) / (processed.length || 1);
+    const avgAgg = processed.reduce((sum, st) => sum + (st.bestSixAggregate || 0), 0) / (processed.length || 1);
     return { stats: s, processedStudents: processed, classAvgAggregate: avgAgg };
   }, [students, facilitators, settings]);
 
@@ -237,12 +239,15 @@ const App: React.FC = () => {
             case 'master': return <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />;
             case 'series': return <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents} />;
             case 'cleanup': return <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={handleSave} subjects={SUBJECT_LIST} />;
-            case 'reports': return (
-              <div className="space-y-8">
-                <input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-5 rounded-2xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none focus:border-blue-300 transition-all" />
-                {processedStudents.filter(s => s.name.toLowerCase().includes(reportSearchTerm.toLowerCase())).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />)}
-              </div>
-            );
+            case 'reports': {
+              const query = (reportSearchTerm || "").toLowerCase();
+              return (
+                <div className="space-y-8">
+                  <input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-5 rounded-2xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none focus:border-blue-300 transition-all" />
+                  {processedStudents.filter(s => (s.name || "").toLowerCase().includes(query)).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />)}
+                </div>
+              );
+            }
             case 'management': return <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u)=>setSettings(p=>({...p,...u}))} onSave={handleSave} processedSnapshot={processedStudents} onLoadDummyData={()=>{}} onClearData={()=>{}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />;
             default: return <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />;
           }
