@@ -121,6 +121,33 @@ export interface SerializationData {
   timestamp: string;
 }
 
+// --- QUESTION SERIALIZATION TYPES ---
+export interface MasterQuestion {
+  id: string;
+  type: 'OBJECTIVE' | 'THEORY';
+  strand: string;
+  subStrand: string;
+  questionText: string;
+  options?: { key: 'A' | 'B' | 'C' | 'D', text: string }[];
+  correctKey: string;
+  weight: number;
+}
+
+export interface QuestionPack {
+  variant: 'A' | 'B' | 'C' | 'D';
+  objectives: MasterQuestion[];
+  theory: MasterQuestion[];
+  schemeCode: string;
+}
+
+export interface SerializedExam {
+  schoolId: string;
+  mockSeries: string;
+  subject: string;
+  packs: Record<'A' | 'B' | 'C' | 'D', QuestionPack>;
+  timestamp: string;
+}
+
 export interface SchoolRegistryEntry {
   id: string; 
   name: string;

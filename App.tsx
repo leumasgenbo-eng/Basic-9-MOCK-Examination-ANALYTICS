@@ -125,7 +125,6 @@ const App: React.FC = () => {
           if (row.id === `${hubId}_settings` && row.payload) setSettings(row.payload);
           if (row.id === `${hubId}_students` && row.payload) setStudents(row.payload);
           if (row.id === `${hubId}_facilitators` && row.payload) setFacilitators(row.payload);
-          if (row.id === `${hubId}_academic_batches` && row.payload) console.log("Academic batches synced.");
         });
       }
     } catch (err: any) { 
@@ -151,7 +150,7 @@ const App: React.FC = () => {
   useEffect(() => { 
     fetchRegistry(); 
     fetchGlobalAd();
-    const adInterval = setInterval(fetchGlobalAd, 60000); // Check for ads every minute
+    const adInterval = setInterval(fetchGlobalAd, 60000); 
     return () => clearInterval(adInterval);
   }, [fetchRegistry, fetchGlobalAd]);
 
@@ -247,7 +246,7 @@ const App: React.FC = () => {
   }, [settings.schoolName, settings.schoolAddress, settings.schoolNumber, settings.examTitle, isAuthenticated, isSuperAdmin, handleSave]);
 
   const handleClearData = useCallback(async () => {
-    if (window.confirm("CRITICAL: SWITCH TO REAL MODE? This will PERMANENTLY ERASE all pupils, scores, mock snapshots, staff assignments, and resources. Branded Institutional Identity will be preserved for your fresh start.")) {
+    if (window.confirm("CRITICAL: SWITCH TO REAL MODE? This will PERMANENTLY ERASE all pupils, scores, mock snapshots, staff assignments, and resources.")) {
       setStudents([]);
       setFacilitators({});
       const cleanSettings = {
@@ -274,23 +273,23 @@ const App: React.FC = () => {
             await supabase.from('uba_persistence').upsert(shards);
           }
         } catch (e) {
-          console.error("Cloud purge failed, local wipe complete:", e);
+          console.error("Cloud purge failed:", e);
         }
       }
 
       setTimeout(() => {
         handleSave();
-        alert("TOTAL CLEAN SHEET ACTIVE: Demo records have been decommissioned. You may now begin fresh data entry.");
+        alert("TOTAL CLEAN SHEET ACTIVE.");
       }, 500);
     }
   }, [settings, handleSave]);
 
   if (isInitializing) return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500">
-      <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-[2rem] animate-spin"></div>
+      <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
       <div className="text-center space-y-2">
-        <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] animate-pulse">Establishing Registry Handshake</p>
-        <p className="text-[8px] text-slate-600 uppercase font-bold">Persistence Node Connecting...</p>
+        <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.5em] animate-pulse">Establishing Registry Handshake</p>
+        <p className="text-[7px] text-slate-600 uppercase font-bold">Synchronizing Multi-Device Nodes...</p>
       </div>
     </div>
   );
@@ -298,21 +297,21 @@ const App: React.FC = () => {
   if (networkError) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center space-y-6">
-         <div className="w-20 h-20 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+         <div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
          </div>
          <div className="space-y-2">
-            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Connectivity Interrupted</h2>
-            <p className="text-slate-400 text-sm max-w-md">{networkError}</p>
+            <h2 className="text-xl font-black text-white uppercase tracking-tight">Connectivity Interrupted</h2>
+            <p className="text-slate-400 text-xs max-w-md">{networkError}</p>
          </div>
-         <button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-black text-xs uppercase shadow-xl transition-all">Retry Handshake</button>
+         <button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-xl transition-all">Retry Handshake</button>
       </div>
     );
   }
 
   if (!isAuthenticated && !isSuperAdmin) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-900 via-slate-900 to-black">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-0 md:p-4 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-900 via-slate-900 to-black overflow-hidden">
         {isRegistering ? (
           <SchoolRegistrationPortal 
             settings={settings} 
@@ -342,50 +341,35 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen bg-gray-100 font-sans flex flex-col ${viewMode === 'master' || viewMode === 'series' || viewMode === 'cleanup' ? 'print-landscape' : 'print-portrait'}`}>
-      <div className="no-print bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-md flex justify-between items-center flex-wrap gap-2">
-        <div className="flex bg-blue-800 rounded p-1 text-[10px] md:text-sm">
+      <div className="no-print bg-blue-900 text-white p-3 md:p-4 sticky top-0 z-50 shadow-md flex justify-between items-center flex-wrap gap-2">
+        <div className="flex bg-blue-800 rounded p-1 text-[8px] md:text-sm overflow-x-auto no-scrollbar max-w-[70vw]">
           {!isPupil ? (
             <>
-              <button onClick={() => setViewMode('home')} className={`px-3 py-1 rounded transition flex items-center gap-1.5 ${viewMode === 'home' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <button onClick={() => setViewMode('home')} className={`px-2.5 py-1 rounded transition whitespace-nowrap flex items-center gap-1.5 ${viewMode === 'home' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
                 Home
               </button>
-              <button onClick={() => setViewMode('master')} className={`px-3 py-1 rounded transition ${viewMode === 'master' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Broad Sheets</button>
-              <button onClick={() => setViewMode('series')} className={`px-3 py-1 rounded transition ${viewMode === 'series' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Series Tracker</button>
-              
+              <button onClick={() => setViewMode('master')} className={`px-2.5 py-1 rounded transition whitespace-nowrap ${viewMode === 'master' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Sheets</button>
+              <button onClick={() => setViewMode('series')} className={`px-2.5 py-1 rounded transition whitespace-nowrap ${viewMode === 'series' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Series</button>
               {!isFacilitator && (
-                <button onClick={() => setViewMode('cleanup')} className={`px-3 py-1 rounded transition flex items-center gap-1.5 ${viewMode === 'cleanup' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                  Data Forge
-                </button>
+                <button onClick={() => setViewMode('cleanup')} className={`px-2.5 py-1 rounded transition whitespace-nowrap ${viewMode === 'cleanup' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Forge</button>
               )}
-
-              <button onClick={() => setViewMode('reports')} className={`px-3 py-1 rounded transition ${viewMode === 'reports' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Pupil Reports</button>
-              <button onClick={() => setViewMode('management')} className={`px-3 py-1 rounded transition ${viewMode === 'management' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Mgmt Desk</button>
+              <button onClick={() => setViewMode('reports')} className={`px-2.5 py-1 rounded transition whitespace-nowrap ${viewMode === 'reports' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Reports</button>
+              <button onClick={() => setViewMode('management')} className={`px-2.5 py-1 rounded transition whitespace-nowrap ${viewMode === 'management' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>Mgmt</button>
             </>
           ) : <button onClick={() => setViewMode('pupil_hub')} className={`px-3 py-1 rounded transition flex items-center gap-1.5 ${viewMode === 'pupil_hub' ? 'bg-white text-blue-900 font-bold' : 'text-blue-200 hover:text-white'}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
                 My Dashboard
               </button>}
         </div>
 
-        {/* Global Advertisement Stream - Positioned in the middle of header */}
-        {globalAd && (
-          <div className="flex-1 max-w-[50%] bg-blue-950/50 h-10 rounded-xl mx-4 overflow-hidden border border-white/5 flex items-center">
-             <p className="whitespace-nowrap inline-block animate-[marquee_25s_linear_infinite] text-[10px] font-black text-orange-400 uppercase tracking-widest px-4">
-                {globalAd} • {globalAd} • {globalAd} • {globalAd}
-             </p>
-          </div>
-        )}
-
-        <div className="flex gap-2">
-           {!isPupil && <button onClick={handleSave} className="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-4 py-2 rounded font-black shadow transition text-xs uppercase">Cloud Sync</button>}
-           <button onClick={() => window.print()} className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-black shadow transition text-xs uppercase">Print</button>
-           <button onClick={() => { window.location.reload(); }} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-black text-xs uppercase ml-2">Logout</button>
+        <div className="flex gap-1.5 md:gap-2">
+           {!isPupil && <button onClick={handleSave} className="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-2.5 py-1.5 md:px-4 md:py-2 rounded font-black shadow transition text-[8px] md:text-xs uppercase">Sync</button>}
+           <button onClick={() => { window.location.reload(); }} className="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 md:px-4 md:py-2 rounded font-black text-[8px] md:text-xs uppercase">Logout</button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto bg-gray-100 p-4 md:p-8">
+      <div className="flex-1 overflow-auto bg-gray-100 p-3 md:p-8">
         {(() => {
           if (isPupil && activePupil && viewMode === 'pupil_hub') {
             return (
@@ -412,14 +396,14 @@ const App: React.FC = () => {
               return !isFacilitator ? <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={handleSave} subjects={SUBJECT_LIST} /> : null;
             case 'reports':
               return (
-                <div className="space-y-8">
+                <div className="space-y-6 md:space-y-8">
                   <div className="no-print mb-4">
                     <input 
                       type="text" 
                       placeholder="Search pupils..." 
                       value={reportSearchTerm} 
                       onChange={(e) => setReportSearchTerm(e.target.value)} 
-                      className="w-full p-4 rounded-xl border border-gray-200 outline-none focus:ring-4 focus:ring-blue-500/10 font-black" 
+                      className="w-full p-3 md:p-4 rounded-xl border border-gray-200 outline-none focus:ring-4 focus:ring-blue-500/10 font-black text-sm" 
                     />
                   </div>
                   {processedStudents
@@ -475,6 +459,8 @@ const App: React.FC = () => {
           0% { transform: translateX(100%); }
           100% { transform: translateX(-100%); }
         }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
     </div>
   );

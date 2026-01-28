@@ -11,6 +11,7 @@ import GradingConfigPortal from './GradingConfigPortal';
 import SeriesHistoryPortal from './SeriesHistoryPortal';
 import MockResourcesPortal from './MockResourcesPortal';
 import FacilitatorDesk from './FacilitatorDesk';
+import LikelyQuestionDesk from './LikelyQuestionDesk';
 import SchoolRegistrationPortal from '../auth/SchoolRegistrationPortal';
 import LocalSyncPortal from './LocalSyncPortal';
 import RewardPortal from './RewardPortal';
@@ -79,6 +80,7 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
         <div className="p-3 sm:p-6 md:p-8 min-h-[500px]">
           {activeTab === 'scoreEntry' && <ScoreEntryPortal students={students} setStudents={setStudents} settings={settings} onSettingChange={onSettingChange} subjects={subjects} processedSnapshot={processedSnapshot} onSave={onSave} />}
           {activeTab === 'facilitatorDesk' && <FacilitatorDesk students={students} setStudents={setStudents} settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
+          {activeTab === 'likelyQuestions' && <LikelyQuestionDesk activeFacilitator={activeFacilitator} />}
           {activeTab === 'enrolmentForward' && <EnrolmentForwardingPortal settings={settings} students={students} facilitators={facilitators} />}
           {activeTab === 'localSync' && <LocalSyncPortal students={students} settings={settings} onSyncComplete={(data) => { setStudents(data.students); onBulkUpdate(data.settings); onSave(); }} />}
           {activeTab === 'rewards' && <RewardPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} facilitators={facilitators} onSave={onSave} onSettingChange={onSettingChange} isFacilitator={isFacilitator} />}

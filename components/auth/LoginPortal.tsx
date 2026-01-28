@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { GlobalSettings, StaffAssignment, SchoolRegistryEntry, StudentData } from '../../types';
-import { SUBJECT_LIST } from '../../constants';
 import { supabase } from '../../supabaseClient';
 
 interface LoginPortalProps {
@@ -18,7 +18,7 @@ const ACADEMY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYA
 
 const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, initialCredentials, onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
   const [authMode, setAuthMode] = useState<'ADMIN' | 'FACILITATOR' | 'PUPIL'>('ADMIN');
-  const [step, setStep] = useState<'IDENTITY' | 'OTP'>('IDENTITY');
+  const [step, setStep] = useState<'IDENTITY' | 'OTP' | 'DISCOVERY'>('IDENTITY');
   const [credentials, setCredentials] = useState({
     identityId: '',
     accessKey: '',
@@ -30,6 +30,16 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [resolvedSession, setResolvedSession] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter global registry for Discovery mode
+  const discoveryResults = useMemo(() => {
+    if (!searchQuery) return [];
+    return globalRegistry.filter(r => 
+      r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      r.id.toLowerCase().includes(searchQuery.toLowerCase())
+    ).slice(0, 5);
+  }, [globalRegistry, searchQuery]);
 
   useEffect(() => {
     if (initialCredentials) {
@@ -54,7 +64,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
     const inputKey = credentials.accessKey.trim().toUpperCase();
     const inputId = credentials.identityId.trim().toUpperCase();
 
-    // 1. SuperAdmin Bypass
     if (inputKey === "UBA-HQ-MASTER-2025") {
       setIsAuthenticating(false);
       onSuperAdminLogin();
@@ -62,9 +71,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
     }
 
     try {
-      // Resolve Root Hub ID
       const rootHubId = inputId.split('/')[0];
-      
       const { data: persistenceData, error: fetchError } = await supabase
         .from('uba_persistence')
         .select('id, payload')
@@ -91,7 +98,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
       } 
       else if (authMode === 'FACILITATOR') {
         if (facilitatorsShard) {
-          // Check if ID is RootHub/FAC-XX and key matches
           const staff = Object.values(facilitatorsShard).find(f => 
             `${rootHubId}/${f.enrolledId}` === inputId && (f.passkey || "").toUpperCase() === inputKey
           );
@@ -103,7 +109,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
       } 
       else if (authMode === 'PUPIL') {
         if (studentsShard) {
-          // Check if ID is RootHub/PUP-XX and key matches
           const pupil = studentsShard.find(s => 
             `${rootHubId}/PUP-${s.id}` === inputId && (s.passkey || "").toUpperCase() === inputKey
           );
@@ -116,7 +121,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
 
       if (!isVerified) throw new Error(`Access Denied: Invalid ${authMode} credentials.`);
 
-      // Step 2: Handshake Success -> Trigger OTP
       setResolvedSession(sessionPayload);
       generateOtp();
       setStep('OTP');
@@ -133,8 +137,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
     e.preventDefault();
     if (otpInput === generatedOtp) {
       setIsAuthenticating(true);
-      
-      // Perform Final Supabase Auth Handshake using Admin credentials for session persistence
       const { data: registryData } = await supabase
         .from('uba_persistence')
         .select('payload')
@@ -166,11 +168,16 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
     }
   };
 
+  const selectDiscoveredNode = (nodeId: string) => {
+    setCredentials(prev => ({ ...prev, identityId: nodeId }));
+    setStep('IDENTITY');
+    setSearchQuery('');
+  };
+
   return (
-    <div className="w-full max-w-lg animate-in fade-in zoom-in-95 duration-700">
-      <div className="bg-slate-950 p-8 md:p-12 rounded-[3.5rem] shadow-2xl border border-white/10 relative overflow-hidden">
+    <div className="w-full max-w-lg px-4 md:px-0 animate-in fade-in zoom-in-95 duration-700">
+      <div className="bg-slate-950 p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border border-white/10 relative overflow-hidden">
         
-        {/* Scanline Effect */}
         <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] z-10 opacity-20"></div>
 
         {isAuthenticating && (
@@ -180,29 +187,32 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
           </div>
         )}
 
-        <div className="text-center relative mb-10">
-          <div className="inline-block px-5 py-1.5 rounded-full bg-blue-600 text-white text-[9px] font-black uppercase tracking-[0.3em] mb-6 shadow-[0_0_20px_rgba(37,99,235,0.4)]">
-             INSTITUTIONAL GATEWAY
+        <div className="text-center relative mb-8">
+          <div className="inline-block px-5 py-1.5 rounded-full bg-blue-600 text-white text-[8px] font-black uppercase tracking-[0.3em] mb-4 shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+             CROSS-DEVICE ACCESS TERMINAL
           </div>
-          <div className="w-20 h-20 bg-slate-900 border border-white/5 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
-             <img src={ACADEMY_ICON} alt="UBA Shield" className="w-12 h-12 object-contain opacity-80" />
+          <div className="w-16 h-16 bg-slate-900 border border-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-2xl">
+             <img src={ACADEMY_ICON} alt="UBA Shield" className="w-10 h-10 object-contain opacity-80" />
           </div>
-          <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">Access Terminal</h2>
-          <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.4em] mt-4">Security Protocol: v4.22-RLS</p>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">Authentication Hub</h2>
+          <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.4em] mt-3">Node ID: {credentials.identityId || 'UNSET'}</p>
         </div>
 
-        {step === 'IDENTITY' ? (
+        {step === 'IDENTITY' && (
           <>
-            <div className="flex bg-white/5 p-1 rounded-2xl mb-8 border border-white/5">
+            <div className="flex bg-white/5 p-1 rounded-2xl mb-6 border border-white/5 overflow-x-auto no-scrollbar">
               {['ADMIN', 'FACILITATOR', 'PUPIL'].map(mode => (
-                <button key={mode} onClick={() => setAuthMode(mode as any)} className={`flex-1 py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${authMode === mode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>{mode}</button>
+                <button key={mode} onClick={() => setAuthMode(mode as any)} className={`flex-1 min-w-[80px] py-2.5 px-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${authMode === mode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>{mode}</button>
               ))}
             </div>
 
-            <form onSubmit={handleIdentityCheck} className="space-y-6">
+            <form onSubmit={handleIdentityCheck} className="space-y-5">
               <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Identity UID</label>
+                <div className="space-y-1.5 relative">
+                  <div className="flex justify-between items-center px-1">
+                    <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Identity UID</label>
+                    <button type="button" onClick={() => setStep('DISCOVERY')} className="text-[8px] font-black text-blue-400 uppercase tracking-widest hover:text-white transition-colors">Find My Hub?</button>
+                  </div>
                   <input 
                     type="text" 
                     value={credentials.identityId} 
@@ -214,7 +224,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
                 </div>
 
                 <div className="space-y-1.5 relative">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Passkey</label>
+                  <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Passkey</label>
                   <div className="relative">
                     <input 
                       type={showKey ? "text" : "password"} 
@@ -231,24 +241,26 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
                 </div>
               </div>
 
-              {errorMessage && <div className="bg-red-500/10 text-red-500 p-4 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20 animate-pulse">{errorMessage}</div>}
+              {errorMessage && <div className="bg-red-500/10 text-red-500 p-4 rounded-2xl text-[8px] font-black uppercase text-center border border-red-500/20 animate-pulse">{errorMessage}</div>}
 
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-6 rounded-3xl font-black text-[11px] uppercase tracking-[0.3em] shadow-[0_0_30px_rgba(37,99,235,0.3)] transition-all active:scale-95">
+              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-[0_0_30px_rgba(37,99,235,0.3)] transition-all active:scale-95">
                 Initiate Handshake
               </button>
             </form>
           </>
-        ) : (
+        )}
+
+        {step === 'OTP' && (
           <form onSubmit={handleOtpVerification} className="space-y-8 animate-in slide-in-from-right-4 duration-500">
              <div className="text-center space-y-2">
                 <div className="bg-emerald-500/10 text-emerald-400 p-4 rounded-3xl border border-emerald-500/20 inline-block mb-4">
                    <span className="text-3xl font-mono font-black tracking-[0.5em]">{generatedOtp}</span>
                 </div>
                 <h3 className="text-lg font-black text-white uppercase tracking-tight">Security Handshake</h3>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Type the verification code shown above</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Type verification code for mobile sync</p>
              </div>
 
-             <div className="flex justify-center gap-4">
+             <div className="flex justify-center gap-3">
                 {['', '', '', ''].map((_, i) => (
                   <input
                     key={i}
@@ -264,27 +276,58 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, globalRegistry, ini
                         if (val && i < 3) (e.target.nextSibling as HTMLInputElement)?.focus();
                       }
                     }}
-                    className="w-16 h-20 bg-slate-900 border border-white/10 rounded-2xl text-center text-3xl font-black text-white outline-none focus:ring-4 focus:ring-blue-500/20"
+                    className="w-14 h-16 bg-slate-900 border border-white/10 rounded-2xl text-center text-2xl font-black text-white outline-none focus:ring-4 focus:ring-blue-500/20"
                     autoFocus={i === 0}
                   />
                 ))}
              </div>
 
-             {errorMessage && <div className="text-red-500 text-[9px] font-black uppercase text-center">{errorMessage}</div>}
-
-             <div className="flex flex-col gap-4">
-               <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-6 rounded-3xl font-black text-[11px] uppercase tracking-[0.3em] shadow-xl active:scale-95 transition-all">
-                 Verify & Decrypt
-               </button>
-               <button type="button" onClick={() => setStep('IDENTITY')} className="text-[9px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">
-                 Return to Identity Node
-               </button>
-             </div>
+             <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-xl active:scale-95 transition-all">
+               Verify & Decrypt
+             </button>
+             <button type="button" onClick={() => setStep('IDENTITY')} className="w-full text-[8px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Return to Identity Node</button>
           </form>
         )}
 
-        <div className="pt-8 text-center border-t border-white/5 mt-8">
-           <button onClick={onSwitchToRegister} className="text-[9px] font-black text-blue-500/60 uppercase tracking-widest hover:text-blue-400">Enroll New Institutional Node</button>
+        {step === 'DISCOVERY' && (
+          <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+             <div className="text-center space-y-2">
+                <h3 className="text-lg font-black text-white uppercase tracking-tight">Network Node Discovery</h3>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Search cloud registry by school name</p>
+             </div>
+             <div className="relative">
+                <input 
+                   type="text" 
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                   placeholder="Search: 'United Baylor'..."
+                   className="w-full bg-slate-900 border border-blue-500/30 rounded-2xl px-12 py-4 text-xs font-black text-white outline-none focus:ring-4 focus:ring-blue-500/10 uppercase"
+                />
+                <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+             </div>
+
+             <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                {discoveryResults.map(school => (
+                  <button 
+                    key={school.id}
+                    onClick={() => selectDiscoveredNode(school.id)}
+                    className="w-full text-left bg-white/5 hover:bg-blue-600/20 border border-white/5 p-4 rounded-2xl transition-all group"
+                  >
+                     <p className="text-[10px] font-black text-white uppercase group-hover:text-blue-400">{school.name}</p>
+                     <p className="text-[8px] font-mono text-slate-500 mt-1 uppercase tracking-widest">UID: {school.id}</p>
+                  </button>
+                ))}
+                {searchQuery && discoveryResults.length === 0 && (
+                   <p className="text-center py-8 text-[9px] font-black text-slate-600 uppercase italic">No matching nodes found in the cloud registry</p>
+                )}
+             </div>
+
+             <button type="button" onClick={() => setStep('IDENTITY')} className="w-full py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors border border-white/5 rounded-2xl">Return to Access Terminal</button>
+          </div>
+        )}
+
+        <div className="pt-6 text-center border-t border-white/5 mt-6">
+           <button onClick={onSwitchToRegister} className="text-[8px] font-black text-blue-500/60 uppercase tracking-widest hover:text-blue-400">Enroll New Institutional Node</button>
         </div>
       </div>
     </div>

@@ -16,6 +16,7 @@ import RecruitmentHubView from './RecruitmentHubView';
 import AdvertisementPortalView from './AdvertisementPortalView';
 import MarketingDeskView from './MarketingDeskView';
 import SerializationHubView from './SerializationHubView';
+import QuestionSerializationPortal from './QuestionSerializationPortal';
 
 export interface SubjectDemandMetric {
   subject: string;
@@ -41,7 +42,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
   const [registry, setRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [auditTrail, setAuditTrail] = useState<SystemAuditEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [view, setView] = useState<'registry' | 'recruitment' | 'rankings' | 'serialization' | 'advertisement' | 'marketing' | 'pupils' | 'rewards' | 'sig-diff' | 'remarks' | 'annual-report' | 'audit'>('registry');
+  const [view, setView] = useState<'registry' | 'recruitment' | 'rankings' | 'serialization' | 'questions' | 'advertisement' | 'marketing' | 'pupils' | 'rewards' | 'sig-diff' | 'remarks' | 'annual-report' | 'audit'>('registry');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
@@ -191,6 +192,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
         { id: 'registry', label: 'Network Ledger' },
         { id: 'recruitment', label: 'Recruitment Hub' },
         { id: 'serialization', label: 'Serialization Hub' },
+        { id: 'questions', label: 'Question Portal' },
       ]
     },
     {
@@ -282,6 +284,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
           {view === 'recruitment' && <RecruitmentHubView registry={registry} onLogAction={logAction} />}
           {view === 'rankings' && <ReratingView schoolRankings={schoolRankings} />}
           {view === 'serialization' && <SerializationHubView registry={registry} onLogAction={logAction} />}
+          {view === 'questions' && <QuestionSerializationPortal registry={registry} />}
           {view === 'advertisement' && <AdvertisementPortalView onLogAction={logAction} />}
           {view === 'marketing' && <MarketingDeskView />}
           {view === 'remarks' && <RemarkAnalyticsView subjectDemands={subjectDemands} />}
