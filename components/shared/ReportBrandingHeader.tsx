@@ -13,8 +13,6 @@ interface ReportBrandingHeaderProps {
 }
 
 const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, onSettingChange, reportTitle, subtitle, isLandscape = false, readOnly = false }) => {
-  const commonInputClass = readOnly ? "border-none hover:bg-transparent focus:bg-transparent cursor-default" : "";
-
   return (
     <div className={`text-center relative border-b-[8px] border-double border-blue-900 pb-8 mb-8 w-full ${isLandscape ? 'px-6' : 'px-4'}`}>
       {settings.schoolLogo && (
@@ -50,7 +48,20 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
           )}
         </h1>
 
-        <p className="text-[11px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed">
+        <div className="text-[10px] font-black text-blue-600/60 uppercase tracking-[0.5em] italic">
+          {readOnly ? (
+            <span>{settings.schoolMotto || "EXCELLENCE IN CHARACTER"}</span>
+          ) : (
+            <EditableField 
+              value={settings.schoolMotto || "EXCELLENCE IN CHARACTER"} 
+              onChange={(v) => onSettingChange('schoolMotto', v)} 
+              className="text-center w-full bg-transparent"
+              placeholder="SCHOOL MOTTO"
+            />
+          )}
+        </div>
+
+        <p className="text-[11px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed mt-2">
           {readOnly ? (
             <span>{settings.schoolAddress}</span>
           ) : (
@@ -79,6 +90,15 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
               <span className="lowercase">{settings.schoolEmail}</span>
             ) : (
               <EditableField value={settings.schoolEmail} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="OFFICIAL EMAIL..." className="lowercase" />
+            )}
+          </div>
+          <div className="w-1.5 h-1.5 bg-blue-100 rounded-full"></div>
+          <div className="flex items-center gap-1.5">
+            <span>WEB:</span>
+            {readOnly ? (
+              <span className="lowercase">{settings.schoolWebsite || 'www.ssmap.app'}</span>
+            ) : (
+              <EditableField value={settings.schoolWebsite || ''} onChange={(v) => onSettingChange('schoolWebsite', v)} placeholder="WEBSITE..." className="lowercase" />
             )}
           </div>
         </div>

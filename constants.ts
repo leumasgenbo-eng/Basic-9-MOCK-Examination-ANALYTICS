@@ -58,7 +58,7 @@ export const FACILITATORS: Record<string, string> = {
   "Mathematics": "SIR SAMMY",
   "Science": "SIR JOSHUA",
   "Social Studies": "SIR ASHMIE",
-  "Career Technology": "SIR JOSHUA",
+  "Career Technology": "SIR TAGOE",
   "Creative Arts and Designing": "MADAM NORTEY",
   "Ghana Language (Twi)": "MADAM RITA",
   "Religious and Moral Education": "MADAM JANE",

@@ -22,6 +22,8 @@ const MOCK_SERIES = Array.from({ length: 10 }, (_, i) => `MOCK ${i + 1}`);
 
 const DEFAULT_SETTINGS: GlobalSettings = {
   schoolName: "UNITED BAYLOR ACADEMY",
+  schoolMotto: "EXCELLENCE IN KNOWLEDGE AND CHARACTER",
+  schoolWebsite: "www.unitedbaylor.edu",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
   schoolNumber: "", 
   schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
@@ -105,7 +107,6 @@ const App: React.FC = () => {
     return null;
   }, []);
 
-  // SESSION PERSISTENCE HANDLER
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -123,7 +124,6 @@ const App: React.FC = () => {
           const sessionData = await loadSchoolSession(hubId);
           setIsAuthenticated(true);
           
-          // Check if user was a pupil by looking at metadata or trying to match a saved preference
           const savedPupilId = localStorage.getItem('uba_active_pupil_id');
           if (savedPupilId && sessionData) {
             const stats = calculateClassStatistics(sessionData.loadedStudents, sessionData.loadedSettings);

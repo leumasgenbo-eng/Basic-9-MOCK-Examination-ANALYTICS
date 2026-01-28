@@ -1,5 +1,4 @@
 
-
 export interface SubjectScore {
   subject: string;
   score: number;
@@ -93,12 +92,10 @@ export interface SerializationData {
   timestamp: string;
 }
 
-// --- ADVANCED QUESTION SERIALIZATION TYPES ---
-
 export type BloomsScale = 'Knowledge' | 'Understanding' | 'Application' | 'Analysis' | 'Synthesis' | 'Evaluation';
 
 export interface QuestionSubPart {
-  partLabel: string; // e.g., "a", "b", "i", "ii", "iii"
+  partLabel: string; 
   text: string;
   possibleAnswers: string;
   markingScheme: string;
@@ -119,9 +116,9 @@ export interface MasterQuestion {
   correctKey: string;
   weight: number;
   blooms: BloomsScale;
-  instruction: string; // specific to this question
-  diagramUrl?: string; // base64 or URL
-  parts: QuestionSubPart[]; // For theory e.g. 1.a.i
+  instruction: string; 
+  diagramUrl?: string; 
+  parts: QuestionSubPart[]; 
   answerScheme: string;
 }
 
@@ -288,6 +285,8 @@ export interface GlobalSettings {
   schoolAddress: string;
   schoolNumber: string; 
   schoolLogo?: string;
+  schoolMotto?: string;
+  schoolWebsite?: string;
   registrantName?: string; 
   registrantEmail?: string;
   accessCode?: string;     
@@ -312,7 +311,6 @@ export interface GlobalSettings {
   committedMocks?: string[];
   categoryThresholds: CategoryThreshold[];
   isConductLocked: boolean;
-  // Added securityPin to resolve type error in App.tsx where it is specified in DEFAULT_SETTINGS
   securityPin?: string;
   activeMock: string;
   resourcePortal: Record<string, Record<string, MockResource>>;
@@ -336,14 +334,22 @@ export interface MockSnapshotMetadata {
   approvedBy?: string;
 }
 
-export interface PaymentParticulars {
-  amount: number;
-  paidBy: string;
-  sentBy: string;
-  transactionId: string;
-  date: string;
-  isBulk: boolean;
-  isVerified: boolean;
+export interface MockResource {
+  indicators: QuestionIndicatorMapping[];
+  questionUrl?: string;
+  schemeUrl?: string;
+  generalReport?: string;
+}
+
+export interface QuestionIndicatorMapping {
+  id: string;
+  section: 'A' | 'B';
+  questionRef: string;
+  strand: string;
+  subStrand: string;
+  indicatorCode: string;
+  indicator: string;
+  weight: number;
 }
 
 export interface ForwardingData {
@@ -363,20 +369,12 @@ export interface ForwardingData {
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
-export interface QuestionIndicatorMapping {
-  id: string;
-  section: 'A' | 'B';
-  questionRef: string;
-  strand: string;
-  subStrand: string;
-  indicatorCode: string;
-  indicator: string;
-  weight: number;
-}
-
-export interface MockResource {
-  indicators: QuestionIndicatorMapping[];
-  questionUrl?: string;
-  schemeUrl?: string;
-  generalReport?: string;
+export interface PaymentParticulars {
+  amount: number;
+  paidBy: string;
+  sentBy: string;
+  transactionId: string;
+  date: string;
+  isBulk: boolean;
+  isVerified: boolean;
 }
