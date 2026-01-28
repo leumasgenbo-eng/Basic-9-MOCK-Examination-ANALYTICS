@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
-import { supabase } from './supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 // Portal Components
 import MasterSheet from './components/reports/MasterSheet';
@@ -55,6 +55,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
+  const [networkError, setNetworkError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'home' | 'master' | 'reports' | 'management' | 'series' | 'pupil_hub' | 'cleanup'>('home');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
   
@@ -75,6 +76,12 @@ const App: React.FC = () => {
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchRegistry = useCallback(async () => {
+    if (!isSupabaseConfigured()) {
+      setNetworkError("Supabase is not correctly configured.");
+      setIsInitializing(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('uba_persistence')
@@ -91,6 +98,9 @@ const App: React.FC = () => {
       }
     } catch (err: any) { 
       console.warn("Handshake Note: Registry unavailable.", err.message); 
+      if (err.message === 'Failed to fetch') {
+        setNetworkError("Network Error: Could not connect to the Institutional Registry. Please check your internet connection.");
+      }
     }
     finally { setIsInitializing(false); }
   }, []);
@@ -98,6 +108,7 @@ const App: React.FC = () => {
   const loadSchoolSession = async (hubId: string) => {
     if (!hubId) return;
     setIsInitializing(true);
+    setNetworkError(null);
     try {
       const { data, error } = await supabase
         .from('uba_persistence')
@@ -115,6 +126,7 @@ const App: React.FC = () => {
       }
     } catch (err: any) { 
       console.error("Institutional Fetch Error:", err.message); 
+      setNetworkError(`Fetch failed: ${err.message}`);
     }
     finally { setIsInitializing(false); }
   };
@@ -124,23 +136,27 @@ const App: React.FC = () => {
   useEffect(() => {
     let channel: any;
     const initSync = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) return;
 
-      channel = supabase.channel(`sync-${user.id}`).on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'uba_persistence', 
-        filter: `user_id=eq.${user.id}` 
-      }, (payload) => {
-        const newRow = payload.new as any;
-        if (!newRow || !newRow.payload) return;
-        const hubId = settings.schoolNumber;
-        
-        if (newRow.id === `${hubId}_settings`) setSettings(newRow.payload);
-        if (newRow.id === `${hubId}_students`) setStudents(newRow.payload);
-        if (newRow.id === `${hubId}_facilitators`) setFacilitators(newRow.payload);
-      }).subscribe();
+        channel = supabase.channel(`sync-${user.id}`).on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'uba_persistence', 
+          filter: `user_id=eq.${user.id}` 
+        }, (payload) => {
+          const newRow = payload.new as any;
+          if (!newRow || !newRow.payload) return;
+          const hubId = settings.schoolNumber;
+          
+          if (newRow.id === `${hubId}_settings`) setSettings(newRow.payload);
+          if (newRow.id === `${hubId}_students`) setStudents(newRow.payload);
+          if (newRow.id === `${hubId}_facilitators`) setFacilitators(newRow.payload);
+        }).subscribe();
+      } catch (err) {
+        console.warn("Real-time sync could not be initialized:", err);
+      }
     };
     initSync();
     return () => { if (channel) channel.unsubscribe(); };
@@ -161,17 +177,17 @@ const App: React.FC = () => {
     const hubId = settings.schoolNumber;
     if (!hubId) return;
     
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const ts = new Date().toISOString();
-    const shards = [
-      { id: `${hubId}_settings`, payload: settings, user_id: user.id, last_updated: ts },
-      { id: `${hubId}_students`, payload: students, user_id: user.id, last_updated: ts },
-      { id: `${hubId}_facilitators`, payload: facilitators, user_id: user.id, last_updated: ts }
-    ];
-
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const ts = new Date().toISOString();
+      const shards = [
+        { id: `${hubId}_settings`, payload: settings, user_id: user.id, last_updated: ts },
+        { id: `${hubId}_students`, payload: students, user_id: user.id, last_updated: ts },
+        { id: `${hubId}_facilitators`, payload: facilitators, user_id: user.id, last_updated: ts }
+      ];
+
       await supabase.from('uba_persistence').upsert(shards);
       
       const regEntry: SchoolRegistryEntry = { 
@@ -207,39 +223,71 @@ const App: React.FC = () => {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [settings.schoolName, settings.schoolAddress, settings.schoolNumber, settings.examTitle, isAuthenticated, isSuperAdmin, handleSave]);
 
-  const handleClearData = useCallback(() => {
+  const handleClearData = useCallback(async () => {
     if (window.confirm("CRITICAL: SWITCH TO REAL MODE? This will PERMANENTLY ERASE all pupils, scores, mock snapshots, staff assignments, and resources. Branded Institutional Identity will be preserved for your fresh start.")) {
-      // 1. Wipe Students and Facilitators
+      // 1. Locally Wipe everything
       setStudents([]);
       setFacilitators({});
-      
-      // 2. Wipe Historical/Snapshot Settings
-      setSettings(prev => ({
-        ...prev,
+      const cleanSettings = {
+        ...settings,
         resourcePortal: {},
         mockSnapshots: {},
         activeMock: "MOCK 1",
         isConductLocked: false,
         committedMocks: MOCK_SERIES
-      }));
+      };
+      setSettings(cleanSettings);
+      
+      // 2. Clear from Cloud Shards
+      const hubId = settings.schoolNumber;
+      if (hubId) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const ts = new Date().toISOString();
+            const shards = [
+              { id: `${hubId}_settings`, payload: cleanSettings, user_id: user.id, last_updated: ts },
+              { id: `${hubId}_students`, payload: [], user_id: user.id, last_updated: ts },
+              { id: `${hubId}_facilitators`, payload: {}, user_id: user.id, last_updated: ts }
+            ];
+            await supabase.from('uba_persistence').upsert(shards);
+          }
+        } catch (e) {
+          console.error("Cloud purge failed, local wipe complete:", e);
+        }
+      }
 
-      // 3. Immediately Push Clean State to Cloud
       setTimeout(() => {
         handleSave();
         alert("TOTAL CLEAN SHEET ACTIVE: Demo records have been decommissioned. You may now begin fresh data entry.");
       }, 500);
     }
-  }, [handleSave]);
+  }, [settings, handleSave]);
 
   if (isInitializing) return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500">
       <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-[2rem] animate-spin"></div>
       <div className="text-center space-y-2">
         <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] animate-pulse">Establishing Registry Handshake</p>
-        <p className="text-[8px] text-slate-600 uppercase font-bold">Node: {supabase.supabaseUrl.split('//')[1].split('.')[0]}</p>
+        <p className="text-[8px] text-slate-600 uppercase font-bold">Persistence Node Connecting...</p>
       </div>
     </div>
   );
+
+  if (networkError) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center space-y-6">
+         <div className="w-20 h-20 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+         </div>
+         <div className="space-y-2">
+            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Connectivity Interrupted</h2>
+            <p className="text-slate-400 text-sm max-w-md">{networkError}</p>
+         </div>
+         <button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-black text-xs uppercase shadow-xl transition-all">Retry Handshake</button>
+      </div>
+    );
+  }
 
   if (!isAuthenticated && !isSuperAdmin) {
     return (

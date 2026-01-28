@@ -44,16 +44,11 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       
       const systemAuthEmail = `${hubId.toLowerCase()}@unitedbaylor.edu`;
 
-      // 1. AUTH PROVISIONING (Admin Master Account)
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: systemAuthEmail,
         password: accessKey, 
         options: {
-          data: {
-            hubId: hubId, 
-            schoolName: formData.schoolName.toUpperCase(),
-            role: 'school_admin'
-          }
+          data: { hubId: hubId, schoolName: formData.schoolName.toUpperCase(), role: 'school_admin' }
         }
       });
 
@@ -71,7 +66,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
 
       const ts = new Date().toISOString();
 
-      // 2. PRIVATE SETTINGS SHARD
       const newSettings = {
         ...settings,
         schoolName: formData.schoolName.toUpperCase(),
@@ -88,16 +82,13 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         enrollmentDate: new Date().toLocaleDateString()
       };
 
-      const { error: settingsError } = await supabase.from('uba_persistence').insert({ 
+      await supabase.from('uba_persistence').insert({ 
         id: `${hubId}_settings`, 
         payload: newSettings, 
         last_updated: ts,
         user_id: userId 
       });
 
-      if (settingsError) throw new Error("Settings Allocation Failed: " + settingsError.message);
-
-      // 3. NETWORK REGISTRY NODE (Includes keys for validation during login)
       const newRegistryEntry: SchoolRegistryEntry = {
         id: hubId,
         name: formData.schoolName.toUpperCase(),
@@ -113,18 +104,15 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         lastActivity: ts
       };
 
-      const { error: regError } = await supabase.from('uba_persistence').insert({ 
+      await supabase.from('uba_persistence').insert({ 
         id: `registry_${hubId}`, 
         payload: [newRegistryEntry], 
         last_updated: ts,
         user_id: userId
       });
 
-      if (regError) throw new Error("Network Registry Sync Failed: " + regError.message);
-
       onBulkUpdate(newSettings);
       if (onResetStudents) onResetStudents();
-      
       setRegisteredData(newSettings);
       setIsRegistered(true);
       
@@ -139,15 +127,16 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
   const handleDownloadCredentials = () => {
     const text = `SS-MAP - INSTITUTIONAL ACCESS PACK\n` +
                  `==================================================\n\n` +
-                 `ADMIN ACCESS:\n` +
+                 `ADMIN ACCESS (RESTRICTED):\n` +
                  `1. Hub ID:          ${registeredData?.schoolNumber}\n` +
                  `2. Login Email:     ${registeredData?.systemAuthEmail}\n` +
-                 `3. Master Key:      ${registeredData?.accessCode}\n\n` +
-                 `ROLE ACCESS CODES:\n` +
-                 `4. Facilitator Key: ${registeredData?.staffAccessCode}\n` +
+                 `3. MASTER KEY:      ${registeredData?.accessCode}\n\n` +
+                 `STAFF ACCESS:\n` +
+                 `4. Facilitator Key: ${registeredData?.staffAccessCode}\n\n` +
+                 `PUPIL ACCESS:\n` +
                  `5. Pupil Key:       ${registeredData?.pupilAccessCode}\n\n` +
                  `--------------------------------------------------\n` +
-                 `* IMPORTANT: Save this file. Codes are unique to your Academy.`;
+                 `* IMPORTANT: DO NOT share the MASTER KEY with teachers or pupils.`;
     
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -178,25 +167,49 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
            </div>
            <div className="space-y-2">
-              <h2 className="text-4xl font-black text-white uppercase tracking-tight leading-none">Institutional Node Established</h2>
-              <p className="text-emerald-400/60 font-black text-[10px] uppercase tracking-[0.4em]">Registry Handshake Complete</p>
+              <h2 className="text-4xl font-black text-white uppercase tracking-tight leading-none">Security Protocol Active</h2>
+              <p className="text-blue-400/60 font-black text-[10px] uppercase tracking-[0.4em]">Partitioned Access Credentials Generated</p>
            </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                { label: 'Institution Hub ID', val: registeredData?.schoolNumber },
-                { label: 'Admin Master Key', val: registeredData?.accessCode },
-                { label: 'Facilitator Unique Code', val: registeredData?.staffAccessCode },
-                { label: 'Pupil Unique Code', val: registeredData?.pupilAccessCode }
-              ].map(f => (
-                <div key={f.label} className="bg-white/5 border border-white/10 p-6 rounded-3xl text-left hover:bg-white/10 transition-colors">
-                  <span className="text-[9px] font-black text-blue-400 uppercase block mb-1">{f.label}</span>
-                  <p className="text-lg font-black text-white truncate font-mono">{f.val}</p>
-                </div>
-              ))}
+           
+           <div className="space-y-4">
+              <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-3xl text-left relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 bg-red-600 text-white px-4 py-1 text-[8px] font-black uppercase rounded-bl-xl">Admin Master</div>
+                 <span className="text-[8px] font-black text-red-400 uppercase tracking-widest block mb-2">Master Management Key (Restricted)</span>
+                 <p className="text-2xl font-black text-white font-mono tracking-widest">{registeredData?.accessCode}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-3xl text-left relative">
+                    <div className="absolute top-0 right-0 bg-blue-600 text-white px-3 py-1 text-[7px] font-black uppercase rounded-bl-xl">Staff Node</div>
+                    <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest block mb-2">Facilitator Passkey</span>
+                    <p className="text-xl font-black text-white font-mono">{registeredData?.staffAccessCode}</p>
+                 </div>
+                 <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-3xl text-left relative">
+                    <div className="absolute top-0 right-0 bg-emerald-600 text-white px-3 py-1 text-[7px] font-black uppercase rounded-bl-xl">Pupil Node</div>
+                    <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest block mb-2">Pupil/Parent Passkey</span>
+                    <p className="text-xl font-black text-white font-mono">{registeredData?.pupilAccessCode}</p>
+                 </div>
+              </div>
            </div>
-           <div className="flex flex-wrap justify-center gap-4">
-              <button onClick={handleDownloadCredentials} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all">Download Credentials Pack</button>
-              <button onClick={() => onComplete?.(registeredData)} className="w-full bg-white text-slate-900 py-7 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-emerald-50 transition-all active:scale-95">Proceed to Secure Portal</button>
+
+           <div className="bg-slate-950 p-6 rounded-2xl border border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="text-left">
+                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Network Identity</span>
+                 <p className="text-sm font-black text-blue-400 font-mono">{registeredData?.schoolNumber}</p>
+              </div>
+              <button onClick={handleDownloadCredentials} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2">
+                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                 Save Security Pack
+              </button>
+           </div>
+
+           <div className="pt-8">
+              <button 
+                onClick={() => onComplete?.(registeredData)}
+                className="w-full bg-white text-slate-900 py-7 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-emerald-50 transition-all active:scale-95"
+              >
+                Launch Institutional Hub
+              </button>
            </div>
         </div>
       </div>
@@ -210,7 +223,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
             <div className="w-20 h-20 bg-blue-900 text-white rounded-3xl flex items-center justify-center mx-auto shadow-2xl mb-2 transition-transform hover:rotate-12">
                <img src={ACADEMY_ICON} alt="Shield" className="w-12 h-12" />
             </div>
-            <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Register Institution Hub</h2>
+            <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Institutional Onboarding</h2>
             <p className="text-xs font-black text-slate-400 uppercase tracking-[0.4em]">Establish your encrypted node on the UBA network</p>
         </div>
 
@@ -230,7 +243,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
             <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Director Name</label><input type="text" placeholder="FULL NAME..." value={formData.registrant} onChange={(e) => setFormData({...formData, registrant: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 uppercase" required /></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Management Email</label><input type="email" placeholder="ADMIN@EMAIL.COM" value={formData.registrantEmail} onChange={(e) => setFormData({...formData, registrantEmail: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required /></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">School Official Email</label><input type="email" placeholder="OFFICE@ACADEMY.COM" value={formData.schoolEmail} onChange={(e) => setFormData({...formData, schoolEmail: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Primary Contact Node</label><input type="text" placeholder="PHONE..." value={formData.contact} onChange={(e) => setFormData({...formData, contact: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-blue-900 uppercase tracking-[0.2em]">Primary Contact Node</label><input type="text" placeholder="024 XXX XXXX" value={formData.contact} onChange={(e) => setFormData({...formData, contact: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" required /></div>
             <div className="md:col-span-2 pt-10 space-y-6">
               <button type="submit" disabled={isSyncing} className="w-full bg-blue-900 text-white py-7 rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50">{isSyncing ? "Syncing Shards..." : "Execute Enrollment Protocol"}</button>
               <div className="text-center"><button type="button" onClick={onSwitchToLogin} className="text-[10px] font-black text-blue-900 uppercase tracking-[0.3em] hover:text-indigo-600 transition-colors border-b-2 border-transparent hover:border-indigo-600 pb-1">Already Registered? Hub Access</button></div>

@@ -1,5 +1,4 @@
-
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { GlobalSettings } from '../../types';
 
 interface AcademyIdentityPortalProps {
@@ -10,6 +9,7 @@ interface AcademyIdentityPortalProps {
 
 const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings, onSettingChange, onSave }) => {
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [showKeys, setShowKeys] = useState(false);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -17,6 +17,14 @@ const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings,
       const reader = new FileReader();
       reader.onloadend = () => onSettingChange('schoolLogo', reader.result as string);
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleResetRoleCode = (role: 'staff' | 'pupil') => {
+    const newCode = `${role.toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    if (window.confirm(`SECURITY PROTOCOL: Reset ${role} access code? All currently logged-in ${role}s will need the new code immediately.`)) {
+      onSettingChange(role === 'staff' ? 'staffAccessCode' : 'pupilAccessCode', newCode);
+      setTimeout(onSave, 500);
     }
   };
 
@@ -32,41 +40,87 @@ const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings,
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      <section className="bg-gray-50 p-5 rounded-2xl border border-gray-100 shadow-inner">
-        <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span> Academy Branding
-        </h4>
-        <div className="flex flex-col items-center gap-6">
-          <div className="w-32 h-32 bg-white rounded-2xl border border-gray-200 flex items-center justify-center overflow-hidden shadow-xl p-3 relative group">
+    <div className="space-y-8 animate-in fade-in duration-300">
+      
+      {/* Security Node Control - NEW */}
+      <section className="bg-slate-900 text-white p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+        <div className="relative flex flex-col md:flex-row justify-between items-center gap-8">
+           <div className="space-y-1">
+              <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Security Node Control</h4>
+              <p className="text-xl font-black uppercase tracking-tight">Institutional Access Management</p>
+           </div>
+           <button 
+             onClick={() => setShowKeys(!showKeys)}
+             className="bg-white/10 hover:bg-white/20 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase border border-white/10 transition-all flex items-center gap-2"
+           >
+             {showKeys ? 'Hide Keys' : 'View Passkeys'}
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+           </button>
+        </div>
+
+        {showKeys && (
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-top-4">
+             <div className="bg-white/5 border border-white/10 p-5 rounded-2xl">
+                <span className="text-[8px] font-black text-slate-500 uppercase block mb-1">Master Admin Key</span>
+                <p className="text-sm font-mono font-black text-red-400">{settings.accessCode}</p>
+             </div>
+             <div className="bg-white/5 border border-white/10 p-5 rounded-2xl flex justify-between items-center group">
+                <div>
+                   <span className="text-[8px] font-black text-slate-500 uppercase block mb-1">Facilitator Passkey</span>
+                   <p className="text-sm font-mono font-black text-blue-400">{settings.staffAccessCode}</p>
+                </div>
+                <button onClick={() => handleResetRoleCode('staff')} className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-white transition-opacity">
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                </button>
+             </div>
+             <div className="bg-white/5 border border-white/10 p-5 rounded-2xl flex justify-between items-center group">
+                <div>
+                   <span className="text-[8px] font-black text-slate-500 uppercase block mb-1">Pupil Passkey</span>
+                   <p className="text-sm font-mono font-black text-emerald-400">{settings.pupilAccessCode}</p>
+                </div>
+                <button onClick={() => handleResetRoleCode('pupil')} className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-white transition-opacity">
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                </button>
+             </div>
+          </div>
+        )}
+      </section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <section className="lg:col-span-1 bg-gray-50 p-8 rounded-[2.5rem] border border-gray-100 shadow-inner flex flex-col items-center">
+          <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2 w-full">
+            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span> Academy Branding
+          </h4>
+          <div className="w-48 h-48 bg-white rounded-3xl border border-gray-200 flex items-center justify-center overflow-hidden shadow-xl p-6 relative group">
             {settings.schoolLogo ? (
               <>
-                <img src={settings.schoolLogo} alt="Logo" className="w-full h-full object-contain" />
-                <button onClick={() => onSettingChange('schoolLogo', '')} className="absolute inset-0 bg-black/50 text-white font-black text-[8px] uppercase opacity-0 group-hover:opacity-100 transition-opacity">Remove</button>
+                <img src={settings.schoolLogo} alt="Logo" className="max-w-full max-h-full object-contain" />
+                <button onClick={() => onSettingChange('schoolLogo', '')} className="absolute inset-0 bg-black/50 text-white font-black text-[10px] uppercase opacity-0 group-hover:opacity-100 transition-opacity">Remove Logo</button>
               </>
-            ) : <span className="text-[8px] font-black text-gray-300 uppercase">No Logo</span>}
+            ) : <span className="text-[10px] font-black text-gray-300 uppercase">No Logo Uploaded</span>}
           </div>
-          <button onClick={() => logoInputRef.current?.click()} className="bg-blue-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Upload New Logo</button>
+          <button onClick={() => logoInputRef.current?.click()} className="mt-8 bg-blue-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all w-full">Upload Institutional Seal</button>
           <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
-        </div>
-      </section>
+        </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6 bg-white p-5 sm:p-8 rounded-2xl border border-gray-100 shadow-xl">
-        {fields.map(field => (
-          <div key={field.key} className="flex flex-col space-y-1 border-b border-gray-50 pb-2">
-            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{field.label}</label>
-            <input 
-              type="text" 
-              value={field.val as string} 
-              onChange={(e) => onSettingChange(field.key as any, e.target.value.toUpperCase())} 
-              className="focus:border-blue-600 outline-none text-sm font-black text-blue-900 py-1 transition-all uppercase bg-transparent" 
-            />
-          </div>
-        ))}
-      </section>
+        <section className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl">
+          {fields.map(field => (
+            <div key={field.key} className="flex flex-col space-y-1.5 border-b border-gray-50 pb-3 group/field">
+              <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest group-hover/field:text-blue-500 transition-colors">{field.label}</label>
+              <input 
+                type="text" 
+                value={field.val as string} 
+                onChange={(e) => onSettingChange(field.key as any, e.target.value.toUpperCase())} 
+                className="focus:border-blue-600 outline-none text-sm font-black text-blue-900 py-1 transition-all uppercase bg-transparent" 
+              />
+            </div>
+          ))}
+        </section>
+      </div>
 
       <div className="pt-4 flex justify-center">
-        <button onClick={onSave} className="w-full sm:w-auto bg-yellow-500 text-blue-900 px-12 py-4 rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-yellow-600 active:scale-95 transition-all">Save Institutional Profile</button>
+        <button onClick={onSave} className="w-full md:w-auto bg-yellow-500 text-blue-900 px-16 py-5 rounded-[2rem] font-black text-xs uppercase shadow-2xl hover:bg-yellow-600 active:scale-95 transition-all tracking-widest">Update Institutional Profile</button>
       </div>
     </div>
   );

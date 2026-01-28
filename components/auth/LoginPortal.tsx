@@ -22,7 +22,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
   const [authMode, setAuthMode] = useState<'ADMIN' | 'FACILITATOR' | 'PUPIL'>('ADMIN');
   const [credentials, setCredentials] = useState({
     schoolNumber: '',
-    accessKey: '', // This will be the role-specific code (Master/Staff/Pupil)
+    accessKey: '', 
     facilitatorName: '',
     subject: SUBJECT_LIST[0],
     pupilIndex: ''
@@ -50,7 +50,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     const MASTER_KEY = "UBA-HQ-MASTER-2025";
     const inputKey = (credentials.accessKey || "").trim().toUpperCase();
 
-    // 1. Super Admin Bypass
     if (inputKey === MASTER_KEY) {
       setTimeout(() => {
         setIsAuthenticating(false);
@@ -62,7 +61,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
     const hubId = (credentials.schoolNumber || "").trim().toUpperCase();
 
     try {
-      // 2. REGISTRY VERIFICATION (Get the institutional shard from Supabase)
       const { data: registryData, error: regError } = await supabase
         .from('uba_persistence')
         .select('payload')
@@ -70,27 +68,29 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
         .maybeSingle();
 
       if (regError || !registryData || !registryData.payload) {
-         throw new Error("Hub ID not found in the network registry.");
+         throw new Error("Invalid Hub ID. Ensure the Enrollment Number is correct.");
       }
 
       const rawEntry = Array.isArray(registryData.payload) ? registryData.payload[0] : registryData.payload;
       if (!rawEntry) throw new Error("Institutional record is inaccessible.");
 
-      // Check role-specific keys stored in registry shard
       let isVerified = false;
       if (authMode === 'ADMIN') {
         isVerified = (rawEntry.accessCode || "").trim().toUpperCase() === inputKey;
+        if (!isVerified && inputKey.startsWith('STAFF-')) throw new Error("Staff key detected. Please switch login mode to FACILITATOR.");
+        if (!isVerified && inputKey.startsWith('PUPIL-')) throw new Error("Pupil key detected. Please switch login mode to PUPIL.");
       } else if (authMode === 'FACILITATOR') {
         isVerified = (rawEntry.staffAccessCode || "").trim().toUpperCase() === inputKey;
+        if (!isVerified && inputKey.startsWith('SEC-')) throw new Error("Admin key detected. Switch to ADMIN mode for master access.");
       } else {
         isVerified = (rawEntry.pupilAccessCode || "").trim().toUpperCase() === inputKey;
+        if (!isVerified && inputKey.startsWith('SEC-')) throw new Error("Admin key detected. Switch to ADMIN mode.");
       }
 
       if (!isVerified) {
-        throw new Error(`Invalid unique code for ${authMode} access.`);
+        throw new Error(`Unauthorized: The provided passkey is incorrect for ${authMode} access.`);
       }
 
-      // 3. AUTH HANDSHAKE (Derive system email for Supabase session)
       const systemAuthEmail = `${hubId.toLowerCase()}@unitedbaylor.edu`;
       const masterPassword = (rawEntry.accessCode || "").trim().toUpperCase();
       
@@ -101,7 +101,6 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
 
       if (authError) throw new Error("Security Node Refused: Institutional handshake failed.");
 
-      // 4. ROUTING
       setIsAuthenticating(false);
       if (authMode === 'ADMIN') onLoginSuccess(hubId);
       else if (authMode === 'FACILITATOR') onFacilitatorLogin((credentials.facilitatorName || "").trim().toUpperCase(), credentials.subject, hubId);
@@ -133,7 +132,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
              <img src={ACADEMY_ICON} alt="Shield" className="w-12 h-12 object-contain" />
           </div>
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Institutional Gate</h2>
-          <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.4em] mt-4">Security Handshake Required</p>
+          <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.4em] mt-4">Partitioned Access Protocols Active</p>
         </div>
 
         <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 border border-slate-200">
@@ -173,7 +172,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
 
             <div className="space-y-1 relative">
               <label className="text-[9px] font-black text-indigo-900 uppercase tracking-widest">
-                {authMode} Unique Access Code
+                {authMode} Access Passkey
               </label>
               <div className="relative">
                 <input 
@@ -194,12 +193,12 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ settings, facilitators, proce
           {errorMessage && <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-[10px] font-black uppercase text-center border border-red-100 shadow-sm animate-pulse">{errorMessage}</div>}
 
           <button type="submit" className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 mt-4">
-            Verify Institutional Credentials
+            Authorize Interface Access
           </button>
         </form>
 
         <div className="pt-8 text-center border-t border-slate-100 mt-8">
-           <button onClick={onSwitchToRegister} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Onboard New Institution?</button>
+           <button onClick={onSwitchToRegister} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Enroll New Institution Node?</button>
         </div>
       </div>
     </div>
