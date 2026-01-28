@@ -1,4 +1,5 @@
 
+
 export interface SubjectScore {
   subject: string;
   score: number;
@@ -54,12 +55,6 @@ export interface VerificationEntry {
 
 export type StaffRole = 'FACILITATOR' | 'INVIGILATOR' | 'EXAMINER' | 'SUPERVISOR' | 'OFFICER';
 
-export interface InvigilationSlot {
-  dutyDate: string;
-  timeSlot: string;
-  subject: string;
-}
-
 export interface StaffAssignment {
   name: string;
   role: StaffRole;
@@ -74,33 +69,10 @@ export interface StaffAssignment {
   };
 }
 
-export interface MockSnapshotMetadata {
-  submissionDate: string;
-  subjectsSubmitted: string[];
-  subjectSubmissionDates?: Record<string, string>;
-  confirmedScripts: string[];
-  approvalStatus: 'pending' | 'approved' | 'completed';
-  approvedBy?: string;
-}
-
-export interface PaymentParticulars {
-  amount: number;
-  paidBy: string;
-  sentBy: string;
-  transactionId: string;
-  date: string;
-  isBulk: boolean;
-  isVerified: boolean;
-}
-
-export interface ForwardingData {
-  schoolId: string;
-  schoolName: string;
-  feedback: string;
-  pupilPayments: Record<number, { paid: boolean; language: string; particulars: PaymentParticulars }>;
-  facilitatorPayments: Record<string, { paid: boolean; particulars: PaymentParticulars }>;
-  submissionTimestamp: string;
-  approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+export interface InvigilationSlot {
+  dutyDate: string;
+  timeSlot: string;
+  subject: string;
 }
 
 export interface SerializedPupil {
@@ -121,11 +93,11 @@ export interface SerializationData {
   timestamp: string;
 }
 
-// --- QUESTION SERIALIZATION TYPES ---
+// --- ENHANCED QUESTION SERIALIZATION TYPES ---
 export interface QuestionSubPart {
-  partLabel: string; // e.g., "a", "b", "i", "ii"
+  partLabel: string; // e.g., "a", "b", "i", "ii", "iii"
   text: string;
-  markingGuide: string;
+  possibleAnswers: string;
 }
 
 export interface MasterQuestion {
@@ -139,7 +111,7 @@ export interface MasterQuestion {
   options?: { key: 'A' | 'B' | 'C' | 'D', text: string }[];
   correctKey: string;
   weight: number;
-  parts?: QuestionSubPart[]; // Nested structure for theory
+  parts: QuestionSubPart[]; // Nested for theory e.g. 1.a.i
 }
 
 export interface QuestionPack {
@@ -147,7 +119,8 @@ export interface QuestionPack {
   objectives: MasterQuestion[];
   theory: MasterQuestion[];
   schemeCode: string;
-  markingMatrix: Record<string, string>; // Maps scrambled index to correct answer/guide
+  // Matrix maps PackIndex -> { OriginalIndex, CorrectKey }
+  matchingMatrix: Record<string, { masterIdx: number; key: string }>; 
 }
 
 export interface SerializedExam {
@@ -180,37 +153,6 @@ export interface SchoolRegistryEntry {
   };
 }
 
-export interface MockSeriesRecord {
-  aggregate: number;
-  rank: number;
-  date: string;
-  time?: string;
-  reviewStatus: 'pending' | 'complete';
-  isApproved: boolean;
-  facilitatorSnapshot?: Record<string, string>;
-  subjectPerformanceSummary?: Record<string, { mean: number; grade: string }>;
-  subScores?: Record<string, ExamSubScore>;
-}
-
-export interface MockScoreSet {
-  scores: Record<string, number>;
-  sbaScores: Record<string, number>;
-  examSubScores: Record<string, ExamSubScore>;
-  facilitatorRemarks: Record<string, string>; 
-  observations: {
-    facilitator: string;
-    invigilator: string;
-    examiner: string;
-  };
-  attendance?: number;
-  conductRemark?: string;
-}
-
-export interface BeceResult {
-  grades: Record<string, number>;
-  year: string;
-}
-
 export interface StudentData {
   id: number;
   name: string;
@@ -227,6 +169,37 @@ export interface StudentData {
   mockData: Record<string, MockScoreSet>; 
   seriesHistory?: Record<string, MockSeriesRecord>;
   beceResults?: Record<string, BeceResult>;
+}
+
+export interface MockScoreSet {
+  scores: Record<string, number>;
+  sbaScores: Record<string, number>;
+  examSubScores: Record<string, ExamSubScore>;
+  facilitatorRemarks: Record<string, string>; 
+  observations: {
+    facilitator: string;
+    invigilator: string;
+    examiner: string;
+  };
+  attendance?: number;
+  conductRemark?: string;
+}
+
+export interface MockSeriesRecord {
+  aggregate: number;
+  rank: number;
+  date: string;
+  time?: string;
+  reviewStatus: 'pending' | 'complete';
+  isApproved: boolean;
+  facilitatorSnapshot?: Record<string, string>;
+  subjectPerformanceSummary?: Record<string, { mean: number; grade: string }>;
+  subScores?: Record<string, ExamSubScore>;
+}
+
+export interface BeceResult {
+  grades: Record<string, number>;
+  year: string;
 }
 
 export interface ProcessedStudent {
@@ -340,6 +313,15 @@ export interface GlobalSettings {
   registryRoleTitle?: string;
 }
 
+export interface MockSnapshotMetadata {
+  submissionDate: string;
+  subjectsSubmitted: string[];
+  subjectSubmissionDates?: Record<string, string>;
+  confirmedScripts: string[];
+  approvalStatus: 'pending' | 'approved' | 'completed';
+  approvedBy?: string;
+}
+
 export interface QuestionIndicatorMapping {
   id: string;
   section: 'A' | 'B';
@@ -356,4 +338,35 @@ export interface MockResource {
   questionUrl?: string;
   schemeUrl?: string;
   generalReport?: string;
+}
+
+/**
+ * NEW TYPES FOR HQ FORWARDING AND MARKETING DESK
+ */
+
+export interface PaymentParticulars {
+  amount: number;
+  paidBy: string;
+  sentBy: string;
+  transactionId: string;
+  date: string;
+  isBulk: boolean;
+  isVerified: boolean;
+}
+
+export interface ForwardingData {
+  schoolId: string;
+  schoolName: string;
+  feedback: string;
+  pupilPayments: Record<number, {
+    paid: boolean;
+    language: string;
+    particulars: PaymentParticulars;
+  }>;
+  facilitatorPayments: Record<string, {
+    paid: boolean;
+    particulars: PaymentParticulars;
+  }>;
+  submissionTimestamp: string;
+  approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 }

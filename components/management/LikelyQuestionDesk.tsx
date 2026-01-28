@@ -38,7 +38,7 @@ const LikelyQuestionDesk: React.FC<LikelyQuestionDeskProps> = ({ activeFacilitat
     e.preventDefault();
     if (!formData.questionText.trim()) return;
 
-    // Fix: Added missing properties 'originalIndex' and 'indicator' to resolve TypeScript error
+    // Fix: Added missing properties 'originalIndex', 'indicator', and 'parts' to resolve TypeScript error
     const newQ: MasterQuestion = {
       id: `LQ-${Date.now()}`,
       originalIndex: questions.length + 1,
@@ -46,7 +46,8 @@ const LikelyQuestionDesk: React.FC<LikelyQuestionDeskProps> = ({ activeFacilitat
       weight: 1,
       options: formData.type === 'OBJECTIVE' ? [
          { key: 'A', text: '' }, { key: 'B', text: '' }, { key: 'C', text: '' }, { key: 'D', text: '' }
-      ] : undefined
+      ] : undefined,
+      parts: []
     };
 
     const nextQs = [...questions, newQ];
