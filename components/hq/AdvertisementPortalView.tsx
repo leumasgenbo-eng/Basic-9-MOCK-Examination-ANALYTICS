@@ -14,11 +14,14 @@ const AdvertisementPortalView: React.FC<AdvertisementPortalViewProps> = ({ onLog
   const [feedbackStream, setFeedbackStream] = useState<ForwardingData[]>([]);
 
   const fetchGlobalData = async () => {
+    // Fetch Current Broadcast
     const { data: adData } = await supabase.from('uba_persistence').select('payload').eq('id', 'global_advertisements').maybeSingle();
     if (adData?.payload) {
       setAdContent(adData.payload.message || '');
       setActiveAd(adData.payload.message || '');
     }
+
+    // Fetch Feedback Feed
     const { data: feedbackData } = await supabase.from('uba_persistence').select('payload, last_updated').like('id', 'forward_%').order('last_updated', { ascending: false }).limit(10);
     if (feedbackData) {
       setFeedbackStream(feedbackData.map(d => d.payload as ForwardingData));
@@ -27,26 +30,38 @@ const AdvertisementPortalView: React.FC<AdvertisementPortalViewProps> = ({ onLog
 
   useEffect(() => {
     fetchGlobalData();
-    const interval = setInterval(fetchGlobalData, 30000);
+    const interval = setInterval(fetchGlobalData, 15000);
     return () => clearInterval(interval);
   }, []);
 
   const handleBroadcast = async () => {
     setIsSaving(true);
     try {
+      const payload = { 
+        message: adContent.toUpperCase(), 
+        timestamp: new Date().toISOString(),
+        author: 'HQ_SUPERADMIN'
+      };
+      
       await supabase.from('uba_persistence').upsert({
         id: 'global_advertisements',
-        payload: { message: adContent.toUpperCase(), timestamp: new Date().toISOString(), author: 'HQ' },
+        payload: payload,
         last_updated: new Date().toISOString()
       });
+      
       setActiveAd(adContent.toUpperCase());
-      onLogAction("AD_BROADCAST", "GLOBAL", `Updated broadcast to: ${adContent}`);
+      onLogAction("AD_BROADCAST", "GLOBAL_NETWORK", `Broadcast updated: ${adContent.substring(0, 30)}...`);
       alert("GLOBAL BROADCAST EXECUTED.");
-    } catch (err) { alert("Broadcast failed."); } finally { setIsSaving(false); }
+    } catch (err: any) {
+      alert(`Broadcast failed.`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <div className="animate-in fade-in duration-700 h-full flex flex-col p-10 space-y-12 bg-slate-950 font-sans">
+      
       <div className="flex justify-between items-end">
         <div className="space-y-1">
           <h2 className="text-4xl font-black uppercase text-white tracking-tighter flex items-center gap-4">
@@ -63,19 +78,24 @@ const AdvertisementPortalView: React.FC<AdvertisementPortalViewProps> = ({ onLog
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
          <div className="lg:col-span-7 space-y-8">
-            <div className="bg-slate-900 border border-slate-800 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+            <div className="bg-slate-900 border border-slate-800 p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden group">
+               <div className="absolute top-0 right-0 w-80 h-80 bg-orange-500/5 rounded-full -mr-40 -mt-40 blur-[120px]"></div>
                <div className="relative space-y-6">
                   <label className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] block px-2">Announcement Terminal</label>
                   <textarea 
                     value={adContent}
-                    onChange={(e) => setAdContent(e.target.value)}
+                    onChange={(e) => setAdContent(e.target.value.substring(0, 500))}
                     className="w-full bg-slate-950 border border-slate-800 rounded-[2rem] p-10 text-xl font-black text-white outline-none focus:ring-8 focus:ring-orange-500/5 transition-all min-h-[250px] placeholder:text-slate-800"
                   />
                   <div className="flex justify-between items-center px-4">
                      <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">Text streams in the header of all institutions</span>
                      <span className="text-[10px] font-mono font-black text-slate-500">{adContent.length} / 500</span>
                   </div>
-                  <button onClick={handleBroadcast} disabled={isSaving} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-8 rounded-[2.5rem] font-black text-sm uppercase tracking-[0.6em] shadow-2xl transition-all active:scale-95 disabled:opacity-50">
+                  <button 
+                    onClick={handleBroadcast} 
+                    disabled={isSaving} 
+                    className="w-full bg-orange-600 hover:bg-orange-500 text-white py-8 rounded-[2.5rem] font-black text-sm uppercase tracking-[0.6em] shadow-2xl transition-all active:scale-95 disabled:opacity-50"
+                  >
                     {isSaving ? "Syncing..." : "Execute Global Broadcast"}
                   </button>
                </div>
@@ -90,9 +110,9 @@ const AdvertisementPortalView: React.FC<AdvertisementPortalViewProps> = ({ onLog
                </div>
                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4">
                   {feedbackStream.length > 0 ? feedbackStream.map((feed, i) => (
-                    <div key={i} className="bg-slate-950 p-6 rounded-3xl border border-slate-800/50">
+                    <div key={i} className="bg-slate-950 p-6 rounded-3xl border border-slate-800/50 hover:border-blue-500/30 transition-all">
                        <p className="text-[11px] font-black text-white uppercase mb-2">{feed.schoolName}</p>
-                       <p className="text-[10px] text-slate-400 italic">"{feed.feedback}"</p>
+                       <p className="text-[10px] text-slate-400 italic">"{feed.feedback || 'Shard received.'}"</p>
                     </div>
                   )) : (
                     <div className="h-full flex flex-col items-center justify-center opacity-20 py-20 text-center">
@@ -114,6 +134,12 @@ const AdvertisementPortalView: React.FC<AdvertisementPortalViewProps> = ({ onLog
             </div>
          </div>
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+      `}} />
     </div>
   );
 };
