@@ -102,6 +102,24 @@ export interface ForwardingData {
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
+export interface SerializedPupil {
+  id: number;
+  name: string;
+  serial: 'A' | 'B' | 'C' | 'D';
+  questionCode: string;
+}
+
+export interface SerializationData {
+  schoolId: string;
+  schoolName: string;
+  mockSeries: string;
+  startDate: string;
+  examinerName: string;
+  chiefExaminerName: string;
+  pupils: SerializedPupil[];
+  timestamp: string;
+}
+
 export interface SchoolRegistryEntry {
   id: string; 
   name: string;
