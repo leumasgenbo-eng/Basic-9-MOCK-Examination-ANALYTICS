@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { ProcessedStudent, GlobalSettings } from '../../types';
 
@@ -11,8 +12,8 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ students, settings, setVi
   const metrics = useMemo(() => {
     if (students.length === 0) return { total: 0, mean: 0, bestAgg: '—' };
     const total = students.length;
-    const mean = students.reduce((sum, s) => sum + s.totalScore, 0) / total;
-    const bestAgg = Math.min(...students.map(s => s.bestSixAggregate));
+    const mean = students.reduce((sum, s) => sum + (s.totalScore || 0), 0) / total;
+    const bestAgg = Math.min(...students.map(s => s.bestSixAggregate || 36));
     return { total, mean, bestAgg };
   }, [students]);
 
@@ -113,14 +114,14 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ students, settings, setVi
               </div>
               <h3 className="text-4xl font-black uppercase tracking-tighter leading-none group-hover:text-yellow-400 transition-colors">{topStudent.name}</h3>
               <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                 Mastery in <span className="text-white">English, Math, and {topStudent.subjects[2].subject}</span>. <br/>
+                 Mastery in <span className="text-white">English, Math, and {(topStudent.subjects && topStudent.subjects[2]) ? topStudent.subjects[2].subject : "Core Electives"}</span>. <br/>
                  Current best six aggregate: <span className="text-yellow-500 font-black">{topStudent.bestSixAggregate}</span>
               </p>
            </div>
            <div className="flex gap-10 relative">
               <div className="text-center">
                  <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">Efficiency</p>
-                 <p className="text-2xl font-black text-white font-mono">{topStudent.totalScore.toFixed(0)}%</p>
+                 <p className="text-2xl font-black text-white font-mono">{topStudent.totalScore?.toFixed(0) || "0"}%</p>
               </div>
               <div className="text-center border-l border-white/10 pl-10">
                  <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">Category</p>

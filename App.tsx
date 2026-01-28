@@ -123,7 +123,6 @@ const App: React.FC = () => {
           setActiveFacilitator({ name: metadata.name || "STAFF", subject: metadata.subject || "GENERAL" });
           setViewMode('management');
         } else if (role === 'pupil' && sessionLoaded) {
-          // Process statistics and student data for the specific pupil dashboard
           const statsObj = calculateClassStatistics(students, settings);
           const processed = processStudentData(statsObj, students, {}, settings);
           const pupil = processed.find(p => p.id === metadata.studentId);
@@ -235,7 +234,7 @@ const App: React.FC = () => {
           switch (viewMode) {
             case 'home': return <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />;
             case 'master': return <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />;
-            case 'series': return <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents} />;
+            case 'series': return <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(ps => ({ id: ps.id, bestSixAggregate: ps.bestSixAggregate, rank: ps.rank, totalScore: ps.totalScore, category: ps.category }))} />;
             case 'cleanup': return <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={handleSave} subjects={SUBJECT_LIST} />;
             case 'reports': {
               const query = (reportSearchTerm || "").toLowerCase();

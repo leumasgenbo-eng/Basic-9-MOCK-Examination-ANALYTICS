@@ -54,14 +54,19 @@ export interface VerificationEntry {
 
 export type StaffRole = 'FACILITATOR' | 'INVIGILATOR' | 'EXAMINER' | 'SUPERVISOR' | 'OFFICER';
 
+export interface InvigilationSlot {
+  dutyDate: string;
+  timeSlot: string;
+  subject: string;
+}
+
 export interface StaffAssignment {
   name: string;
-  email: string; // Required for OTP
+  email: string; 
   role: StaffRole;
   enrolledId: string; 
   taughtSubject?: string;
-  passkey?: string; 
-  invigilations: InvigilationSlot[];
+  invigilations: InvigilationSlot[]; // Exactly 9 slots for the Register
   marking: {
     dateTaken: string;
     dateReturned: string;
@@ -69,17 +74,11 @@ export interface StaffAssignment {
   };
 }
 
-export interface InvigilationSlot {
-  dutyDate: string;
-  timeSlot: string;
-  subject: string;
-}
-
 export interface SchoolRegistryEntry {
   id: string; 
   name: string;
   registrant: string;
-  registrantEmail: string; // Required for OTP
+  registrantEmail: string;
   accessCode: string;
   staffAccessCode: string;
   pupilAccessCode: string;
@@ -101,7 +100,7 @@ export interface SchoolRegistryEntry {
 export interface StudentData {
   id: number;
   name: string;
-  email: string; // Required for OTP (Parent or Pupil)
+  email: string; 
   gender: string;
   parentName?: string;
   parentContact: string;
@@ -266,7 +265,6 @@ export interface MockSnapshotMetadata {
   approvedBy: string;
 }
 
-/* Fix: Updated indicators type to use QuestionIndicatorMapping */
 export interface MockResource {
   indicators: QuestionIndicatorMapping[];
   questionUrl?: string;
@@ -274,7 +272,6 @@ export interface MockResource {
   generalReport?: string;
 }
 
-/* Fix: Added missing QuestionIndicatorMapping interface */
 export interface QuestionIndicatorMapping {
   id: string;
   section: 'A' | 'B';
@@ -286,7 +283,7 @@ export interface QuestionIndicatorMapping {
   weight: number;
 }
 
-/* Fix: Added missing PaymentParticulars interface */
+/* Added PaymentParticulars to fix module export error in EnrolmentForwardingPortal */
 export interface PaymentParticulars {
   amount: number;
   paidBy: string;
@@ -297,7 +294,6 @@ export interface PaymentParticulars {
   isVerified: boolean;
 }
 
-/* Fix: Added missing ForwardingData interface */
 export interface ForwardingData {
   schoolId: string;
   schoolName: string;
@@ -305,17 +301,17 @@ export interface ForwardingData {
   pupilPayments: Record<number, { 
     paid: boolean; 
     language: string; 
-    particulars: PaymentParticulars 
+    particulars: PaymentParticulars; 
   }>;
   facilitatorPayments: Record<string, { 
     paid: boolean; 
-    particulars: PaymentParticulars 
+    particulars: PaymentParticulars; 
   }>;
   submissionTimestamp: string;
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
-/* Fix: Added missing SerializedPupil interface */
+/* Added SerializedPupil to fix module export error in SerializationHubView */
 export interface SerializedPupil {
   id: number;
   name: string;
@@ -323,7 +319,6 @@ export interface SerializedPupil {
   questionCode: string;
 }
 
-/* Fix: Added missing SerializationData interface */
 export interface SerializationData {
   schoolId: string;
   schoolName: string;
@@ -335,10 +330,9 @@ export interface SerializationData {
   timestamp: string;
 }
 
-/* Fix: Added missing BloomsScale type */
 export type BloomsScale = 'Knowledge' | 'Understanding' | 'Application' | 'Analysis' | 'Synthesis' | 'Evaluation';
 
-/* Fix: Added missing QuestionSubPart interface */
+/* Added QuestionSubPart to fix module export error in QuestionSerializationPortal */
 export interface QuestionSubPart {
   partLabel: string;
   text: string;
@@ -348,7 +342,6 @@ export interface QuestionSubPart {
   blooms: BloomsScale;
 }
 
-/* Fix: Added missing MasterQuestion interface */
 export interface MasterQuestion {
   id: string;
   originalIndex: number;
@@ -366,7 +359,6 @@ export interface MasterQuestion {
   diagramUrl?: string;
 }
 
-/* Fix: Added missing QuestionPack interface */
 export interface QuestionPack {
   variant: 'A' | 'B' | 'C' | 'D';
   generalRules: string;
@@ -377,7 +369,6 @@ export interface QuestionPack {
   matchingMatrix: Record<string, { masterIdx: number; key: string; scheme: string }>;
 }
 
-/* Fix: Added missing SerializedExam interface */
 export interface SerializedExam {
   schoolId: string;
   mockSeries: string;
