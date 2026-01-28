@@ -19,7 +19,8 @@ const MarketingDeskView: React.FC = () => {
   const stats = useMemo(() => {
     let pupils = 0, facs = 0, revenue = 0;
     submissions.forEach(s => {
-       const ps = Object.values(s.pupilPayments || {});
+       // Explicitly cast Object.values(s.pupilPayments || {}) to any[] to avoid 'unknown' type issues with .length and .reduce
+       const ps = Object.values(s.pupilPayments || {}) as any[];
        pupils += ps.length;
        revenue += ps.reduce((sum, p: any) => sum + (p.particulars?.amount || 0), 0);
        facs += Object.keys(s.facilitatorPayments || {}).length;
