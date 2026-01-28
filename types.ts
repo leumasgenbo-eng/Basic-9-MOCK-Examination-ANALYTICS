@@ -1,5 +1,4 @@
 
-
 export interface SubjectScore {
   subject: string;
   score: number;
@@ -93,11 +92,18 @@ export interface SerializationData {
   timestamp: string;
 }
 
-// --- ENHANCED QUESTION SERIALIZATION TYPES ---
+// --- ADVANCED QUESTION SERIALIZATION TYPES ---
+
+export type BloomsScale = 'Knowledge' | 'Understanding' | 'Application' | 'Analysis' | 'Synthesis' | 'Evaluation';
+
 export interface QuestionSubPart {
   partLabel: string; // e.g., "a", "b", "i", "ii", "iii"
   text: string;
   possibleAnswers: string;
+  markingScheme: string;
+  weight: number;
+  blooms: BloomsScale;
+  instruction?: string;
 }
 
 export interface MasterQuestion {
@@ -111,16 +117,21 @@ export interface MasterQuestion {
   options?: { key: 'A' | 'B' | 'C' | 'D', text: string }[];
   correctKey: string;
   weight: number;
-  parts: QuestionSubPart[]; // Nested for theory e.g. 1.a.i
+  blooms: BloomsScale;
+  instruction: string; // specific to this question
+  diagramUrl?: string; // base64 or URL
+  parts: QuestionSubPart[]; // For theory e.g. 1.a.i
+  answerScheme: string;
 }
 
 export interface QuestionPack {
   variant: 'A' | 'B' | 'C' | 'D';
+  generalRules: string;
+  sectionInstructions: { A: string; B: string };
   objectives: MasterQuestion[];
   theory: MasterQuestion[];
   schemeCode: string;
-  // Matrix maps PackIndex -> { OriginalIndex, CorrectKey }
-  matchingMatrix: Record<string, { masterIdx: number; key: string }>; 
+  matchingMatrix: Record<string, { masterIdx: number; key: string; scheme: string }>; 
 }
 
 export interface SerializedExam {
@@ -322,28 +333,6 @@ export interface MockSnapshotMetadata {
   approvedBy?: string;
 }
 
-export interface QuestionIndicatorMapping {
-  id: string;
-  section: 'A' | 'B';
-  questionRef: string;
-  strand: string;
-  subStrand: string;
-  indicatorCode: string;
-  indicator: string;
-  weight: number;
-}
-
-export interface MockResource {
-  indicators: QuestionIndicatorMapping[];
-  questionUrl?: string;
-  schemeUrl?: string;
-  generalReport?: string;
-}
-
-/**
- * NEW TYPES FOR HQ FORWARDING AND MARKETING DESK
- */
-
 export interface PaymentParticulars {
   amount: number;
   paidBy: string;
@@ -369,4 +358,22 @@ export interface ForwardingData {
   }>;
   submissionTimestamp: string;
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+export interface QuestionIndicatorMapping {
+  id: string;
+  section: 'A' | 'B';
+  questionRef: string;
+  strand: string;
+  subStrand: string;
+  indicatorCode: string;
+  indicator: string;
+  weight: number;
+}
+
+export interface MockResource {
+  indicators: QuestionIndicatorMapping[];
+  questionUrl?: string;
+  schemeUrl?: string;
+  generalReport?: string;
 }
