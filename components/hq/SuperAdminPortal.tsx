@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SchoolRegistryEntry, RemarkMetric } from '../../types';
 import { supabase } from '../../supabaseClient';
@@ -13,6 +14,7 @@ import NetworkSigDiffView from './NetworkSigDiffView';
 import NetworkAnnualAuditReport from './NetworkAnnualAuditReport';
 import RecruitmentHubView from './RecruitmentHubView';
 import AdvertisementPortalView from './AdvertisementPortalView';
+import MarketingDeskView from './MarketingDeskView';
 
 export interface SubjectDemandMetric {
   subject: string;
@@ -38,7 +40,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
   const [registry, setRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [auditTrail, setAuditTrail] = useState<SystemAuditEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [view, setView] = useState<'registry' | 'recruitment' | 'rankings' | 'advertisement' | 'pupils' | 'rewards' | 'sig-diff' | 'remarks' | 'annual-report' | 'audit'>('registry');
+  const [view, setView] = useState<'registry' | 'recruitment' | 'rankings' | 'advertisement' | 'marketing' | 'pupils' | 'rewards' | 'sig-diff' | 'remarks' | 'annual-report' | 'audit'>('registry');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
@@ -205,6 +207,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
                 { id: 'recruitment', label: 'Recruitment Hub' },
                 { id: 'rankings', label: 'Rerating' },
                 { id: 'advertisement', label: 'Advertisement Portal' },
+                { id: 'marketing', label: 'Marketing Desk' },
                 { id: 'pupils', label: 'Talent Matrix' },
                 { id: 'rewards', label: 'Global Rewards' },
                 { id: 'sig-diff', label: 'Sig-Diff Matrix' },
@@ -234,6 +237,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
           {view === 'recruitment' && <RecruitmentHubView registry={registry} onLogAction={logAction} />}
           {view === 'rankings' && <ReratingView schoolRankings={schoolRankings} />}
           {view === 'advertisement' && <AdvertisementPortalView onLogAction={logAction} />}
+          {view === 'marketing' && <MarketingDeskView />}
           {view === 'remarks' && <RemarkAnalyticsView subjectDemands={subjectDemands} />}
           {view === 'pupils' && <PupilNetworkRankingView registry={registry} onRemoteView={onRemoteView} />}
           {view === 'rewards' && <NetworkRewardsView registry={registry} />}

@@ -65,7 +65,7 @@ export interface StaffAssignment {
   role: StaffRole;
   enrolledId: string; 
   taughtSubject?: string;
-  passkey?: string; // Individual unique passkey for staff
+  passkey?: string; 
   invigilations: InvigilationSlot[];
   marking: {
     dateTaken: string;
@@ -81,6 +81,25 @@ export interface MockSnapshotMetadata {
   confirmedScripts: string[];
   approvalStatus: 'pending' | 'approved' | 'completed';
   approvedBy?: string;
+}
+
+export interface PaymentParticulars {
+  amount: number;
+  paidBy: string;
+  sentBy: string;
+  date: string;
+  isBulk: boolean;
+  isVerified: boolean;
+}
+
+export interface ForwardingData {
+  schoolId: string;
+  schoolName: string;
+  feedback: string;
+  pupilPayments: Record<number, { paid: boolean; language: string; particulars: PaymentParticulars }>;
+  facilitatorPayments: Record<string, { paid: boolean; particulars: PaymentParticulars }>;
+  submissionTimestamp: string;
+  approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export interface SchoolRegistryEntry {
@@ -143,7 +162,7 @@ export interface StudentData {
   parentName?: string;
   parentContact: string;
   parentEmail?: string;
-  passkey?: string; // Individual unique passkey for pupils
+  passkey?: string; 
   attendance: number;
   conductRemark?: string;
   scores: Record<string, number>;

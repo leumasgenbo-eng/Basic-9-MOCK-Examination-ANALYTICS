@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
@@ -59,12 +60,18 @@ const AdvertisementPortalView: React.FC<AdvertisementPortalViewProps> = ({ onLog
 
   return (
     <div className="animate-in fade-in duration-700 h-full flex flex-col p-10">
-      <div className="space-y-2 mb-10">
-        <h2 className="text-3xl font-black uppercase text-white tracking-tighter flex items-center gap-4">
-           <div className="w-4 h-4 bg-orange-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(249,115,22,0.6)]"></div>
-           Network Advertisement Portal
-        </h2>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Global Dashboard Stream Controller</p>
+      <div className="space-y-2 mb-10 flex justify-between items-end">
+        <div>
+          <h2 className="text-3xl font-black uppercase text-white tracking-tighter flex items-center gap-4">
+             <div className="w-4 h-4 bg-orange-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(249,115,22,0.6)]"></div>
+             Network Advertisement Portal
+          </h2>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Global Dashboard Stream Controller</p>
+        </div>
+        <div className="bg-emerald-500/10 border border-emerald-500/20 px-6 py-3 rounded-2xl flex items-center gap-4">
+           <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Linked to Marketing Desk</span>
+           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -130,7 +137,7 @@ const AdvertisementPortalView: React.FC<AdvertisementPortalViewProps> = ({ onLog
                <div className="space-y-1">
                   <h4 className="text-xs font-black text-orange-500 uppercase">Integrity Alert</h4>
                   <p className="text-[10px] text-slate-500 font-bold uppercase leading-relaxed tracking-widest">
-                     Advertisements are encrypted and mirrored across all network nodes. Data entry here propagates immediately to institutional terminals.
+                     Advertisements are encrypted and mirrored across all network nodes. Data entry here propagates immediately to institutional terminals and links feedback to the Marketing Desk.
                   </p>
                </div>
             </div>

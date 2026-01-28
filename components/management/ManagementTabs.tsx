@@ -1,6 +1,7 @@
+
 import React from 'react';
 
-export type ManagementTabType = 'scoreEntry' | 'school' | 'credentials' | 'pupils' | 'facilitators' | 'grading' | 'history' | 'resources' | 'facilitatorDesk' | 'localSync' | 'rewards';
+export type ManagementTabType = 'scoreEntry' | 'school' | 'credentials' | 'enrolmentForward' | 'pupils' | 'facilitators' | 'grading' | 'history' | 'resources' | 'facilitatorDesk' | 'localSync' | 'rewards';
 
 interface ManagementTabsProps {
   activeTab: ManagementTabType;
@@ -13,6 +14,7 @@ const ManagementTabs: React.FC<ManagementTabsProps> = ({ activeTab, setActiveTab
   const tabs = [
     { id: 'scoreEntry', label: 'Score Entry' },
     { id: 'facilitatorDesk', label: 'Attendance & Conduct' },
+    { id: 'enrolmentForward', label: 'Enrolment Forwarding' },
     { id: 'localSync', label: 'Local Sync Hub' },
     { id: 'rewards', label: 'Reward Hub' },
     { id: 'credentials', label: 'School Credential', adminOnly: true },
