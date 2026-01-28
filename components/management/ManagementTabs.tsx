@@ -15,16 +15,16 @@ const ManagementTabs: React.FC<ManagementTabsProps> = ({ activeTab, setActiveTab
     { id: 'scoreEntry', label: 'Score Entry' },
     { id: 'facilitatorDesk', label: 'Attendance & Conduct' },
     { id: 'likelyQuestions', label: 'Likely Questions' },
-    { id: 'enrolmentForward', label: 'Enrolment Forwarding' },
-    { id: 'localSync', label: 'Local Sync Hub' },
-    { id: 'rewards', label: 'Reward Hub' },
+    { id: 'enrolmentForward', label: 'Enrolment Forwarding', adminOnly: true },
+    { id: 'localSync', label: 'Local Sync Hub', adminOnly: true },
+    { id: 'rewards', label: 'Reward Hub', adminOnly: true },
     { id: 'cleanup', label: 'Data Forge', adminOnly: true },
     { id: 'credentials', label: 'School Credential', adminOnly: true },
     { id: 'school', label: 'Identity', adminOnly: true },
     { id: 'pupils', label: 'Pupils & SBA' },
-    { id: 'facilitators', label: 'Staff Hub' },
+    { id: 'facilitators', label: 'Staff Hub', adminOnly: true },
     { id: 'grading', label: 'Grading', adminOnly: true },
-    { id: 'history', label: 'History' },
+    { id: 'history', label: 'History', adminOnly: true },
     { id: 'resources', label: 'Resources' }
   ].filter(t => !isFacilitator || !t.adminOnly);
 

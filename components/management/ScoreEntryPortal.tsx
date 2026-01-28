@@ -12,6 +12,7 @@ interface ScoreEntryPortalProps {
   subjects: string[];
   processedSnapshot: ProcessedStudent[];
   onSave: () => void;
+  activeFacilitator?: { name: string; subject: string } | null;
 }
 
 const GENERAL_REPORT_TEMPLATES = [
@@ -23,9 +24,13 @@ const GENERAL_REPORT_TEMPLATES = [
 ];
 
 const ScoreEntryPortal: React.FC<ScoreEntryPortalProps> = ({ 
-  students, setStudents, settings, onSettingChange, subjects, processedSnapshot, onSave 
+  students, setStudents, settings, onSettingChange, subjects, processedSnapshot, onSave, activeFacilitator 
 }) => {
-  const [selectedSubject, setSelectedSubject] = useState(subjects[0]);
+  // If facilitator, force their subject and lock selection
+  const [selectedSubject, setSelectedSubject] = useState(
+    activeFacilitator?.subject || subjects[0]
+  );
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [showCustomReport, setShowCustomReport] = useState(false);
   const scoreFileInputRef = useRef<HTMLInputElement>(null);
@@ -251,19 +256,35 @@ const ScoreEntryPortal: React.FC<ScoreEntryPortalProps> = ({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      {activeFacilitator && (
+        <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-3xl flex items-center gap-4">
+           <div className="w-10 h-10 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black">
+              {activeFacilitator.name.charAt(0)}
+           </div>
+           <div>
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Facilitator Session Active</p>
+              <h4 className="text-sm font-black text-indigo-900 uppercase mt-1">{activeFacilitator.name} — {activeFacilitator.subject}</h4>
+           </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-3xl p-8 shadow-2xl border border-gray-100 flex flex-col xl:flex-row justify-between items-center gap-8">
         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
            <div className="space-y-1">
              <label className="text-[9px] font-black text-blue-900 uppercase">Academy Name</label>
-             <EditableField value={settings.schoolName} onChange={(v) => onSettingChange('schoolName', v)} className="text-xl font-black uppercase text-gray-800 border-none block w-full" />
+             <div className="text-xl font-black uppercase text-gray-800 py-1">{settings.schoolName}</div>
            </div>
            <div className="space-y-1">
              <label className="text-[9px] font-black text-blue-900 uppercase">Academy Index</label>
-             <EditableField value={settings.schoolNumber || "UBA-2025-001"} onChange={(v) => onSettingChange('schoolNumber', v)} className="text-xl font-black text-gray-800 border-none block w-full" />
+             <div className="text-xl font-black text-gray-800 py-1">{settings.schoolNumber || "UBA-SYNC"}</div>
            </div>
            <div className="space-y-1">
              <label className="text-[9px] font-black text-blue-900 uppercase">Mock Series</label>
-             <select value={settings.activeMock} onChange={(e) => onSettingChange('activeMock', e.target.value)} className="w-full bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm font-black outline-none">
+             <select 
+               value={settings.activeMock} 
+               onChange={(e) => onSettingChange('activeMock', e.target.value)} 
+               className="w-full bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm font-black outline-none"
+             >
                 {Array.from({ length: 10 }, (_, i) => `MOCK ${i+1}`).map(m => <option key={m} value={m}>{m}</option>)}
              </select>
            </div>
@@ -314,13 +335,18 @@ const ScoreEntryPortal: React.FC<ScoreEntryPortalProps> = ({
 
       <div className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
         <div className="bg-gray-50 px-8 py-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-           <select 
-             value={selectedSubject} 
-             onChange={(e) => setSelectedSubject(e.target.value)} 
-             className="w-full md:w-auto bg-white border border-gray-200 rounded-xl px-4 py-2 font-black text-xs uppercase outline-none shadow-sm"
-           >
-             {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-           </select>
+           {/* Subject Selector: Disabled if facilitator */}
+           <div className="flex flex-col gap-1">
+              <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-2">Active Subject shard</label>
+              <select 
+                value={selectedSubject} 
+                onChange={(e) => setSelectedSubject(e.target.value)} 
+                disabled={!!activeFacilitator}
+                className={`w-full md:w-auto border rounded-xl px-4 py-2 font-black text-xs uppercase outline-none shadow-sm transition-all ${!!activeFacilitator ? 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed' : 'bg-white border-gray-200 text-blue-900 focus:ring-2 focus:ring-blue-500/20'}`}
+              >
+                {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+           </div>
 
            <div className="flex gap-2 w-full md:w-auto">
              <button 

@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface ManagementHeaderProps {
@@ -18,15 +19,15 @@ const ManagementHeader: React.FC<ManagementHeaderProps> = ({
   isFacilitator 
 }) => {
   return (
-    <div className="bg-blue-900 text-white p-4 sm:p-6 md:p-8">
+    <div className={`text-white p-4 sm:p-6 md:p-8 transition-colors duration-500 ${isFacilitator ? 'bg-indigo-900' : 'bg-blue-900'}`}>
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="text-center sm:text-left">
           <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight flex items-center justify-center sm:justify-start gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20v-6M9 20v-10M15 20V4M3 20h18"></path></svg>
-            Management Hub
+            {isFacilitator ? 'Facilitator Node' : 'Management Hub'}
           </h2>
-          <p className="text-blue-300 text-[9px] sm:text-xs uppercase tracking-widest mt-1 font-bold">
-            Academy: {schoolName} | {isHubActive ? 'HUB SYNCHRONIZED' : 'LOCAL MODE'}
+          <p className={`${isFacilitator ? 'text-indigo-300' : 'text-blue-300'} text-[9px] sm:text-xs uppercase tracking-widest mt-1 font-bold`}>
+            Academy: {schoolName} | {isHubActive ? 'NETWORK AUTHORIZED' : 'LOCAL MODE'}
           </p>
         </div>
         
@@ -50,6 +51,12 @@ const ManagementHeader: React.FC<ManagementHeaderProps> = ({
                 Switch to Real Mode
               </button>
             )}
+          </div>
+        )}
+
+        {isFacilitator && (
+          <div className="bg-white/10 px-4 py-2 rounded-xl border border-white/20">
+             <span className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Faculty Access Terminal</span>
           </div>
         )}
       </div>

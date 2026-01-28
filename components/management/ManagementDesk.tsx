@@ -58,7 +58,18 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
         />
         <ManagementTabs activeTab={activeTab} setActiveTab={setActiveTab} isFacilitator={isFacilitator} />
         <div className="p-6 md:p-10 min-h-[600px]">
-          {activeTab === 'scoreEntry' && <ScoreEntryPortal students={students} setStudents={setStudents} settings={settings} onSettingChange={onSettingChange} subjects={subjects} processedSnapshot={processedSnapshot} onSave={onSave} />}
+          {activeTab === 'scoreEntry' && (
+            <ScoreEntryPortal 
+              students={students} 
+              setStudents={setStudents} 
+              settings={settings} 
+              onSettingChange={onSettingChange} 
+              subjects={subjects} 
+              processedSnapshot={processedSnapshot} 
+              onSave={onSave}
+              activeFacilitator={activeFacilitator}
+            />
+          )}
           {activeTab === 'facilitatorDesk' && <FacilitatorDesk students={students} setStudents={setStudents} settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
           {activeTab === 'likelyQuestions' && <LikelyQuestionDesk activeFacilitator={activeFacilitator} />}
           {activeTab === 'enrolmentForward' && <EnrolmentForwardingPortal settings={settings} students={students} facilitators={facilitators} />}
@@ -68,7 +79,6 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
           {activeTab === 'school' && <AcademyIdentityPortal settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
           {activeTab === 'credentials' && <SchoolCredentialView settings={settings} studentCount={students.length} />}
           {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} onSave={onSave} />}
-          {/* Fix: Added isFacilitator and activeFacilitator props to FacilitatorPortal */}
           {activeTab === 'facilitators' && <FacilitatorPortal subjects={subjects} facilitators={facilitators} setFacilitators={setFacilitators} settings={settings} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />}
           {activeTab === 'grading' && <GradingConfigPortal settings={settings} onSettingChange={onSettingChange} />}
           {activeTab === 'history' && <SeriesHistoryPortal students={students} settings={settings} />}
