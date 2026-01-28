@@ -99,14 +99,11 @@ const App: React.FC = () => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Global Registry fetch
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
       if (session) {
         const userEmail = (session.user.email || "").toLowerCase();
-        
-        // MASTER OVERRIDE
         if (userEmail === 'leumasgenbo4@gmail.com') {
           setIsSuperAdmin(true);
           setIsAuthenticated(true);
@@ -126,8 +123,9 @@ const App: React.FC = () => {
           setActiveFacilitator({ name: metadata.name || "STAFF", subject: metadata.subject || "GENERAL" });
           setViewMode('management');
         } else if (role === 'pupil' && sessionLoaded) {
-          const stats = calculateClassStatistics(students, settings);
-          const processed = processStudentData(stats, students, {}, settings);
+          // Process statistics and student data for the specific pupil dashboard
+          const statsObj = calculateClassStatistics(students, settings);
+          const processed = processStudentData(statsObj, students, {}, settings);
           const pupil = processed.find(p => p.id === metadata.studentId);
           if (pupil) {
             setActivePupil(pupil);
@@ -139,7 +137,7 @@ const App: React.FC = () => {
       setIsInitializing(false);
     };
     checkSession();
-  }, [loadSchoolSession]);
+  }, [loadSchoolSession, students, settings]);
 
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);

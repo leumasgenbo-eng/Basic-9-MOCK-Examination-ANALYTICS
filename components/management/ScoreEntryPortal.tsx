@@ -26,7 +26,7 @@ const GENERAL_REPORT_TEMPLATES = [
 const ScoreEntryPortal: React.FC<ScoreEntryPortalProps> = ({ 
   students, setStudents, settings, onSettingChange, subjects, processedSnapshot, onSave, activeFacilitator 
 }) => {
-  // If facilitator, force their subject and lock selection
+  // ROLE ENFORCEMENT: If facilitator, lock to their assigned subject
   const [selectedSubject, setSelectedSubject] = useState(
     activeFacilitator?.subject || subjects[0]
   );
@@ -192,7 +192,6 @@ const ScoreEntryPortal: React.FC<ScoreEntryPortalProps> = ({
     if (window.confirm(`Snapshot ALL SUBJECT RESULTS for the cohort into ${settings.activeMock}? This validates data integrity across the Hub.`)) {
       const today = new Date().toISOString().split('T')[0];
       
-      // 1. Update Global Snapshot Records
       const currentSnapshots = settings.mockSnapshots || {};
       const mockMeta = currentSnapshots[settings.activeMock] || {
         submissionDate: today,
@@ -216,7 +215,6 @@ const ScoreEntryPortal: React.FC<ScoreEntryPortalProps> = ({
         }
       });
 
-      // 2. Synchronize Individual Pupil History
       setStudents(prev => {
         const nextStudents = prev.map(student => {
           const computed = processedSnapshot.find(p => p.id === student.id);
@@ -243,7 +241,6 @@ const ScoreEntryPortal: React.FC<ScoreEntryPortalProps> = ({
         return nextStudents;
       });
 
-      // Force a re-sync alert and manual save call
       setTimeout(() => {
         onSave();
         alert(`Institutional Milestone: ${settings.activeMock} has been successfully snapshotted into the archive.`);
@@ -251,18 +248,18 @@ const ScoreEntryPortal: React.FC<ScoreEntryPortalProps> = ({
     }
   };
 
-  const filtered = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filtered = students.filter(s => (s.name || "").toLowerCase().includes(searchTerm.toLowerCase()));
   const subjectSpecificRemarks = SUBJECT_REMARKS[selectedSubject] || SUBJECT_REMARKS["General"];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       {activeFacilitator && (
         <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-3xl flex items-center gap-4">
-           <div className="w-10 h-10 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black">
+           <div className="w-10 h-10 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black shadow-lg">
               {activeFacilitator.name.charAt(0)}
            </div>
            <div>
-              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Facilitator Session Active</p>
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Facilitator Node Verified</p>
               <h4 className="text-sm font-black text-indigo-900 uppercase mt-1">{activeFacilitator.name} — {activeFacilitator.subject}</h4>
            </div>
         </div>
@@ -291,51 +288,9 @@ const ScoreEntryPortal: React.FC<ScoreEntryPortalProps> = ({
         </div>
       </div>
 
-      {/* General Subject Report by Examiner */}
-      <div className="bg-indigo-900 text-white rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-        <div className="relative space-y-6">
-           <div className="flex justify-between items-start">
-              <div>
-                <h4 className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.3em]">General Assessment Report</h4>
-                <p className="text-lg font-black uppercase tracking-tight">Examiner Observations for {selectedSubject}</p>
-              </div>
-              <div className="bg-white/10 px-4 py-2 rounded-xl border border-white/20">
-                <span className="text-[10px] font-black uppercase">{settings.activeMock}</span>
-              </div>
-           </div>
-
-           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                 <label className="text-[9px] font-black text-indigo-300 uppercase">Predefined Templates</label>
-                 <select 
-                    value={GENERAL_REPORT_TEMPLATES.includes(activeGeneralReport) ? activeGeneralReport : ""}
-                    onChange={(e) => updateGeneralReport(e.target.value)}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-xs font-bold outline-none"
-                 >
-                    <option value="" className="text-gray-900">Select standard observation...</option>
-                    {GENERAL_REPORT_TEMPLATES.map(t => <option key={t} value={t} className="text-gray-900">{t.substring(0, 60)}...</option>)}
-                 </select>
-              </div>
-              <div className="space-y-2">
-                 <div className="flex justify-between items-center">
-                    <label className="text-[9px] font-black text-indigo-300 uppercase">Manual Observations</label>
-                    <button onClick={() => setShowCustomReport(!showCustomReport)} className="text-[8px] font-black uppercase underline decoration-indigo-400">Toggle Edit</button>
-                 </div>
-                 <textarea 
-                    value={activeGeneralReport}
-                    onChange={(e) => updateGeneralReport(e.target.value)}
-                    placeholder="Type institutional subject findings here..."
-                    className="w-full bg-indigo-950 border border-indigo-800 rounded-xl px-4 py-3 text-xs font-bold outline-none min-h-[80px]"
-                 />
-              </div>
-           </div>
-        </div>
-      </div>
-
+      {/* Subject Selector: Disabled if facilitator */}
       <div className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
         <div className="bg-gray-50 px-8 py-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-           {/* Subject Selector: Disabled if facilitator */}
            <div className="flex flex-col gap-1">
               <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-2">Active Subject shard</label>
               <select 
