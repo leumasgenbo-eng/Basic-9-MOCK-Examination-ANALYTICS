@@ -17,22 +17,30 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const MASTER_ADMIN_EMAIL = 'leumasgenbo4@gmail.com';
+
   const handleRequestPin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
+    const targetEmail = email.toLowerCase().trim();
+
     try {
+      // Fix: If it's the master admin, allow creation to prevent "Signups not allowed" error
+      // Otherwise, restrict creation to ensure only pre-enrolled emails can request OTP
+      const isMaster = targetEmail === MASTER_ADMIN_EMAIL;
+
       const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: email.toLowerCase().trim(),
+        email: targetEmail,
         options: {
-          shouldCreateUser: false 
+          shouldCreateUser: isMaster // Enable signup only for master admin to establish the hub owner
         }
       });
 
       if (otpError) {
-        if (otpError.message.includes('not found')) {
-          throw new Error("ACCOUNT NOT REGISTERED: This identity is not active on the UBA Network. Contact your institutional hub.");
+        if (otpError.message.includes('not found') || otpError.message.includes('allowed')) {
+          throw new Error("ACCOUNT NOT REGISTERED: This identity is not active on the UBA Network. Contact your institutional hub or register as a new school.");
         }
         throw otpError;
       }
@@ -64,9 +72,10 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
       const role = metadata.role;
       const hubId = metadata.hubId;
 
-      if (email.toLowerCase() === 'leumasgenbo4@gmail.com') {
+      if (email.toLowerCase() === MASTER_ADMIN_EMAIL) {
         onSuperAdminLogin();
-      } else if (role === 'school_admin') {
+      } else if (role === 'school_admin' || hubId) {
+        // Fallback: If no role is set but hubId exists, assume admin for existing legacy records
         onLoginSuccess(hubId);
       } else if (role === 'facilitator') {
         onFacilitatorLogin(metadata.name || "FACILITATOR", metadata.subject || "GENERAL", hubId);
@@ -76,7 +85,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
         throw new Error("UNAUTHORIZED SHARD: User profile does not contain a valid Hub ID.");
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message === "Token has expired" ? "Activation Error: Token has expired or is invalid" : err.message);
     } finally {
       setIsLoading(false);
     }
@@ -86,12 +95,12 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
     <div className="w-full max-w-lg p-4 animate-in fade-in zoom-in-95 duration-500">
       <div className="bg-slate-950 p-10 md:p-14 rounded-[3.5rem] shadow-[0_40px_80px_rgba(0,0,0,0.4)] border border-white/10 relative overflow-hidden">
         
-        {/* Decorative Grid */}
+        {/* Decorative HUD Elements */}
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent opacity-50"></div>
         <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:40px_40px]"></div>
 
         <div className="text-center relative mb-12">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-blue-900 text-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-2xl border border-white/20 transform hover:scale-105 transition-transform">
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-blue-900 text-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-2xl border border-white/20">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
           <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Identity Gate</h2>
