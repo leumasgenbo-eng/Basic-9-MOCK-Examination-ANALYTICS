@@ -122,15 +122,24 @@ export interface SerializationData {
 }
 
 // --- QUESTION SERIALIZATION TYPES ---
+export interface QuestionSubPart {
+  partLabel: string; // e.g., "a", "b", "i", "ii"
+  text: string;
+  markingGuide: string;
+}
+
 export interface MasterQuestion {
   id: string;
+  originalIndex: number;
   type: 'OBJECTIVE' | 'THEORY';
   strand: string;
   subStrand: string;
+  indicator: string;
   questionText: string;
   options?: { key: 'A' | 'B' | 'C' | 'D', text: string }[];
   correctKey: string;
   weight: number;
+  parts?: QuestionSubPart[]; // Nested structure for theory
 }
 
 export interface QuestionPack {
@@ -138,6 +147,7 @@ export interface QuestionPack {
   objectives: MasterQuestion[];
   theory: MasterQuestion[];
   schemeCode: string;
+  markingMatrix: Record<string, string>; // Maps scrambled index to correct answer/guide
 }
 
 export interface SerializedExam {

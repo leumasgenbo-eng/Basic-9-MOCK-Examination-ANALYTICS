@@ -13,6 +13,8 @@ const LikelyQuestionDesk: React.FC<LikelyQuestionDeskProps> = ({ activeFacilitat
     type: 'OBJECTIVE' as 'OBJECTIVE' | 'THEORY',
     strand: '',
     subStrand: '',
+    // Fix: Added missing property 'indicator' to formData to match MasterQuestion requirements
+    indicator: '',
     questionText: '',
     correctKey: 'A'
   });
@@ -36,8 +38,10 @@ const LikelyQuestionDesk: React.FC<LikelyQuestionDeskProps> = ({ activeFacilitat
     e.preventDefault();
     if (!formData.questionText.trim()) return;
 
+    // Fix: Added missing properties 'originalIndex' and 'indicator' to resolve TypeScript error
     const newQ: MasterQuestion = {
       id: `LQ-${Date.now()}`,
+      originalIndex: questions.length + 1,
       ...formData,
       weight: 1,
       options: formData.type === 'OBJECTIVE' ? [
@@ -65,7 +69,8 @@ const LikelyQuestionDesk: React.FC<LikelyQuestionDeskProps> = ({ activeFacilitat
     });
 
     setQuestions(nextQs);
-    setFormData({ ...formData, questionText: '', strand: '', subStrand: '' });
+    // Fix: Reset indicator field after submission
+    setFormData({ ...formData, questionText: '', strand: '', subStrand: '', indicator: '' });
     setIsSyncing(false);
     alert("Likely question mirrored to HQ Master Bank.");
   };
@@ -101,6 +106,8 @@ const LikelyQuestionDesk: React.FC<LikelyQuestionDeskProps> = ({ activeFacilitat
             <div className="space-y-4">
                <input type="text" placeholder="STRAND..." value={formData.strand} onChange={e=>setFormData({...formData, strand: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-5 py-3 text-[10px] font-bold outline-none uppercase" />
                <input type="text" placeholder="SUB-STRAND..." value={formData.subStrand} onChange={e=>setFormData({...formData, subStrand: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-5 py-3 text-[10px] font-bold outline-none uppercase" />
+               {/* Fix: Added UI input for indicator property */}
+               <input type="text" placeholder="INDICATOR (e.g. B9.1.1.1)..." value={formData.indicator} onChange={e=>setFormData({...formData, indicator: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-5 py-3 text-[10px] font-bold outline-none uppercase" />
                <textarea placeholder="QUESTION TEXT..." value={formData.questionText} onChange={e=>setFormData({...formData, questionText: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-xl px-5 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/10 min-h-[120px] uppercase" />
             </div>
             <button type="submit" disabled={isSyncing} className="w-full bg-indigo-900 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 disabled:opacity-50">
@@ -117,7 +124,8 @@ const LikelyQuestionDesk: React.FC<LikelyQuestionDeskProps> = ({ activeFacilitat
                {questions.map((q, i) => (
                   <div key={i} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-2">
                      <div className="flex justify-between items-center">
-                        <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{q.strand} → {q.subStrand}</span>
+                        {/* Fix: Display the indicator in the history list for better identification */}
+                        <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{q.strand} → {q.subStrand} ({q.indicator})</span>
                         <span className="text-[8px] font-black px-2 py-0.5 bg-slate-100 text-slate-500 rounded uppercase">{q.type}</span>
                      </div>
                      <p className="text-[11px] font-bold text-slate-700 uppercase leading-relaxed line-clamp-2">"{q.questionText}"</p>
