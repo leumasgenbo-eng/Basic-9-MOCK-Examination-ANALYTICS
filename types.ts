@@ -311,6 +311,11 @@ export interface GlobalSettings {
   committedMocks?: string[];
   categoryThresholds: CategoryThreshold[];
   isConductLocked: boolean;
+  /**
+   * Added securityPin to resolve TypeScript error in App.tsx object literal 
+   * and support management view credentials.
+   */
+  securityPin?: string;
   activeMock: string;
   resourcePortal: Record<string, Record<string, MockResource>>;
   maxSectionA: number;
