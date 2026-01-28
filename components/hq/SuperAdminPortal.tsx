@@ -12,6 +12,7 @@ import NetworkRewardsView from './NetworkRewardsView';
 import NetworkSigDiffView from './NetworkSigDiffView';
 import NetworkAnnualAuditReport from './NetworkAnnualAuditReport';
 import RecruitmentHubView from './RecruitmentHubView';
+import AdvertisementPortalView from './AdvertisementPortalView';
 
 export interface SubjectDemandMetric {
   subject: string;
@@ -37,7 +38,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
   const [registry, setRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [auditTrail, setAuditTrail] = useState<SystemAuditEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [view, setView] = useState<'registry' | 'recruitment' | 'rankings' | 'remarks' | 'audit' | 'pupils' | 'rewards' | 'sig-diff' | 'annual-report'>('registry');
+  const [view, setView] = useState<'registry' | 'recruitment' | 'rankings' | 'advertisement' | 'pupils' | 'rewards' | 'sig-diff' | 'remarks' | 'annual-report' | 'audit'>('registry');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
@@ -45,7 +46,6 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
   const fetchHQData = async () => {
     setIsCloudSyncing(true);
     try {
-      // Fetch all individual registry shards
       const { data, error } = await supabase
         .from('uba_persistence')
         .select('id, payload')
@@ -59,7 +59,6 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
           if (row.id === 'audit') {
             setAuditTrail(row.payload || []);
           } else if (row.id.startsWith('registry_')) {
-            // Payload is typically [regEntry] per current registration logic
             if (Array.isArray(row.payload)) {
               compiledRegistry.push(...row.payload);
             } else {
@@ -205,6 +204,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
                 { id: 'registry', label: 'Network Ledger' },
                 { id: 'recruitment', label: 'Recruitment Hub' },
                 { id: 'rankings', label: 'Rerating' },
+                { id: 'advertisement', label: 'Advertisement Portal' },
                 { id: 'pupils', label: 'Talent Matrix' },
                 { id: 'rewards', label: 'Global Rewards' },
                 { id: 'sig-diff', label: 'Sig-Diff Matrix' },
@@ -233,6 +233,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
           )}
           {view === 'recruitment' && <RecruitmentHubView registry={registry} onLogAction={logAction} />}
           {view === 'rankings' && <ReratingView schoolRankings={schoolRankings} />}
+          {view === 'advertisement' && <AdvertisementPortalView onLogAction={logAction} />}
           {view === 'remarks' && <RemarkAnalyticsView subjectDemands={subjectDemands} />}
           {view === 'pupils' && <PupilNetworkRankingView registry={registry} onRemoteView={onRemoteView} />}
           {view === 'rewards' && <NetworkRewardsView registry={registry} />}

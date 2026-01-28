@@ -74,6 +74,8 @@ const App: React.FC = () => {
   const [students, setStudents] = useState<StudentData[]>([]); 
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
+  const [globalAd, setGlobalAd] = useState<string | null>(null);
+
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchRegistry = useCallback(async () => {
@@ -123,7 +125,6 @@ const App: React.FC = () => {
           if (row.id === `${hubId}_settings` && row.payload) setSettings(row.payload);
           if (row.id === `${hubId}_students` && row.payload) setStudents(row.payload);
           if (row.id === `${hubId}_facilitators` && row.payload) setFacilitators(row.payload);
-          // Fix: Logic to handle App 2 data shard load
           if (row.id === `${hubId}_academic_batches` && row.payload) console.log("Academic batches synced.");
         });
       }
@@ -134,7 +135,25 @@ const App: React.FC = () => {
     finally { setIsInitializing(false); }
   };
 
-  useEffect(() => { fetchRegistry(); }, [fetchRegistry]);
+  const fetchGlobalAd = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('uba_persistence')
+        .select('payload')
+        .eq('id', 'global_advertisements')
+        .maybeSingle();
+      if (data && data.payload && data.payload.message) {
+        setGlobalAd(data.payload.message);
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => { 
+    fetchRegistry(); 
+    fetchGlobalAd();
+    const adInterval = setInterval(fetchGlobalAd, 60000); // Check for ads every minute
+    return () => clearInterval(adInterval);
+  }, [fetchRegistry, fetchGlobalAd]);
 
   useEffect(() => {
     let channel: any;
@@ -189,7 +208,6 @@ const App: React.FC = () => {
         { id: `${hubId}_settings`, payload: settings, user_id: user.id, last_updated: ts },
         { id: `${hubId}_students`, payload: students, user_id: user.id, last_updated: ts },
         { id: `${hubId}_facilitators`, payload: facilitators, user_id: user.id, last_updated: ts },
-        // Fix: Added academic_batches shard as per infrastructure requirements
         { id: `${hubId}_academic_batches`, payload: { last_sync: ts, version: '4.0' }, user_id: user.id, last_updated: ts }
       ];
 
@@ -230,7 +248,6 @@ const App: React.FC = () => {
 
   const handleClearData = useCallback(async () => {
     if (window.confirm("CRITICAL: SWITCH TO REAL MODE? This will PERMANENTLY ERASE all pupils, scores, mock snapshots, staff assignments, and resources. Branded Institutional Identity will be preserved for your fresh start.")) {
-      // 1. Locally Wipe everything
       setStudents([]);
       setFacilitators({});
       const cleanSettings = {
@@ -243,7 +260,6 @@ const App: React.FC = () => {
       };
       setSettings(cleanSettings);
       
-      // 2. Clear from Cloud Shards
       const hubId = settings.schoolNumber;
       if (hubId) {
         try {
@@ -309,7 +325,6 @@ const App: React.FC = () => {
         ) : (
           <LoginPortal 
             settings={settings} 
-            // Fix: Removed invalid prop 'processedStudents' causing type error
             globalRegistry={globalRegistry} 
             initialCredentials={postRegistrationData} 
             onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
@@ -353,6 +368,16 @@ const App: React.FC = () => {
                 My Dashboard
               </button>}
         </div>
+
+        {/* Global Advertisement Stream - Positioned in the middle of header */}
+        {globalAd && (
+          <div className="flex-1 max-w-[50%] bg-blue-950/50 h-10 rounded-xl mx-4 overflow-hidden border border-white/5 flex items-center">
+             <p className="whitespace-nowrap inline-block animate-[marquee_25s_linear_infinite] text-[10px] font-black text-orange-400 uppercase tracking-widest px-4">
+                {globalAd} • {globalAd} • {globalAd} • {globalAd}
+             </p>
+          </div>
+        )}
+
         <div className="flex gap-2">
            {!isPupil && <button onClick={handleSave} className="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-4 py-2 rounded font-black shadow transition text-xs uppercase">Cloud Sync</button>}
            <button onClick={() => window.print()} className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-black shadow transition text-xs uppercase">Print</button>
@@ -361,7 +386,6 @@ const App: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-auto bg-gray-100 p-4 md:p-8">
-        {/* Fix: Refactored routing into a unified Switch statement logic for improved manageability and to adhere to UX guidelines */}
         {(() => {
           if (isPupil && activePupil && viewMode === 'pupil_hub') {
             return (
@@ -445,6 +469,13 @@ const App: React.FC = () => {
           }
         })()}
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes marquee {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(-100%); }
+        }
+      `}} />
     </div>
   );
 };
