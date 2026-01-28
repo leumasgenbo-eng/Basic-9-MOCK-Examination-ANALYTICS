@@ -82,25 +82,12 @@ const App: React.FC = () => {
     try {
       const { data } = await supabase.from('uba_persistence').select('id, payload').eq('hub_id', hubId);
       if (data && data.length > 0) {
-        let loadedStudents: StudentData[] = [];
-        let loadedSettings = DEFAULT_SETTINGS;
-        let loadedFacs = {};
-
         data.forEach(row => {
-          if (row.id === `${hubId}_settings`) {
-            setSettings(row.payload);
-            loadedSettings = row.payload;
-          }
-          if (row.id === `${hubId}_students`) {
-            setStudents(row.payload);
-            loadedStudents = row.payload;
-          }
-          if (row.id === `${hubId}_facilitators`) {
-            setFacilitators(row.payload);
-            loadedFacs = row.payload;
-          }
+          if (row.id === `${hubId}_settings`) setSettings(row.payload);
+          if (row.id === `${hubId}_students`) setStudents(row.payload);
+          if (row.id === `${hubId}_facilitators`) setFacilitators(row.payload);
         });
-        return { loadedStudents, loadedSettings, loadedFacs };
+        return true;
       }
     } catch (e) {
       console.error("Load failed:", e);
@@ -112,33 +99,41 @@ const App: React.FC = () => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
+      // Global Registry fetch for routing and ranking
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload));
 
       if (session) {
+        const userEmail = session.user.email?.toLowerCase();
+        
+        // MASTER OVERRIDE: Prioritize SuperAdmin View to prevent White Screen
+        if (userEmail === 'leumasgenbo4@gmail.com') {
+          setIsSuperAdmin(true);
+          setIsAuthenticated(true);
+          setIsInitializing(false);
+          return;
+        }
+
         const metadata = session.user.user_metadata;
         const hubId = metadata.hubId;
         const role = metadata.role;
 
-        if (session.user.email === 'leumasgenbo4@gmail.com') {
-          setIsSuperAdmin(true);
-        } else {
-          const sessionData = await loadSchoolSession(hubId);
-          setIsAuthenticated(true);
-          
-          if (role === 'facilitator') {
-            setIsFacilitator(true);
-            setActiveFacilitator({ name: metadata.name, subject: metadata.subject });
-            setViewMode('management');
-          } else if (role === 'pupil' && sessionData) {
-            const stats = calculateClassStatistics(sessionData.loadedStudents, sessionData.loadedSettings);
-            const processed = processStudentData(stats, sessionData.loadedStudents, {}, sessionData.loadedSettings);
-            const pupil = processed.find(p => p.id === metadata.studentId);
-            if (pupil) {
-              setActivePupil(pupil);
-              setIsPupil(true);
-              setViewMode('pupil_hub');
-            }
+        const sessionLoaded = await loadSchoolSession(hubId);
+        setIsAuthenticated(true);
+        
+        if (role === 'facilitator') {
+          setIsFacilitator(true);
+          setActiveFacilitator({ name: metadata.name, subject: metadata.subject });
+          setViewMode('management');
+        } else if (role === 'pupil' && sessionLoaded) {
+          // Process pupil data for dashboard
+          const stats = calculateClassStatistics(students, settings);
+          const processed = processStudentData(stats, students, {}, settings);
+          const pupil = processed.find(p => p.id === metadata.studentId);
+          if (pupil) {
+            setActivePupil(pupil);
+            setIsPupil(true);
+            setViewMode('pupil_hub');
           }
         }
       }
@@ -162,7 +157,6 @@ const App: React.FC = () => {
     const ts = new Date().toISOString();
     const { data: { user } } = await supabase.auth.getUser();
     
-    // CRITICAL: hub_id column is mandatory for RLS and cloud mapping
     const { error } = await supabase.from('uba_persistence').upsert([
       { id: `${hubId}_settings`, hub_id: hubId, payload: settings, last_updated: ts, user_id: user?.id },
       { id: `${hubId}_students`, hub_id: hubId, payload: students, last_updated: ts, user_id: user?.id },
@@ -172,9 +166,7 @@ const App: React.FC = () => {
 
     if (error) {
       console.error("Sync Error:", error.message);
-      alert("Cloud Sync Failure: Verify Supabase Schema Policies.");
-    } else {
-      console.log("Persistence shards mirrored to cloud.");
+      alert("Cloud Sync Failure: Verify Database Connection.");
     }
   }, [settings, students, facilitators, classAvgAggregate, isAuthenticated]);
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { SchoolRegistryEntry, RemarkMetric } from '../../types';
 import { supabase } from '../../supabaseClient';
@@ -26,7 +27,6 @@ export interface SystemAuditEntry {
   year: string;
 }
 
-// Added missing SubjectDemandMetric interface required by RemarkAnalyticsView
 export interface SubjectDemandMetric {
   subject: string;
   demandScore: number;
@@ -42,21 +42,40 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
   const [registry, setRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [auditTrail, setAuditTrail] = useState<SystemAuditEntry[]>([]);
   const [view, setView] = useState<'registry' | 'recruitment' | 'serialization' | 'questions' | 'advertisement' | 'marketing' | 'pupils' | 'rewards' | 'sig-diff' | 'remarks' | 'annual-report' | 'audit'>('registry');
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(true);
 
   const fetchHQData = async () => {
     setIsSyncing(true);
     try {
-      const { data } = await supabase.from('uba_persistence').select('id, payload').or('id.like.registry_%,id.eq.audit');
+      const { data, error } = await supabase
+        .from('uba_persistence')
+        .select('id, payload')
+        .or('id.like.registry_%,id.eq.audit');
+
+      if (error) throw error;
+
       if (data) {
         const compiled: SchoolRegistryEntry[] = [];
+        let compiledAudit: SystemAuditEntry[] = [];
+
         data.forEach(row => {
-          if (row.id === 'audit') setAuditTrail(row.payload || []);
-          else compiled.push(...(Array.isArray(row.payload) ? row.payload : [row.payload]));
+          if (row.id === 'audit') {
+            compiledAudit = row.payload || [];
+          } else {
+            // Safety Check: payload must be treated as an array of entries
+            const schoolEntries = Array.isArray(row.payload) ? row.payload : [row.payload];
+            compiled.push(...schoolEntries);
+          }
         });
+        
         setRegistry(compiled);
+        setAuditTrail(compiledAudit);
       }
-    } catch (e) {} finally { setIsSyncing(false); }
+    } catch (e) {
+      console.error("HQ Data Fetch Failure:", e);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   useEffect(() => { fetchHQData(); }, []);
@@ -84,17 +103,26 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
     ]}
   ];
 
+  if (isSyncing) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Accessing Master Shards...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 md:p-8 animate-in fade-in duration-700 overflow-x-hidden">
       <div className="max-w-7xl mx-auto space-y-6">
         <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-6 border-b border-slate-800 pb-6">
           <div className="flex items-center gap-5">
             <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-900 rounded-2xl flex items-center justify-center text-white shadow-xl">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             </div>
             <div>
               <h1 className="text-2xl font-black uppercase tracking-tighter text-white">Master Command Hub</h1>
-              <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.4em] mt-2">{isSyncing ? "SYNCING SHARDS..." : "NETWORK ACTIVE"}</p>
+              <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.4em] mt-2">REGISTRY NODE ACTIVE</p>
             </div>
           </div>
           <button onClick={onExit} className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-6 py-2.5 rounded-xl font-black text-[9px] uppercase border border-red-500/20 transition-all shadow-lg">Exit Hub Interface</button>
@@ -115,19 +143,19 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
           </div>
         </nav>
 
-        <main className="bg-slate-900 border border-slate-800 rounded-[3rem] shadow-2xl min-h-[750px] overflow-hidden relative">
-          {view === 'registry' && <RegistryView registry={registry} searchTerm="" setSearchTerm={()=>{}} onRemoteView={onRemoteView} onUpdateRegistry={setRegistry} onLogAction={()=>{}} />}
-          {view === 'recruitment' && <RecruitmentHubView registry={registry} onLogAction={()=>{}} />}
-          {view === 'serialization' && <SerializationHubView registry={registry} onLogAction={()=>{}} />}
-          {view === 'questions' && <QuestionSerializationPortal registry={registry} />}
+        <main className="bg-slate-900 border border-slate-800 rounded-[3rem] shadow-2xl min-h-[700px] overflow-hidden relative">
+          {view === 'registry' && <RegistryView registry={registry ?? []} searchTerm="" setSearchTerm={()=>{}} onRemoteView={onRemoteView} onUpdateRegistry={setRegistry} onLogAction={()=>{}} />}
+          {view === 'recruitment' && <RecruitmentHubView registry={registry ?? []} onLogAction={()=>{}} />}
+          {view === 'serialization' && <SerializationHubView registry={registry ?? []} onLogAction={()=>{}} />}
+          {view === 'questions' && <QuestionSerializationPortal registry={registry ?? []} />}
           {view === 'advertisement' && <AdvertisementPortalView onLogAction={()=>{}} />}
           {view === 'marketing' && <MarketingDeskView />}
-          {view === 'pupils' && <PupilNetworkRankingView registry={registry} onRemoteView={onRemoteView} />}
-          {view === 'rewards' && <NetworkRewardsView registry={registry} />}
-          {view === 'sig-diff' && <NetworkSigDiffView registry={registry} />}
+          {view === 'pupils' && <PupilNetworkRankingView registry={registry ?? []} onRemoteView={onRemoteView} />}
+          {view === 'rewards' && <NetworkRewardsView registry={registry ?? []} />}
+          {view === 'sig-diff' && <NetworkSigDiffView registry={registry ?? []} />}
           {view === 'remarks' && <RemarkAnalyticsView subjectDemands={[]} />}
-          {view === 'annual-report' && <NetworkAnnualAuditReport registry={registry} />}
-          {view === 'audit' && <AuditLogView auditTrail={auditTrail} />}
+          {view === 'annual-report' && <NetworkAnnualAuditReport registry={registry ?? []} />}
+          {view === 'audit' && <AuditLogView auditTrail={auditTrail ?? []} />}
         </main>
       </div>
     </div>
