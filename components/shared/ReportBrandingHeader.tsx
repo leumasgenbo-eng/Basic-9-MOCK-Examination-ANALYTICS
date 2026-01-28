@@ -13,16 +13,23 @@ interface ReportBrandingHeaderProps {
 }
 
 const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, onSettingChange, reportTitle, subtitle, isLandscape = false, readOnly = false }) => {
+  const isUBA = (settings.schoolName || "").toUpperCase().includes("UNITED BAYLOR ACADEMY");
+
   return (
-    <div className={`text-center relative border-b-[8px] border-double border-blue-900 pb-8 mb-8 w-full ${isLandscape ? 'px-10' : 'px-4'}`}>
-      {settings.schoolLogo && (
-        <div className="absolute top-0 left-0 w-24 h-24 print:w-20 print:h-20 flex items-center justify-center">
-          <img src={settings.schoolLogo} alt="Academy Logo" className="max-w-full max-h-full object-contain" />
-        </div>
-      )}
+    <div className={`text-center relative border-b-[8px] border-double ${isUBA ? 'border-blue-900' : 'border-slate-800'} pb-8 mb-8 w-full ${isLandscape ? 'px-10' : 'px-4'}`}>
       
+      {/* Editable Logo Area */}
+      <div className="absolute top-0 left-0 w-24 h-24 flex items-center justify-center">
+        {settings.schoolLogo ? (
+          <img src={settings.schoolLogo} alt="Academy Seal" className="max-w-full max-h-full object-contain" />
+        ) : (
+          <div className="w-16 h-16 bg-blue-900 text-white rounded-2xl flex items-center justify-center font-black text-3xl shadow-xl">U</div>
+        )}
+      </div>
+
       <div className="space-y-2">
-        <h1 className={`${isLandscape ? 'text-5xl' : 'text-4xl'} font-black text-blue-950 tracking-tighter uppercase leading-tight`}>
+        {/* Editable Institutional Identity */}
+        <h1 className={`${isLandscape ? 'text-5xl' : 'text-4xl'} font-black ${isUBA ? 'text-blue-950' : 'text-slate-900'} tracking-tighter uppercase leading-tight`}>
           {readOnly ? (
             <span>{settings.schoolName || "UNITED BAYLOR ACADEMY"}</span>
           ) : (
@@ -30,11 +37,12 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
               value={settings.schoolName || "UNITED BAYLOR ACADEMY"} 
               onChange={(v) => onSettingChange('schoolName', v)} 
               className="text-center font-black w-full"
-              placeholder="OFFICIAL ACADEMY NAME"
+              placeholder="OFFICIAL INSTITUTION NAME"
             />
           )}
         </h1>
 
+        {/* Editable Motto / Slogan */}
         <div className="text-[11px] font-black text-blue-600/60 uppercase tracking-[0.6em] italic">
           {readOnly ? (
             <span>{settings.schoolMotto || "EXCELLENCE IN KNOWLEDGE AND CHARACTER"}</span>
@@ -48,50 +56,54 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
           )}
         </div>
 
+        {/* Editable Address Partition */}
         <p className="text-[12px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed mt-4">
           {readOnly ? (
-            <span>{settings.schoolAddress}</span>
+            <span>{settings.schoolAddress || "ACCRA DIGITAL CENTRE, GHANA"}</span>
           ) : (
             <EditableField 
-              value={settings.schoolAddress} 
+              value={settings.schoolAddress || "ACCRA DIGITAL CENTRE, GHANA"} 
               onChange={(v) => onSettingChange('schoolAddress', v)} 
               className="text-center w-full"
-              placeholder="LOCALITY / POSTAL ADDRESS"
+              placeholder="PHYSICAL LOCATION"
             />
           )}
         </p>
 
+        {/* Editable Contact Strip */}
         <div className="flex justify-center items-center gap-10 text-[10px] font-black text-blue-800 uppercase tracking-widest mt-3">
           <div className="flex items-center gap-2">
-            <span>TEL:</span>
+            <span className="text-gray-400">TEL:</span>
             {readOnly ? (
               <span>{settings.schoolContact}</span>
             ) : (
-              <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} placeholder="PHONE CONTACT..." />
+              <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} placeholder="+233..." />
             )}
           </div>
           <div className="w-2 h-2 bg-blue-100 rounded-full"></div>
           <div className="flex items-center gap-2">
-             <span>EMAIL:</span>
+             <span className="text-gray-400">EMAIL:</span>
              {readOnly ? (
-               <span className="lowercase">{settings.schoolEmail}</span>
+               <span className="lowercase">{settings.schoolEmail || "info@unitedbaylor.edu"}</span>
              ) : (
-               <EditableField value={settings.schoolEmail} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="OFFICIAL EMAIL..." className="lowercase" />
+               <EditableField value={settings.schoolEmail || ""} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="MAIL..." className="lowercase" />
              )}
           </div>
           <div className="w-2 h-2 bg-blue-100 rounded-full"></div>
           <div className="flex items-center gap-2">
-            <span>WEB:</span>
+            <span className="text-gray-400">WEB:</span>
             {readOnly ? (
-              <span className="lowercase">{settings.schoolWebsite || 'www.unitedbaylor.edu'}</span>
+              <span className="lowercase">{settings.schoolWebsite || "www.uba.edu.gh"}</span>
             ) : (
-              <EditableField value={settings.schoolWebsite || ''} onChange={(v) => onSettingChange('schoolWebsite', v)} placeholder="OFFICIAL WEBSITE..." className="lowercase" />
+              <EditableField value={settings.schoolWebsite || ""} onChange={(v) => onSettingChange('schoolWebsite', v)} placeholder="SITE..." className="lowercase" />
             )}
           </div>
         </div>
 
-        <div className="mt-10 bg-red-50 py-4 border-y border-red-100 relative overflow-hidden group">
-          <h2 className="text-3xl font-black text-red-700 uppercase tracking-tight">
+        {/* Editable Report Designation Box */}
+        <div className="mt-10 bg-red-50 py-5 border-y border-red-100 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-red-100/10 pointer-events-none transform -skew-x-12 translate-x-full group-hover:translate-x-[-200%] transition-transform duration-[2000ms]"></div>
+          <h2 className="text-3xl font-black text-red-700 uppercase tracking-tight relative">
             {readOnly ? (
               <span>{reportTitle}</span>
             ) : (
@@ -99,39 +111,49 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
             )}
           </h2>
           {subtitle && (
-            <p className="text-[10px] font-black text-red-900 tracking-[0.6em] uppercase mt-2 opacity-60">
+            <p className="text-[10px] font-black text-red-900/40 tracking-[0.6em] uppercase mt-2">
               {subtitle}
             </p>
           )}
         </div>
 
+        {/* Editable Dynamic Context Stats Strip */}
         <div className="flex justify-center items-center gap-12 text-[14px] font-black text-gray-800 uppercase tracking-[0.3em] mt-8">
            <div className="flex items-center gap-4">
-              <span className="text-[9px] text-gray-400 uppercase">Term:</span>
+              <span className="text-[9px] text-gray-400 uppercase">Period:</span>
               {readOnly ? (
-                <span className="bg-blue-900 text-white px-6 py-1.5 rounded shadow-lg">{settings.termInfo}</span>
+                <span className="bg-blue-900 text-white px-6 py-1.5 rounded-lg shadow-lg">{settings.termInfo}</span>
               ) : (
-                <EditableField value={settings.termInfo} onChange={(v) => onSettingChange('termInfo', v)} className="bg-blue-900 text-white px-6 py-1.5 rounded shadow-lg" />
+                <EditableField value={settings.termInfo} onChange={(v) => onSettingChange('termInfo', v)} className="bg-blue-900 text-white px-6 py-1.5 rounded-lg shadow-lg" />
               )}
            </div>
            <div className="flex items-center gap-4 border-x border-gray-200 px-12">
               <span className="text-[9px] text-gray-400 uppercase">Series ID:</span>
               {readOnly ? (
-                <span>{settings.activeMock}</span>
+                <span className="text-blue-600 font-bold">{settings.activeMock}</span>
               ) : (
-                <EditableField value={settings.activeMock} onChange={(v) => onSettingChange('activeMock', v)} />
+                <EditableField value={settings.activeMock} onChange={(v) => onSettingChange('activeMock', v)} className="text-blue-600 font-bold" />
               )}
            </div>
            <div className="flex items-center gap-4">
-              <span className="text-[9px] text-gray-400 uppercase">Cycle:</span>
+              <span className="text-[9px] text-gray-400 uppercase">Academic Cycle:</span>
               {readOnly ? (
-                <span className="italic">{settings.academicYear}</span>
+                <span className="italic font-serif">{settings.academicYear}</span>
               ) : (
-                <EditableField value={settings.academicYear} onChange={(v) => onSettingChange('academicYear', v)} className="italic" />
+                <EditableField value={settings.academicYear} onChange={(v) => onSettingChange('academicYear', v)} className="italic font-serif" />
               )}
            </div>
         </div>
       </div>
+      
+      {!readOnly && (
+        <div className="absolute top-0 right-0 no-print">
+           <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-2xl border border-blue-100 flex items-center gap-3">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-[8px] font-black uppercase tracking-widest">Master Identity Control Active</span>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
