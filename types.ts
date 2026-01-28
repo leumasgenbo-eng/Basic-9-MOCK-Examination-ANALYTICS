@@ -1,4 +1,5 @@
 
+
 export interface SubjectScore {
   subject: string;
   score: number;
@@ -311,6 +312,8 @@ export interface GlobalSettings {
   committedMocks?: string[];
   categoryThresholds: CategoryThreshold[];
   isConductLocked: boolean;
+  // Added securityPin to resolve type error in App.tsx where it is specified in DEFAULT_SETTINGS
+  securityPin?: string;
   activeMock: string;
   resourcePortal: Record<string, Record<string, MockResource>>;
   maxSectionA: number;
