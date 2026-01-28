@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { StaffAssignment, StaffRole, GlobalSettings } from '../../types';
+import { supabase } from '../../supabaseClient';
 
 interface FacilitatorPortalProps {
   subjects: string[];
@@ -14,25 +15,50 @@ interface FacilitatorPortalProps {
 
 const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilitators, setFacilitators, settings, isFacilitator, activeFacilitator }) => {
   const [newStaff, setNewStaff] = useState({ name: '', email: '', role: 'FACILITATOR' as StaffRole, subject: '' });
+  const [isEnrolling, setIsEnrolling] = useState(false);
 
-  const handleAddStaff = (e: React.FormEvent) => {
+  const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaff.name || !newStaff.email) return;
+    setIsEnrolling(true);
 
-    const enrolledId = `FAC-${Math.floor(100 + Math.random() * 900)}`;
-    const staff: StaffAssignment = {
-      name: newStaff.name.toUpperCase(),
-      email: newStaff.email.toLowerCase(),
-      role: newStaff.role,
-      taughtSubject: newStaff.subject,
-      enrolledId,
-      invigilations: [],
-      marking: { dateTaken: '', dateReturned: '', inProgress: false }
-    };
+    try {
+      // Trigger Sign In with OTP for new staff to create their auth account and send PIN
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: newStaff.email.toLowerCase(),
+        options: {
+          data: { 
+            role: 'facilitator', 
+            hubId: settings.schoolNumber, 
+            name: newStaff.name.toUpperCase(),
+            subject: newStaff.subject
+          },
+          shouldCreateUser: true
+        }
+      });
 
-    const key = newStaff.subject || `FLOAT_${Date.now()}`;
-    setFacilitators(prev => ({ ...prev, [key]: staff }));
-    setNewStaff({ name: '', email: '', role: 'FACILITATOR', subject: '' });
+      if (otpError) throw otpError;
+
+      const enrolledId = `FAC-${Math.floor(100 + Math.random() * 900)}`;
+      const staff: StaffAssignment = {
+        name: newStaff.name.toUpperCase(),
+        email: newStaff.email.toLowerCase(),
+        role: newStaff.role,
+        taughtSubject: newStaff.subject,
+        enrolledId,
+        invigilations: [],
+        marking: { dateTaken: '', dateReturned: '', inProgress: false }
+      };
+
+      const key = newStaff.subject || `FLOAT_${Date.now()}`;
+      setFacilitators(prev => ({ ...prev, [key]: staff }));
+      setNewStaff({ name: '', email: '', role: 'FACILITATOR', subject: '' });
+      alert(`FACULTY NODE ACTIVATED: OTP PIN sent to ${newStaff.email}`);
+    } catch (err: any) {
+      alert("Enrolment Error: " + err.message);
+    } finally {
+      setIsEnrolling(false);
+    }
   };
 
   return (
@@ -46,7 +72,9 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
                <option value="">SELECT SUBJECT...</option>
                {subjects.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
             </select>
-            <button type="submit" className="bg-blue-900 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Enroll Faculty Node</button>
+            <button type="submit" disabled={isEnrolling} className="bg-blue-900 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all disabled:opacity-50">
+               {isEnrolling ? "AUTHORIZING..." : "Enroll Faculty Node"}
+            </button>
          </form>
       </section>
 
@@ -60,7 +88,15 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
                </div>
                <div className="flex flex-col items-end gap-3">
                   <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[8px] font-black uppercase border border-emerald-100">PIN Access Ready</div>
-                  <button className="text-[8px] font-black text-blue-600 uppercase underline decoration-blue-200 hover:decoration-blue-600 transition-all">Invite via PIN</button>
+                  <button 
+                    onClick={async () => {
+                      await supabase.auth.signInWithOtp({ email: f.email });
+                      alert("PIN REISSUED: Check email inbox.");
+                    }}
+                    className="text-[8px] font-black text-blue-600 uppercase underline decoration-blue-200 hover:decoration-blue-600 transition-all"
+                  >
+                    Resend PIN
+                  </button>
                </div>
             </div>
          ))}

@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { StudentData, GlobalSettings } from '../../types';
 import { CORE_SUBJECTS } from '../../constants';
+import { supabase } from '../../supabaseClient';
 
 interface PupilSBAPortalProps {
   students: StudentData[];
@@ -14,6 +15,7 @@ interface PupilSBAPortalProps {
 const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, settings, subjects, onSave }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingSbaId, setEditingSbaId] = useState<number | null>(null);
+  const [isEnrolling, setIsEnrolling] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -22,27 +24,52 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
     contact: ''
   });
 
-  const handleAddStudent = (e: React.FormEvent) => {
+  const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
-    
-    const nextId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 101;
-    const newStudent: StudentData = {
-      id: nextId,
-      name: formData.name.toUpperCase(),
-      email: formData.email.toLowerCase(),
-      gender: formData.gender,
-      parentName: formData.guardianName.toUpperCase(),
-      parentContact: formData.contact,
-      attendance: 0,
-      scores: {},
-      sbaScores: {},
-      examSubScores: {},
-      mockData: {}
-    };
-    
-    setStudents([...students, newStudent]);
-    setFormData({ name: '', email: '', gender: 'M', guardianName: '', contact: '' });
+    if (!formData.name.trim() || !formData.email.trim()) return;
+    setIsEnrolling(true);
+
+    try {
+      const nextId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 101;
+      
+      // Trigger Sign In with OTP for the pupil/parent email to create auth node and send PIN
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: formData.email.toLowerCase(),
+        options: {
+          data: { 
+            role: 'pupil', 
+            hubId: settings.schoolNumber, 
+            name: formData.name.toUpperCase(),
+            studentId: nextId
+          },
+          shouldCreateUser: true
+        }
+      });
+
+      if (otpError) throw otpError;
+
+      const newStudent: StudentData = {
+        id: nextId,
+        name: formData.name.toUpperCase(),
+        email: formData.email.toLowerCase(),
+        gender: formData.gender,
+        parentName: formData.guardianName.toUpperCase(),
+        parentContact: formData.contact,
+        attendance: 0,
+        scores: {},
+        sbaScores: {},
+        examSubScores: {},
+        mockData: {}
+      };
+      
+      setStudents([...students, newStudent]);
+      setFormData({ name: '', email: '', gender: 'M', guardianName: '', contact: '' });
+      alert(`CANDIDATE ENROLLED: Access PIN sent to ${formData.email}`);
+    } catch (err: any) {
+      alert("Auth Gateway Error: " + err.message);
+    } finally {
+      setIsEnrolling(false);
+    }
   };
 
   const handleUpdateSbaScore = (studentId: number, subject: string, score: string) => {
@@ -110,7 +137,9 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
               <select value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none"><option value="M">MALE</option><option value="F">FEMALE</option></select>
               <input type="text" value={formData.guardianName} onChange={e=>setFormData({...formData, guardianName: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none" placeholder="GUARDIAN NAME..." />
               <input type="text" value={formData.contact} onChange={e=>setFormData({...formData, contact: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none" placeholder="CONTACT PHONE..." />
-              <button type="submit" className="bg-blue-900 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Enroll Candidate Node</button>
+              <button type="submit" disabled={isEnrolling} className="bg-blue-900 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all disabled:opacity-50">
+                {isEnrolling ? "AUTHORIZING..." : "Enroll Candidate Node"}
+              </button>
             </form>
           </section>
 
@@ -124,7 +153,18 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
                          <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">{s.email}</p>
                       </div>
                    </div>
-                   <button onClick={() => setEditingSbaId(s.id)} className="bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-blue-600 transition-all">Open Matrix</button>
+                   <div className="flex gap-2">
+                     <button 
+                       onClick={async () => {
+                         await supabase.auth.signInWithOtp({ email: s.email });
+                         alert("PIN REISSUED: Access token dispatched.");
+                       }}
+                       className="bg-gray-100 text-gray-600 px-6 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-gray-200 transition-all"
+                     >
+                        Resend PIN
+                     </button>
+                     <button onClick={() => setEditingSbaId(s.id)} className="bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-blue-600 transition-all">Open Matrix</button>
+                   </div>
                 </div>
              ))}
           </div>

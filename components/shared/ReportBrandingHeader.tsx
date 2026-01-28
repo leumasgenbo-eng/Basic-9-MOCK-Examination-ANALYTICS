@@ -37,10 +37,10 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
 
         <div className="text-[11px] font-black text-blue-600/60 uppercase tracking-[0.6em] italic">
           {readOnly ? (
-            <span>{settings.schoolMotto || "EXCELLENCE IN CHARACTER"}</span>
+            <span>{settings.schoolMotto || "EXCELLENCE IN KNOWLEDGE AND CHARACTER"}</span>
           ) : (
             <EditableField 
-              value={settings.schoolMotto || "EXCELLENCE IN CHARACTER"} 
+              value={settings.schoolMotto || "EXCELLENCE IN KNOWLEDGE AND CHARACTER"} 
               onChange={(v) => onSettingChange('schoolMotto', v)} 
               className="text-center w-full bg-transparent"
               placeholder="SCHOOL MOTTO"
@@ -72,9 +72,18 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
           </div>
           <div className="w-2 h-2 bg-blue-100 rounded-full"></div>
           <div className="flex items-center gap-2">
+             <span>EMAIL:</span>
+             {readOnly ? (
+               <span className="lowercase">{settings.schoolEmail}</span>
+             ) : (
+               <EditableField value={settings.schoolEmail} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="OFFICIAL EMAIL..." className="lowercase" />
+             )}
+          </div>
+          <div className="w-2 h-2 bg-blue-100 rounded-full"></div>
+          <div className="flex items-center gap-2">
             <span>WEB:</span>
             {readOnly ? (
-              <span className="lowercase">{settings.schoolWebsite || 'WWW.UNITEDBAYLOR.EDU'}</span>
+              <span className="lowercase">{settings.schoolWebsite || 'www.unitedbaylor.edu'}</span>
             ) : (
               <EditableField value={settings.schoolWebsite || ''} onChange={(v) => onSettingChange('schoolWebsite', v)} placeholder="OFFICIAL WEBSITE..." className="lowercase" />
             )}
@@ -128,7 +137,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
         <div className="absolute top-0 right-0 no-print">
            <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-2xl border border-emerald-100 flex items-center gap-3">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              <span className="text-[9px] font-black uppercase tracking-widest">Admin Layout: Particulars Editable</span>
+              <span className="text-[9px] font-black uppercase tracking-widest">Master Admin Mode: All Fields Editable</span>
            </div>
         </div>
       )}

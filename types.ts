@@ -80,7 +80,6 @@ export interface SchoolRegistryEntry {
   name: string;
   registrant: string;
   registrantEmail: string; // Required for OTP
-  // Fix: Added accessCode and related properties for multi-tenant auth
   accessCode: string;
   staffAccessCode: string;
   pupilAccessCode: string;
@@ -90,7 +89,6 @@ export interface SchoolRegistryEntry {
   performanceHistory: InstitutionalPerformance[];
   status: 'active' | 'suspended' | 'audit';
   lastActivity: string;
-  // Fix: Added telemetry and logging fields for SuperAdmin audit
   remarkTelemetry?: RemarkTelemetry;
   verificationLogs?: Record<string, VerificationEntry[]>;
   fullData?: {
@@ -114,7 +112,6 @@ export interface StudentData {
   examSubScores: Record<string, ExamSubScore>;
   mockData: Record<string, MockScoreSet>; 
   seriesHistory?: Record<string, MockSeriesRecord>;
-  // Fix: Added beceResults for longitudinal tracking
   beceResults?: Record<string, BeceResult>;
 }
 
@@ -137,10 +134,14 @@ export interface MockSeriesRecord {
   rank: number;
   date: string;
   subScores?: Record<string, ExamSubScore>;
-  // Fix: Added audit tracking fields
   reviewStatus?: string;
   isApproved?: boolean;
   subjectPerformanceSummary?: Record<string, { mean: number; grade: string }>;
+}
+
+export interface BeceResult {
+  year: string;
+  grades: Record<string, number>;
 }
 
 export interface ProcessedStudent {
@@ -150,7 +151,6 @@ export interface ProcessedStudent {
   gender: string;
   parentName?: string;
   parentContact: string;
-  // Fix: Added parentEmail for dispatch hub
   parentEmail?: string;
   attendance: number;
   conductRemark?: string;
@@ -165,7 +165,6 @@ export interface ProcessedStudent {
   rank: number;
   seriesHistory?: Record<string, MockSeriesRecord>;
   mockData?: Record<string, MockScoreSet>;
-  // Fix: Added beceResults for student dashboard
   beceResults?: Record<string, BeceResult>;
 }
 
@@ -223,7 +222,6 @@ export interface GlobalSettings {
   schoolWebsite?: string;
   registrantName?: string; 
   registrantEmail?: string;
-  // Fix: Added security keys for institutional access
   accessCode: string;
   staffAccessCode: string;
   pupilAccessCode: string;
@@ -263,21 +261,19 @@ export interface MockSnapshotMetadata {
   submissionDate: string;
   subjectsSubmitted: string[];
   approvalStatus: 'pending' | 'approved' | 'completed';
-  // Fix: Added missing properties for verification audit
   confirmedScripts: string[];
   subjectSubmissionDates: Record<string, string>;
   approvedBy: string;
 }
 
 export interface MockResource {
-  indicators: any[];
+  indicators: QuestionIndicatorMapping[];
   questionUrl?: string;
   schemeUrl?: string;
   generalReport?: string;
 }
 
-// Fix: Added missing interfaces for network features
-
+// Added missing interface definitions for components
 export interface QuestionIndicatorMapping {
   id: string;
   section: 'A' | 'B';
@@ -287,11 +283,6 @@ export interface QuestionIndicatorMapping {
   indicatorCode: string;
   indicator: string;
   weight: number;
-}
-
-export interface BeceResult {
-  year: string;
-  grades: Record<string, number>;
 }
 
 export interface PaymentParticulars {
@@ -304,18 +295,19 @@ export interface PaymentParticulars {
   isVerified: boolean;
 }
 
-export interface PaymentNode {
-  paid: boolean;
-  language?: string;
-  particulars: PaymentParticulars;
-}
-
 export interface ForwardingData {
   schoolId: string;
   schoolName: string;
   feedback: string;
-  pupilPayments: Record<string, PaymentNode>;
-  facilitatorPayments: Record<string, PaymentNode>;
+  pupilPayments: Record<number, {
+    paid: boolean;
+    language: string;
+    particulars: PaymentParticulars;
+  }>;
+  facilitatorPayments: Record<string, {
+    paid: boolean;
+    particulars: PaymentParticulars;
+  }>;
   submissionTimestamp: string;
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
@@ -343,7 +335,7 @@ export type BloomsScale = 'Knowledge' | 'Understanding' | 'Application' | 'Analy
 export interface QuestionSubPart {
   partLabel: string;
   text: string;
-  possibleAnswers: string;
+  possibleAnswers?: string;
   markingScheme: string;
   weight: number;
   blooms: BloomsScale;
@@ -359,10 +351,10 @@ export interface MasterQuestion {
   questionText: string;
   instruction: string;
   correctKey: string;
+  answerScheme: string;
   weight: number;
   blooms: BloomsScale;
   parts?: QuestionSubPart[];
-  answerScheme: string;
   diagramUrl?: string;
 }
 
@@ -380,6 +372,6 @@ export interface SerializedExam {
   schoolId: string;
   mockSeries: string;
   subject: string;
-  packs: { A: QuestionPack; B: QuestionPack; C: QuestionPack; D: QuestionPack };
+  packs: Record<'A' | 'B' | 'C' | 'D', QuestionPack>;
   timestamp: string;
 }

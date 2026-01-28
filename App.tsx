@@ -21,7 +21,7 @@ import { SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGO
 const DEFAULT_SETTINGS: GlobalSettings = {
   schoolName: "UNITED BAYLOR ACADEMY",
   schoolMotto: "EXCELLENCE IN KNOWLEDGE AND CHARACTER",
-  schoolWebsite: "WWW.UNITEDBAYLOR.EDU",
+  schoolWebsite: "www.unitedbaylor.edu",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
   schoolNumber: "", 
   schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
@@ -35,7 +35,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   headTeacherName: "DIRECTOR NAME",
   reportDate: new Date().toLocaleDateString(),
   schoolContact: "+233 24 350 4091",
-  schoolEmail: "INFO@UNITEDBAYLOR.EDU",
+  schoolEmail: "info@unitedbaylor.edu",
   gradingThresholds: DEFAULT_THRESHOLDS,
   categoryThresholds: DEFAULT_CATEGORY_THRESHOLDS,
   normalizationConfig: DEFAULT_NORMALIZATION,
@@ -52,7 +52,11 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   useTDistribution: true,
   reportTemplate: 'standard',
   adminRoleTitle: "Academy Director",
-  registryRoleTitle: "Examination Registry"
+  registryRoleTitle: "Examination Registry",
+  accessCode: "",
+  staffAccessCode: "",
+  pupilAccessCode: "",
+  enrollmentDate: ""
 };
 
 const App: React.FC = () => {
@@ -72,7 +76,6 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_SETTINGS);
   const [students, setStudents] = useState<StudentData[]>([]); 
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
-  const [globalAd, setGlobalAd] = useState<string | null>(null);
 
   const loadSchoolSession = useCallback(async (hubId: string) => {
     if (!hubId) return null;
