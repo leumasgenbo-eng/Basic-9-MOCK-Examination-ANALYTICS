@@ -26,7 +26,7 @@ export interface SystemAuditEntry {
   year: string;
 }
 
-// Fix: Added missing SubjectDemandMetric interface required by RemarkAnalyticsView
+// Added missing SubjectDemandMetric interface required by RemarkAnalyticsView
 export interface SubjectDemandMetric {
   subject: string;
   demandScore: number;
@@ -64,18 +64,18 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
   const navSectors = [
     { title: "Infrastructure", tabs: [
       { id: 'registry', label: 'Network Ledger' },
-      { id: 'recruitment', label: 'Recruitment' },
+      { id: 'recruitment', label: 'Recruitment Hub' },
       { id: 'serialization', label: 'Serialization' },
       { id: 'questions', label: 'Hub Ingestion' }
     ]},
     { title: "Engagement", tabs: [
-      { id: 'advertisement', label: 'Ad Desk' },
+      { id: 'advertisement', label: 'Master Ad Desk' },
       { id: 'marketing', label: 'Marketing Control' }
     ]},
     { title: "Matrix", tabs: [
       { id: 'pupils', label: 'Talent Matrix' },
       { id: 'rewards', label: 'Global Rewards' },
-      { id: 'sig-diff', label: 'Sig-Diff' }
+      { id: 'sig-diff', label: 'Network Sig-Diff' }
     ]},
     { title: "Reports", tabs: [
       { id: 'remarks', label: 'Demand Analysis' },
@@ -85,7 +85,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 md:p-8 animate-in fade-in duration-700">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 md:p-8 animate-in fade-in duration-700 overflow-x-hidden">
       <div className="max-w-7xl mx-auto space-y-6">
         <header className="flex flex-col lg:flex-row justify-between lg:items-center gap-6 border-b border-slate-800 pb-6">
           <div className="flex items-center gap-5">
@@ -93,11 +93,11 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             </div>
             <div>
-              <h1 className="text-2xl font-black uppercase tracking-tighter text-white">Master Hub</h1>
-              <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.4em] mt-2">{isSyncing ? "SYNCING..." : "NETWORK ACTIVE"}</p>
+              <h1 className="text-2xl font-black uppercase tracking-tighter text-white">Master Command Hub</h1>
+              <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.4em] mt-2">{isSyncing ? "SYNCING SHARDS..." : "NETWORK ACTIVE"}</p>
             </div>
           </div>
-          <button onClick={onExit} className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-6 py-2.5 rounded-xl font-black text-[9px] uppercase border border-red-500/20 transition-all shadow-lg">Exit Hub</button>
+          <button onClick={onExit} className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-6 py-2.5 rounded-xl font-black text-[9px] uppercase border border-red-500/20 transition-all shadow-lg">Exit Hub Interface</button>
         </header>
 
         <nav className="bg-slate-900/50 border border-slate-800 rounded-[2rem] p-2 backdrop-blur-md overflow-hidden shadow-2xl">
@@ -107,7 +107,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
                 <span className="px-3 text-[7px] font-black text-slate-600 uppercase tracking-[0.2em]">{sector.title}</span>
                 <div className="grid grid-cols-1 gap-1">
                   {sector.tabs.map(tab => (
-                    <button key={tab.id} onClick={() => setView(tab.id as any)} className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all text-left group ${view === tab.id ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>{tab.label}</button>
+                    <button key={tab.id} onClick={() => setView(tab.id as any)} className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all text-left group ${view === tab.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>{tab.label}</button>
                   ))}
                 </div>
               </div>
@@ -115,7 +115,7 @@ const SuperAdminPortal: React.FC<{ onExit: () => void; onRemoteView: (schoolId: 
           </div>
         </nav>
 
-        <main className="bg-slate-900 border border-slate-800 rounded-[3rem] shadow-2xl min-h-[700px] overflow-hidden relative">
+        <main className="bg-slate-900 border border-slate-800 rounded-[3rem] shadow-2xl min-h-[750px] overflow-hidden relative">
           {view === 'registry' && <RegistryView registry={registry} searchTerm="" setSearchTerm={()=>{}} onRemoteView={onRemoteView} onUpdateRegistry={setRegistry} onLogAction={()=>{}} />}
           {view === 'recruitment' && <RecruitmentHubView registry={registry} onLogAction={()=>{}} />}
           {view === 'serialization' && <SerializationHubView registry={registry} onLogAction={()=>{}} />}

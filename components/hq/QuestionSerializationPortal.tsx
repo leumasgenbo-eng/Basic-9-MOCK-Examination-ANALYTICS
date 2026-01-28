@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import { 
@@ -41,14 +40,12 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
     const fetchExisting = async () => {
       try {
         const { data } = await supabase.from('uba_persistence').select('payload').eq('id', bankId).maybeSingle();
-        // Defensive check: Ensure payload is an array
         if (data?.payload && Array.isArray(data.payload)) {
           setMasterQuestions(data.payload);
         } else {
           setMasterQuestions([]);
         }
       } catch (err) {
-        console.error("Fetch Error:", err);
         setMasterQuestions([]);
       }
     };
@@ -281,7 +278,6 @@ const QuestionSerializationPortal: React.FC<{ registry: SchoolRegistryEntry[] }>
                                     </div>
                                   ) : (
                                     <div className="space-y-2">
-                                       {/* Optional chaining on parts to prevent crash */}
                                        {q.parts?.map((p, pi) => (
                                           <div key={pi} className="flex gap-2 items-center">
                                              <span className="text-[8px] font-black text-indigo-400 w-6 uppercase">{p.partLabel}</span>

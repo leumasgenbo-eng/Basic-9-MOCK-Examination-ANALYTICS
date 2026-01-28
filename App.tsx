@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { calculateClassStatistics, processStudentData, generateFullDemoSuite } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
@@ -149,11 +148,11 @@ const App: React.FC = () => {
 
   if (!isAuthenticated && !isSuperAdmin) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         {isRegistering ? (
-          <SchoolRegistrationPortal settings={settings} onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} onSave={handleSave} onComplete={() => setIsRegistering(false)} onSwitchToLogin={() => setIsRegistering(false)} />
+          <SchoolRegistrationPortal settings={settings} onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} onSave={handleSave} onComplete={(d) => { setPostRegistrationData(d); setIsRegistering(false); }} onResetStudents={() => setStudents([])} onSwitchToLogin={() => setIsRegistering(false)} />
         ) : (
-          <LoginPortal settings={settings} globalRegistry={globalRegistry} onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} onSuperAdminLogin={() => setIsSuperAdmin(true)} onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); }); }} onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} onSwitchToRegister={() => setIsRegistering(true)} />
+          <LoginPortal settings={settings} globalRegistry={globalRegistry} initialCredentials={postRegistrationData} onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} onSuperAdminLogin={() => setIsSuperAdmin(true)} onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); }); }} onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { const s = processedStudents.find(p => p.id === id); if(s){ setActivePupil(s); setIsPupil(true); setIsAuthenticated(true); setViewMode('pupil_hub'); } }); }} onSwitchToRegister={() => setIsRegistering(true)} />
         )}
       </div>
     );
@@ -164,27 +163,27 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
       {globalAd && (
-        <div className="no-print bg-blue-950 text-orange-400 py-2 overflow-hidden border-b border-orange-500/20">
-          <div className="whitespace-nowrap flex animate-[marquee_20s_linear_infinite]">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] px-10">[ HQ BROADCAST ]: {globalAd} • {globalAd}</span>
+        <div className="no-print bg-blue-950 text-orange-400 py-2 overflow-hidden border-b border-orange-500/20 shadow-inner">
+          <div className="whitespace-nowrap flex animate-[marquee_25s_linear_infinite]">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] px-10">[ GLOBAL BROADCAST ] : {globalAd} • {globalAd} • {globalAd}</span>
           </div>
         </div>
       )}
-      <div className="no-print bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-md flex justify-between items-center">
-        <div className="flex bg-blue-800 rounded p-1 gap-1 text-[10px] font-black uppercase overflow-x-auto">
+      <div className="no-print bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-md flex flex-wrap justify-between items-center gap-4">
+        <div className="flex bg-blue-800 rounded p-1 gap-1 text-[10px] font-black uppercase overflow-x-auto no-scrollbar">
           {!isPupil ? (
             <>
-              <button onClick={() => setViewMode('home')} className={`px-4 py-2 rounded ${viewMode === 'home' ? 'bg-white text-blue-900' : 'hover:bg-blue-700'}`}>Home</button>
-              <button onClick={() => setViewMode('master')} className={`px-4 py-2 rounded ${viewMode === 'master' ? 'bg-white text-blue-900' : 'hover:bg-blue-700'}`}>Sheets</button>
-              <button onClick={() => setViewMode('series')} className={`px-4 py-2 rounded ${viewMode === 'series' ? 'bg-white text-blue-900' : 'hover:bg-blue-700'}`}>Series</button>
-              <button onClick={() => setViewMode('reports')} className={`px-4 py-2 rounded ${viewMode === 'reports' ? 'bg-white text-blue-900' : 'hover:bg-blue-700'}`}>Reports</button>
-              <button onClick={() => setViewMode('management')} className={`px-4 py-2 rounded ${viewMode === 'management' ? 'bg-white text-blue-900' : 'hover:bg-blue-700'}`}>Mgmt</button>
+              <button onClick={() => setViewMode('home')} className={`px-4 py-2 rounded transition-all ${viewMode === 'home' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Home</button>
+              <button onClick={() => setViewMode('master')} className={`px-4 py-2 rounded transition-all ${viewMode === 'master' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Sheets</button>
+              <button onClick={() => setViewMode('series')} className={`px-4 py-2 rounded transition-all ${viewMode === 'series' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Tracker</button>
+              <button onClick={() => setViewMode('reports')} className={`px-4 py-2 rounded transition-all ${viewMode === 'reports' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Reports</button>
+              <button onClick={() => setViewMode('management')} className={`px-4 py-2 rounded transition-all ${viewMode === 'management' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Mgmt Hub</button>
             </>
-          ) : <button onClick={() => setViewMode('pupil_hub')} className="bg-white text-blue-900 px-4 py-2 rounded">My Dashboard</button>}
+          ) : <button onClick={() => setViewMode('pupil_hub')} className="bg-white text-blue-900 px-6 py-2 rounded-xl font-black uppercase shadow-lg">My Performance Node</button>}
         </div>
         <div className="flex gap-2">
-           <button onClick={handleSave} className="bg-yellow-500 text-blue-900 px-4 py-2 rounded font-black text-[10px] uppercase">Sync</button>
-           <button onClick={() => window.location.reload()} className="bg-red-600 text-white px-4 py-2 rounded font-black text-[10px] uppercase">Logout</button>
+           {!isPupil && <button onClick={handleSave} className="bg-yellow-500 text-blue-900 px-5 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Sync Hub</button>}
+           <button onClick={() => window.location.reload()} className="bg-red-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Logout</button>
         </div>
       </div>
       <div className="flex-1 overflow-auto p-4 md:p-8">
@@ -192,12 +191,12 @@ const App: React.FC = () => {
           if (isPupil && activePupil && viewMode === 'pupil_hub') return <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} />;
           switch (viewMode) {
             case 'home': return <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />;
-            case 'master': return <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} />;
+            case 'master': return <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />;
             case 'series': return <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents} />;
             case 'reports': return (
-              <div className="space-y-6">
-                <input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-4 rounded-xl border no-print" />
-                {processedStudents.filter(s => s.name.toLowerCase().includes(reportSearchTerm.toLowerCase())).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} />)}
+              <div className="space-y-8">
+                <input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-5 rounded-2xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none focus:border-blue-300 transition-all" />
+                {processedStudents.filter(s => s.name.toLowerCase().includes(reportSearchTerm.toLowerCase())).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />)}
               </div>
             );
             case 'management': return <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u)=>setSettings(p=>({...p,...u}))} onSave={handleSave} processedSnapshot={processedStudents} onLoadDummyData={()=>{}} onClearData={()=>{}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />;

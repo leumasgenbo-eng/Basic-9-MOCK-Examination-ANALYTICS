@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import { ForwardingData } from '../../types';
@@ -29,7 +28,7 @@ const MarketingDeskView: React.FC = () => {
   }, [submissions]);
 
   return (
-    <div className="animate-in fade-in duration-700 h-full flex flex-col p-10 bg-slate-950 font-sans">
+    <div className="animate-in fade-in duration-700 h-full flex flex-col p-10 font-sans bg-slate-950">
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8 mb-12">
         <div className="space-y-1">
           <h2 className="text-4xl font-black uppercase text-white tracking-tighter">Network Marketing Control</h2>
@@ -50,28 +49,65 @@ const MarketingDeskView: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 flex-1">
-         <div className="xl:col-span-4 space-y-6 overflow-y-auto max-h-[700px] pr-2 custom-scrollbar">
-            <div className="flex justify-between items-center px-4">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 flex-1 overflow-hidden">
+         <div className="xl:col-span-4 space-y-6 overflow-y-auto max-h-full pr-2 custom-scrollbar">
+            <div className="flex justify-between items-center px-4 sticky top-0 bg-slate-950 py-2 z-10">
               <h3 className="text-xs font-black uppercase text-blue-500 tracking-widest">Incoming Data Shards</h3>
               <button onClick={fetchSubmissions} className="text-[9px] font-black text-slate-600 uppercase hover:text-white transition-colors">Refresh</button>
             </div>
             {submissions.map(sub => (
                <button key={sub.schoolId} onClick={() => setSelectedSub(sub)} className={`w-full text-left p-8 rounded-[2.5rem] border transition-all ${selectedSub?.schoolId === sub.schoolId ? 'bg-blue-600 border-blue-400 shadow-2xl scale-[1.02]' : 'bg-slate-900 border-slate-800 hover:border-slate-700'}`}>
-                  <div className="flex justify-between items-start mb-4"><span className="text-[9px] font-mono text-white/40">{sub.schoolId}</span><span className={`text-[8px] font-black px-2 py-0.5 rounded ${sub.approvalStatus === 'APPROVED' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>{sub.approvalStatus}</span></div>
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-[9px] font-mono text-white/40">{sub.schoolId}</span>
+                    <span className={`text-[8px] font-black px-2 py-0.5 rounded ${sub.approvalStatus === 'APPROVED' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>{sub.approvalStatus}</span>
+                  </div>
                   <h4 className="text-lg font-black text-white uppercase truncate">{sub.schoolName}</h4>
+                  <div className="mt-4 flex gap-4 text-[9px] font-black uppercase text-slate-400">
+                    <span>{Object.keys(sub.pupilPayments || {}).length} Pupils</span>
+                    <span>•</span>
+                    <span>{Object.keys(sub.facilitatorPayments || {}).length} Staff</span>
+                  </div>
                </button>
             ))}
             {submissions.length === 0 && <div className="text-center py-20 text-slate-700 font-black uppercase text-[10px]">No submissions detected</div>}
          </div>
-         <div className="xl:col-span-8 bg-slate-900 border border-slate-800 rounded-[3rem] p-12 shadow-inner min-h-[500px] flex flex-col">
+         
+         <div className="xl:col-span-8 bg-slate-900 border border-slate-800 rounded-[3rem] p-12 shadow-inner flex flex-col overflow-y-auto custom-scrollbar">
             {selectedSub ? (
                <div className="space-y-10 animate-in slide-in-from-right-4">
-                  <div className="flex justify-between items-start border-b border-slate-800 pb-8"><h4 className="text-3xl font-black text-white uppercase">{selectedSub.schoolName} Appraisal</h4></div>
-                  <div className="bg-slate-950 p-8 rounded-3xl border border-slate-800 italic text-slate-400 text-sm leading-relaxed shadow-lg">"{selectedSub.feedback || 'No institutional communication pack provided.'}"</div>
-                  <div className="grid grid-cols-2 gap-6">
-                     <div className="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 text-center"><span className="text-[9px] font-black text-slate-500 uppercase block mb-1">Pupil Capacity</span><span className="text-3xl font-black text-white font-mono">{Object.keys(selectedSub.pupilPayments || {}).length}</span></div>
-                     <div className="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 text-center"><span className="text-[9px] font-black text-slate-500 uppercase block mb-1">Staff Verified</span><span className="text-3xl font-black text-white font-mono">{Object.keys(selectedSub.facilitatorPayments || {}).length}</span></div>
+                  <div className="flex justify-between items-start border-b border-slate-800 pb-8">
+                    <div>
+                      <h4 className="text-3xl font-black text-white uppercase">{selectedSub.schoolName} Appraisal</h4>
+                      <p className="text-[10px] font-mono text-slate-500 mt-2 uppercase tracking-widest">Shard ID: forward_{selectedSub.schoolId}</p>
+                    </div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase bg-slate-950 px-4 py-2 rounded-xl border border-slate-800">Synced: {new Date(selectedSub.submissionTimestamp).toLocaleDateString()}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="space-y-4">
+                        <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Institutional Communication</label>
+                        <div className="bg-slate-950 p-8 rounded-[2rem] border border-slate-800 italic text-slate-400 text-sm leading-relaxed shadow-lg min-h-[150px]">
+                          "{selectedSub.feedback || 'No institutional communication pack provided.'}"
+                        </div>
+                     </div>
+                     <div className="space-y-6">
+                        <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Financial Breakdown</label>
+                        <div className="grid grid-cols-1 gap-4">
+                           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex justify-between items-center">
+                              <span className="text-[10px] font-black text-slate-400 uppercase">Pupil Revenue</span>
+                              <span className="text-xl font-black text-white font-mono">GHS {Object.values(selectedSub.pupilPayments || {}).reduce((sum, p:any)=>sum+(p.particulars?.amount||0), 0).toLocaleString()}</span>
+                           </div>
+                           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex justify-between items-center">
+                              <span className="text-[10px] font-black text-slate-400 uppercase">Faculty Load</span>
+                              <span className="text-xl font-black text-white font-mono">{Object.keys(selectedSub.facilitatorPayments || {}).length} Verified</span>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="pt-8 flex justify-end gap-4">
+                     <button className="bg-slate-950 text-slate-500 hover:text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase border border-slate-800 transition-all">Reject Shard</button>
+                     <button className="bg-blue-600 hover:bg-blue-500 text-white px-10 py-3 rounded-xl font-black text-[10px] uppercase shadow-xl transition-all">Verify & Approve</button>
                   </div>
                </div>
             ) : (
@@ -82,6 +118,10 @@ const MarketingDeskView: React.FC = () => {
             )}
          </div>
       </div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+      `}} />
     </div>
   );
 };
