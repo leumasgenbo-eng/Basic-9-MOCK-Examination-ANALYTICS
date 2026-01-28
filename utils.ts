@@ -141,9 +141,11 @@ export const processStudentData = (stats: ClassStatistics, rawStudents: StudentD
     const foundCategory = settings.categoryThresholds.find(t => bestSixAggregate >= t.min && bestSixAggregate <= t.max);
     if (foundCategory) category = foundCategory.label;
 
+    // Fix: Added missing 'email' property to map StudentData to ProcessedStudent
     return { 
       id: student.id, 
       name: student.name, 
+      email: student.email,
       gender: student.gender, 
       parentContact: student.parentContact, 
       attendance: mockData.attendance || 0, 
@@ -199,6 +201,8 @@ export const generateFullDemoSuite = (): {
         mockSnapshots[mock] = {
             submissionDate: mock === 'MOCK 1' ? '2025-01-15' : '2025-02-10',
             subjectsSubmitted: SUBJECT_LIST,
+            // Fix: Added missing properties for audit tracking
+            subjectSubmissionDates: SUBJECT_LIST.reduce((acc, sub) => ({ ...acc, [sub]: mock === 'MOCK 1' ? '2025-01-15' : '2025-02-10' }), {}),
             confirmedScripts: ["KWAME MENSAH", "ABENA OSEI", "KOFI ADU"],
             approvalStatus: 'completed',
             approvedBy: "SIR SAMUEL ADU"
@@ -243,6 +247,7 @@ export const generateFullDemoSuite = (): {
               aggregate: mockBestAgg,
               rank: [1, 2, 3, 4, 5][sIdx],
               date: mock === 'MOCK 1' ? '2025-01-20' : '2025-02-15',
+              // Fix: Added missing properties for audit tracking
               reviewStatus: 'complete',
               isApproved: true,
               subScores: examSubScores
@@ -261,8 +266,9 @@ export const generateFullDemoSuite = (): {
     id: "SSMAP-2025-001",
     name: "CULBURY ACADEMY",
     registrant: "ADMINISTRATOR",
+    registrantEmail: "admin@culbury.edu",
+    // Fix: Added missing properties accessCode, staffAccessCode and pupilAccessCode
     accessCode: "SSMAP-HQ-SECURE",
-    // Fix: Added missing required properties staffAccessCode and pupilAccessCode
     staffAccessCode: "SSMAP-STAFF-DEMO",
     pupilAccessCode: "SSMAP-PUPIL-DEMO",
     enrollmentDate: "2025-01-01",

@@ -9,92 +9,129 @@ interface ReportBrandingHeaderProps {
   reportTitle: string;
   subtitle?: string;
   isLandscape?: boolean;
+  readOnly?: boolean;
 }
 
-const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, onSettingChange, reportTitle, subtitle, isLandscape = false }) => {
+const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, onSettingChange, reportTitle, subtitle, isLandscape = false, readOnly = false }) => {
   return (
-    <div className={`text-center relative border-b-[8px] border-double border-blue-900 pb-8 mb-8 w-full ${isLandscape ? 'px-6' : 'px-4'}`}>
-      {/* Academy Logo */}
+    <div className={`text-center relative border-b-[8px] border-double border-blue-900 pb-8 mb-8 w-full ${isLandscape ? 'px-10' : 'px-4'}`}>
       {settings.schoolLogo && (
         <div className="absolute top-0 left-0 w-24 h-24 print:w-20 print:h-20 flex items-center justify-center">
           <img src={settings.schoolLogo} alt="Academy Logo" className="max-w-full max-h-full object-contain" />
         </div>
       )}
       
-      {/* Network ID Branding */}
-      <div className="absolute top-0 right-0 no-print flex flex-col items-end gap-1">
-        <div className="flex items-center gap-3 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-          <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest">
-            HUB ID: <EditableField value={settings.schoolNumber} onChange={(v) => onSettingChange('schoolNumber', v)} className="border-none ml-1 bg-transparent font-mono" />
-          </span>
-        </div>
-        <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest mr-2 italic">Institutional Particulars Engine</span>
-      </div>
-
       <div className="space-y-2">
-        {/* Editable Academy Name */}
         <h1 className={`${isLandscape ? 'text-5xl' : 'text-4xl'} font-black text-blue-950 tracking-tighter uppercase leading-tight`}>
-          <EditableField 
-            value={settings.schoolName || "UNITED BAYLOR ACADEMY"} 
-            onChange={(v) => onSettingChange('schoolName', v)} 
-            className="text-center font-black w-full"
-            placeholder="OFFICIAL ACADEMY NAME"
-          />
+          {readOnly ? (
+            <span>{settings.schoolName || "UNITED BAYLOR ACADEMY"}</span>
+          ) : (
+            <EditableField 
+              value={settings.schoolName || "UNITED BAYLOR ACADEMY"} 
+              onChange={(v) => onSettingChange('schoolName', v)} 
+              className="text-center font-black w-full"
+              placeholder="OFFICIAL ACADEMY NAME"
+            />
+          )}
         </h1>
 
-        {/* Editable Address */}
-        <p className="text-[11px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed">
-          <EditableField 
-            value={settings.schoolAddress} 
-            onChange={(v) => onSettingChange('schoolAddress', v)} 
-            className="text-center w-full"
-            placeholder="LOCALITY / POSTAL ADDRESS"
-          />
+        <div className="text-[11px] font-black text-blue-600/60 uppercase tracking-[0.6em] italic">
+          {readOnly ? (
+            <span>{settings.schoolMotto || "EXCELLENCE IN CHARACTER"}</span>
+          ) : (
+            <EditableField 
+              value={settings.schoolMotto || "EXCELLENCE IN CHARACTER"} 
+              onChange={(v) => onSettingChange('schoolMotto', v)} 
+              className="text-center w-full bg-transparent"
+              placeholder="SCHOOL MOTTO"
+            />
+          )}
+        </div>
+
+        <p className="text-[12px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed mt-4">
+          {readOnly ? (
+            <span>{settings.schoolAddress}</span>
+          ) : (
+            <EditableField 
+              value={settings.schoolAddress} 
+              onChange={(v) => onSettingChange('schoolAddress', v)} 
+              className="text-center w-full"
+              placeholder="LOCALITY / POSTAL ADDRESS"
+            />
+          )}
         </p>
 
-        {/* Contact Particulars - All Editable */}
-        <div className="flex justify-center items-center gap-6 text-[10px] font-black text-blue-800 uppercase tracking-widest mt-1">
-          <div className="flex items-center gap-1.5">
+        <div className="flex justify-center items-center gap-10 text-[10px] font-black text-blue-800 uppercase tracking-widest mt-3">
+          <div className="flex items-center gap-2">
             <span>TEL:</span>
-            <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} placeholder="PHONE CONTACT..." />
+            {readOnly ? (
+              <span>{settings.schoolContact}</span>
+            ) : (
+              <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} placeholder="PHONE CONTACT..." />
+            )}
           </div>
-          <div className="w-1.5 h-1.5 bg-blue-100 rounded-full"></div>
-          <div className="flex items-center gap-1.5">
-            <span>EMAIL:</span>
-            <EditableField value={settings.schoolEmail} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="OFFICIAL EMAIL..." className="lowercase" />
+          <div className="w-2 h-2 bg-blue-100 rounded-full"></div>
+          <div className="flex items-center gap-2">
+            <span>WEB:</span>
+            {readOnly ? (
+              <span className="lowercase">{settings.schoolWebsite || 'WWW.UNITEDBAYLOR.EDU'}</span>
+            ) : (
+              <EditableField value={settings.schoolWebsite || ''} onChange={(v) => onSettingChange('schoolWebsite', v)} placeholder="OFFICIAL WEBSITE..." className="lowercase" />
+            )}
           </div>
         </div>
 
-        {/* Secondary Report Title - Editable */}
-        <div className="mt-6 bg-red-50 py-3.5 border-y border-red-100 shadow-sm relative overflow-hidden group">
-          <div className="absolute inset-y-0 left-0 w-1 bg-red-600"></div>
-          <div className="absolute inset-y-0 right-0 w-1 bg-red-600"></div>
-          <h2 className="text-2xl font-black text-red-700 uppercase tracking-tight">
-            <EditableField value={reportTitle} onChange={(v) => onSettingChange('examTitle', v)} className="text-center w-full" />
+        <div className="mt-10 bg-red-50 py-4 border-y border-red-100 relative overflow-hidden group">
+          <h2 className="text-3xl font-black text-red-700 uppercase tracking-tight">
+            {readOnly ? (
+              <span>{reportTitle}</span>
+            ) : (
+              <EditableField value={reportTitle} onChange={(v) => onSettingChange('examTitle', v)} className="text-center w-full" />
+            )}
           </h2>
           {subtitle && (
-            <p className="text-[10px] font-black text-red-900 tracking-[0.5em] uppercase mt-2 opacity-80">
+            <p className="text-[10px] font-black text-red-900 tracking-[0.6em] uppercase mt-2 opacity-60">
               {subtitle}
             </p>
           )}
         </div>
 
-        {/* Academic Context Ledger */}
-        <div className="flex justify-center items-center gap-10 text-[12px] font-black text-gray-800 uppercase tracking-widest mt-6">
-          <div className="flex items-center gap-3">
-             <EditableField value={settings.termInfo} onChange={(v) => onSettingChange('termInfo', v)} className="bg-blue-900 text-white px-5 py-1 rounded shadow-lg" />
-          </div>
-          <div className="flex items-center gap-2 border-x border-gray-200 px-8">
-             <span className="text-[9px] text-gray-400 uppercase">Series ID:</span>
-             <EditableField value={settings.activeMock} onChange={(v) => onSettingChange('activeMock', v)} />
-          </div>
-          <div className="flex items-center gap-2">
-             <span className="text-[9px] text-gray-400 uppercase">Year:</span>
-             <EditableField value={settings.academicYear} onChange={(v) => onSettingChange('academicYear', v)} className="italic" />
-          </div>
+        <div className="flex justify-center items-center gap-12 text-[14px] font-black text-gray-800 uppercase tracking-[0.3em] mt-8">
+           <div className="flex items-center gap-4">
+              <span className="text-[9px] text-gray-400 uppercase">Term:</span>
+              {readOnly ? (
+                <span className="bg-blue-900 text-white px-6 py-1.5 rounded shadow-lg">{settings.termInfo}</span>
+              ) : (
+                <EditableField value={settings.termInfo} onChange={(v) => onSettingChange('termInfo', v)} className="bg-blue-900 text-white px-6 py-1.5 rounded shadow-lg" />
+              )}
+           </div>
+           <div className="flex items-center gap-4 border-x border-gray-200 px-12">
+              <span className="text-[9px] text-gray-400 uppercase">Series ID:</span>
+              {readOnly ? (
+                <span>{settings.activeMock}</span>
+              ) : (
+                <EditableField value={settings.activeMock} onChange={(v) => onSettingChange('activeMock', v)} />
+              )}
+           </div>
+           <div className="flex items-center gap-4">
+              <span className="text-[9px] text-gray-400 uppercase">Cycle:</span>
+              {readOnly ? (
+                <span className="italic">{settings.academicYear}</span>
+              ) : (
+                <EditableField value={settings.academicYear} onChange={(v) => onSettingChange('academicYear', v)} className="italic" />
+              )}
+           </div>
         </div>
       </div>
+      
+      {!readOnly && (
+        <div className="absolute top-0 right-0 no-print">
+           <div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-2xl border border-emerald-100 flex items-center gap-3">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-[9px] font-black uppercase tracking-widest">Admin Layout: Particulars Editable</span>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

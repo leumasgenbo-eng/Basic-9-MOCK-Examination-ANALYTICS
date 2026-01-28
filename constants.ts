@@ -58,7 +58,7 @@ export const FACILITATORS: Record<string, string> = {
   "Mathematics": "SIR SAMMY",
   "Science": "SIR JOSHUA",
   "Social Studies": "SIR ASHMIE",
-  "Career Technology": "SIR JOSHUA",
+  "Career Technology": "SIR TAGOE",
   "Creative Arts and Designing": "MADAM NORTEY",
   "Ghana Language (Twi)": "MADAM RITA",
   "Religious and Moral Education": "MADAM JANE",
@@ -66,10 +66,11 @@ export const FACILITATORS: Record<string, string> = {
   "French": "SIR CHARLES"
 };
 
+// Fix: Added missing email property for each student record
 export const RAW_STUDENTS: StudentData[] = [
-  { id: 101, name: "KWAME MENSAH", gender: "M", parentName: "MR. KOFI MENSAH", parentContact: "024 111 1111", attendance: 0, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {} },
-  { id: 102, name: "ABENA OSEI", gender: "F", parentName: "MRS. RITA OSEI", parentContact: "024 222 2222", attendance: 0, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {} },
-  { id: 103, name: "KOFI ADU", gender: "M", parentName: "MR. SAMUEL ADU", parentContact: "024 333 3333", attendance: 0, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {} },
-  { id: 104, name: "AKOSUA SERWAA", gender: "F", parentName: "MADAM LYDIA SERWAA", parentContact: "024 444 4444", attendance: 0, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {} },
-  { id: 105, name: "YAW BOATENG", gender: "M", parentName: "MR. ENOCH BOATENG", parentContact: "024 555 5555", attendance: 0, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {} }
+  { id: 101, name: "KWAME MENSAH", email: "kwame.mensah@uba.edu", gender: "M", parentName: "MR. KOFI MENSAH", parentContact: "024 111 1111", attendance: 0, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {} },
+  { id: 102, name: "ABENA OSEI", email: "abena.osei@uba.edu", gender: "F", parentName: "MRS. RITA OSEI", parentContact: "024 222 2222", attendance: 0, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {} },
+  { id: 103, name: "KOFI ADU", email: "kofi.adu@uba.edu", gender: "M", parentName: "MR. SAMUEL ADU", parentContact: "024 333 3333", attendance: 0, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {} },
+  { id: 104, name: "AKOSUA SERWAA", email: "akosua.serwaa@uba.edu", gender: "F", parentName: "MADAM LYDIA SERWAA", parentContact: "024 444 4444", attendance: 0, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {} },
+  { id: 105, name: "YAW BOATENG", email: "yaw.boateng@uba.edu", gender: "M", parentName: "MR. ENOCH BOATENG", parentContact: "024 555 5555", attendance: 0, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {} }
 ];

@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { SchoolRegistryEntry } from '../../types';
 
@@ -16,8 +17,8 @@ const NetworkSigDiffView: React.FC<NetworkSigDiffViewProps> = ({ registry }) => 
       const students = data.students;
       const latestYear = new Date().getFullYear().toString();
       
-      // Calculate BECE Mean across all subjects for this school
-      const results = students.flatMap(s => Object.values(s.beceResults?.[latestYear]?.grades || {}));
+      // Fix: Cast explicitly to number[] to resolve 'unknown' arithmetic errors
+      const results = students.flatMap(s => Object.values(s.beceResults?.[latestYear]?.grades || {})) as number[];
       const beceMean = results.length > 0 ? results.reduce((a, b) => a + b, 0) / results.length : 9;
       const sigDiff = MOCK_STANDARD - beceMean;
 

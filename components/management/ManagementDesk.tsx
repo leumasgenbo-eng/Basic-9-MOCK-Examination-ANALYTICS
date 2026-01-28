@@ -67,7 +67,8 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
           {activeTab === 'cleanup' && <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={onSave} subjects={subjects} />}
           {activeTab === 'school' && <AcademyIdentityPortal settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
           {activeTab === 'credentials' && <SchoolCredentialView settings={settings} studentCount={students.length} />}
-          {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} />}
+          {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} onSave={onSave} />}
+          {/* Fix: Added isFacilitator and activeFacilitator props to FacilitatorPortal */}
           {activeTab === 'facilitators' && <FacilitatorPortal subjects={subjects} facilitators={facilitators} setFacilitators={setFacilitators} settings={settings} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />}
           {activeTab === 'grading' && <GradingConfigPortal settings={settings} onSettingChange={onSettingChange} />}
           {activeTab === 'history' && <SeriesHistoryPortal students={students} settings={settings} />}
