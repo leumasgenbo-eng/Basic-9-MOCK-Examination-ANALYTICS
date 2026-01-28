@@ -12,7 +12,14 @@ interface ReportBrandingHeaderProps {
   readOnly?: boolean;
 }
 
-const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, onSettingChange, reportTitle, subtitle, isLandscape = false, readOnly = false }) => {
+const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ 
+  settings, 
+  onSettingChange, 
+  reportTitle, 
+  subtitle, 
+  isLandscape = false, 
+  readOnly = false 
+}) => {
   const isUBA = (settings.schoolName || "").toUpperCase().includes("UNITED BAYLOR ACADEMY");
 
   return (
@@ -27,8 +34,8 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
         )}
       </div>
 
-      <div className="space-y-2">
-        {/* Editable Institutional Identity */}
+      <div className="space-y-3">
+        {/* Main Identity Particular: Name */}
         <h1 className={`${isLandscape ? 'text-5xl' : 'text-4xl'} font-black ${isUBA ? 'text-blue-950' : 'text-slate-900'} tracking-tighter uppercase leading-tight`}>
           {readOnly ? (
             <span>{settings.schoolName || "UNITED BAYLOR ACADEMY"}</span>
@@ -37,12 +44,11 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
               value={settings.schoolName || "UNITED BAYLOR ACADEMY"} 
               onChange={(v) => onSettingChange('schoolName', v)} 
               className="text-center font-black w-full"
-              placeholder="OFFICIAL INSTITUTION NAME"
             />
           )}
         </h1>
 
-        {/* Editable Motto / Slogan */}
+        {/* Particular: Motto */}
         <div className="text-[11px] font-black text-blue-600/60 uppercase tracking-[0.6em] italic">
           {readOnly ? (
             <span>{settings.schoolMotto || "EXCELLENCE IN KNOWLEDGE AND CHARACTER"}</span>
@@ -51,12 +57,11 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
               value={settings.schoolMotto || "EXCELLENCE IN KNOWLEDGE AND CHARACTER"} 
               onChange={(v) => onSettingChange('schoolMotto', v)} 
               className="text-center w-full bg-transparent"
-              placeholder="SCHOOL MOTTO"
             />
           )}
         </div>
 
-        {/* Editable Address Partition */}
+        {/* Particular: Address */}
         <p className="text-[12px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed mt-4">
           {readOnly ? (
             <span>{settings.schoolAddress || "ACCRA DIGITAL CENTRE, GHANA"}</span>
@@ -65,28 +70,27 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
               value={settings.schoolAddress || "ACCRA DIGITAL CENTRE, GHANA"} 
               onChange={(v) => onSettingChange('schoolAddress', v)} 
               className="text-center w-full"
-              placeholder="PHYSICAL LOCATION"
             />
           )}
         </p>
 
-        {/* Editable Contact Strip */}
+        {/* Contact Particulars Strip */}
         <div className="flex justify-center items-center gap-10 text-[10px] font-black text-blue-800 uppercase tracking-widest mt-3">
           <div className="flex items-center gap-2">
             <span className="text-gray-400">TEL:</span>
             {readOnly ? (
               <span>{settings.schoolContact}</span>
             ) : (
-              <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} placeholder="+233..." />
+              <EditableField value={settings.schoolContact} onChange={(v) => onSettingChange('schoolContact', v)} />
             )}
           </div>
           <div className="w-2 h-2 bg-blue-100 rounded-full"></div>
           <div className="flex items-center gap-2">
              <span className="text-gray-400">EMAIL:</span>
              {readOnly ? (
-               <span className="lowercase">{settings.schoolEmail || "info@unitedbaylor.edu"}</span>
+               <span className="lowercase">{settings.schoolEmail || "info@uba.edu"}</span>
              ) : (
-               <EditableField value={settings.schoolEmail || ""} onChange={(v) => onSettingChange('schoolEmail', v)} placeholder="MAIL..." className="lowercase" />
+               <EditableField value={settings.schoolEmail || ""} onChange={(v) => onSettingChange('schoolEmail', v)} className="lowercase" />
              )}
           </div>
           <div className="w-2 h-2 bg-blue-100 rounded-full"></div>
@@ -95,20 +99,15 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
             {readOnly ? (
               <span className="lowercase">{settings.schoolWebsite || "www.uba.edu.gh"}</span>
             ) : (
-              <EditableField value={settings.schoolWebsite || ""} onChange={(v) => onSettingChange('schoolWebsite', v)} placeholder="SITE..." className="lowercase" />
+              <EditableField value={settings.schoolWebsite || ""} onChange={(v) => onSettingChange('schoolWebsite', v)} className="lowercase" />
             )}
           </div>
         </div>
 
-        {/* Editable Report Designation Box */}
+        {/* Dynamic Report Identifier */}
         <div className="mt-10 bg-red-50 py-5 border-y border-red-100 relative overflow-hidden group">
-          <div className="absolute inset-0 bg-red-100/10 pointer-events-none transform -skew-x-12 translate-x-full group-hover:translate-x-[-200%] transition-transform duration-[2000ms]"></div>
-          <h2 className="text-3xl font-black text-red-700 uppercase tracking-tight relative">
-            {readOnly ? (
-              <span>{reportTitle}</span>
-            ) : (
-              <EditableField value={reportTitle} onChange={(v) => onSettingChange('examTitle', v)} className="text-center w-full" />
-            )}
+          <h2 className="text-3xl font-black text-red-700 uppercase tracking-tight">
+            {readOnly ? <span>{reportTitle}</span> : <EditableField value={reportTitle} onChange={(v) => onSettingChange('examTitle', v)} className="text-center w-full" />}
           </h2>
           {subtitle && (
             <p className="text-[10px] font-black text-red-900/40 tracking-[0.6em] uppercase mt-2">
@@ -117,10 +116,10 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
           )}
         </div>
 
-        {/* Editable Dynamic Context Stats Strip */}
+        {/* Performance Context particulars */}
         <div className="flex justify-center items-center gap-12 text-[14px] font-black text-gray-800 uppercase tracking-[0.3em] mt-8">
            <div className="flex items-center gap-4">
-              <span className="text-[9px] text-gray-400 uppercase">Period:</span>
+              <span className="text-[9px] text-gray-400 uppercase">Term:</span>
               {readOnly ? (
                 <span className="bg-blue-900 text-white px-6 py-1.5 rounded-lg shadow-lg">{settings.termInfo}</span>
               ) : (
@@ -128,7 +127,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
               )}
            </div>
            <div className="flex items-center gap-4 border-x border-gray-200 px-12">
-              <span className="text-[9px] text-gray-400 uppercase">Series ID:</span>
+              <span className="text-[9px] text-gray-400 uppercase">Series:</span>
               {readOnly ? (
                 <span className="text-blue-600 font-bold">{settings.activeMock}</span>
               ) : (
@@ -136,7 +135,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
               )}
            </div>
            <div className="flex items-center gap-4">
-              <span className="text-[9px] text-gray-400 uppercase">Academic Cycle:</span>
+              <span className="text-[9px] text-gray-400 uppercase">Cycle:</span>
               {readOnly ? (
                 <span className="italic font-serif">{settings.academicYear}</span>
               ) : (
@@ -145,15 +144,6 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({ settings, o
            </div>
         </div>
       </div>
-      
-      {!readOnly && (
-        <div className="absolute top-0 right-0 no-print">
-           <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-2xl border border-blue-100 flex items-center gap-3">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="text-[8px] font-black uppercase tracking-widest">Master Identity Control Active</span>
-           </div>
-        </div>
-      )}
     </div>
   );
 };

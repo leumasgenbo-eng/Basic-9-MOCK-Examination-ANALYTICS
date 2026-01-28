@@ -81,7 +81,7 @@ const App: React.FC = () => {
     if (!hubId) return null;
     try {
       const { data } = await supabase.from('uba_persistence').select('id, payload').eq('hub_id', hubId);
-      if (data) {
+      if (data && data.length > 0) {
         let loadedStudents: StudentData[] = [];
         let loadedSettings = DEFAULT_SETTINGS;
         let loadedFacs = {};
@@ -162,18 +162,19 @@ const App: React.FC = () => {
     const ts = new Date().toISOString();
     const { data: { user } } = await supabase.auth.getUser();
     
+    // CRITICAL: hub_id column is mandatory for RLS and cloud mapping
     const { error } = await supabase.from('uba_persistence').upsert([
       { id: `${hubId}_settings`, hub_id: hubId, payload: settings, last_updated: ts, user_id: user?.id },
       { id: `${hubId}_students`, hub_id: hubId, payload: students, last_updated: ts, user_id: user?.id },
       { id: `${hubId}_facilitators`, hub_id: hubId, payload: facilitators, last_updated: ts, user_id: user?.id },
       { id: `registry_${hubId}`, hub_id: hubId, payload: [{ ...settings, studentCount: students.length, avgAggregate: classAvgAggregate, status: 'active', lastActivity: ts }], last_updated: ts, user_id: user?.id }
-    ]);
+    ], { onConflict: 'id' });
 
     if (error) {
       console.error("Sync Error:", error.message);
-      alert("Cloud Sync Failed: " + error.message);
+      alert("Cloud Sync Failure: Verify Supabase Schema Policies.");
     } else {
-      console.log("Shards Synchronized successfully.");
+      console.log("Persistence shards mirrored to cloud.");
     }
   }, [settings, students, facilitators, classAvgAggregate, isAuthenticated]);
 
