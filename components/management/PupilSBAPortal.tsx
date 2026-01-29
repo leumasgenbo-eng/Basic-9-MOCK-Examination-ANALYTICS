@@ -24,6 +24,7 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [sbaEntryId, setSbaEntryId] = useState<number | null>(null);
+  const [showCredsId, setShowCredsId] = useState<number | null>(null);
 
   const handleAddOrUpdateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,6 +154,7 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
       <div className="grid grid-cols-1 gap-6">
          {students.map(s => {
             const isSbaOpen = sbaEntryId === s.id;
+            const isCredsOpen = showCredsId === s.id;
             return (
               <div key={s.id} className="bg-white rounded-[3rem] border border-gray-100 shadow-xl overflow-hidden group hover:shadow-2xl transition-all">
                  <div className="p-8 flex flex-col md:flex-row justify-between items-center gap-8">
@@ -165,12 +167,43 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
                     </div>
 
                     <div className="flex flex-wrap justify-end gap-3">
-                       <button onClick={() => setSbaEntryId(isSbaOpen ? null : s.id)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all ${isSbaOpen ? 'bg-indigo-900 text-white' : 'bg-indigo-50 text-indigo-700'}`}>SBA Scores</button>
+                       <button onClick={() => { setShowCredsId(isCredsOpen ? null : s.id); setSbaEntryId(null); }} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all ${isCredsOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>View Identity</button>
+                       <button onClick={() => { setSbaEntryId(isSbaOpen ? null : s.id); setShowCredsId(null); }} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all ${isSbaOpen ? 'bg-indigo-900 text-white' : 'bg-indigo-50 text-indigo-700'}`}>SBA Scores</button>
                        <button onClick={() => handleForwardCredentials(s)} className="bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all">Forward PIN</button>
                        <button onClick={() => handleEditClick(s)} className="bg-gray-50 text-slate-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border border-gray-200">Edit</button>
                        <button onClick={() => handleDeletePupil(s.id, s.name)} className="bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all">Delete</button>
                     </div>
                  </div>
+
+                 {/* Credential Pack Display */}
+                 {isCredsOpen && (
+                   <div className="bg-slate-50 p-8 border-t border-gray-100 animate-in slide-in-from-top-4 duration-300">
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="space-y-1">
+                           <h5 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Network Login Identity Shard</h5>
+                           <p className="text-xs font-bold text-slate-400 uppercase">Registered Particulars for {s.name}</p>
+                        </div>
+                        <div className="bg-white border border-gray-200 p-6 rounded-[2rem] shadow-sm flex flex-wrap gap-10">
+                           <div className="space-y-1">
+                              <span className="text-[8px] font-black text-slate-400 uppercase">Full Legal Name</span>
+                              <p className="text-sm font-black text-slate-800 uppercase">{s.name}</p>
+                           </div>
+                           <div className="space-y-1">
+                              <span className="text-[8px] font-black text-slate-400 uppercase">System Node ID</span>
+                              <p className="text-sm font-black text-blue-600 font-mono tracking-tighter">{s.id}</p>
+                           </div>
+                           <div className="space-y-1">
+                              <span className="text-[8px] font-black text-slate-400 uppercase">Registered Email</span>
+                              <p className="text-sm font-black text-slate-800 lowercase font-mono">{s.email}</p>
+                           </div>
+                        </div>
+                      </div>
+                      <div className="mt-6 p-4 bg-emerald-100/50 rounded-2xl border border-emerald-100 flex items-center gap-3">
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-emerald-600"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                         <p className="text-[9px] font-bold text-emerald-800 uppercase leading-none">Instruct the pupil to use these three exact fields at the login gate to recall their identity shard.</p>
+                      </div>
+                   </div>
+                 )}
 
                  {isSbaOpen && (
                    <div className="bg-slate-900 p-8 border-t border-white/5 animate-in slide-in-from-top-4">
