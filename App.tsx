@@ -85,7 +85,7 @@ const App: React.FC = () => {
         data.forEach(row => {
           if (row.id === `${hubId}_settings`) setSettings(row.payload);
           if (row.id === `${hubId}_students`) setStudents(row.payload);
-          if (row.id === `${hubId}_facilitators`) setFacilitators(row.payload);
+          if (row.id === `${hubId}_facilitators`) setFacilitators(row.payload || {});
         });
         return true;
       }
@@ -125,7 +125,7 @@ const App: React.FC = () => {
         } else if (role === 'pupil' && sessionLoaded) {
           const statsObj = calculateClassStatistics(students, settings);
           const processed = processStudentData(statsObj, students, {}, settings);
-          const pupil = processed.find(p => p.id === metadata.studentId);
+          const pupil = processed.find(p => (p.id === metadata.studentId));
           if (pupil) {
             setActivePupil(pupil);
             setIsPupil(true);
@@ -141,9 +141,10 @@ const App: React.FC = () => {
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
     const staffNames: Record<string, string> = {};
-    Object.keys(facilitators).forEach(k => { 
+    // Safety check for facilitators enumeration
+    Object.keys(facilitators || {}).forEach(k => { 
       const fac = facilitators[k];
-      if (fac && fac.name) staffNames[k] = fac.name; 
+      if (fac && fac.name && fac.taughtSubject) staffNames[fac.taughtSubject] = fac.name; 
     });
     const processed = processStudentData(s, students, staffNames, settings);
     const avgAgg = processed.reduce((sum, st) => sum + (st.bestSixAggregate || 0), 0) / (processed.length || 1);
@@ -165,7 +166,7 @@ const App: React.FC = () => {
 
     if (error) {
       console.error("Sync Error:", error.message);
-      alert("Cloud Sync Failure: Verify Database Connection.");
+      alert("Cloud Sync Failure: Verify Connection.");
     }
   }, [settings, students, facilitators, classAvgAggregate, isAuthenticated]);
 

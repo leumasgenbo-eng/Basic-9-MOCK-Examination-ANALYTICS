@@ -39,6 +39,8 @@ const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings,
     { label: 'Academic Year', key: 'academicYear', val: settings.academicYear },
     { label: 'Term/Mock Info', key: 'termInfo', val: settings.termInfo },
     { label: 'Head Teacher Name', key: 'headTeacherName', val: settings.headTeacherName },
+    { label: 'Admin Role Title', key: 'adminRoleTitle', val: settings.adminRoleTitle || 'Academy Director' },
+    { label: 'Registry Role Title', key: 'registryRoleTitle', val: settings.registryRoleTitle || 'Examination Registry' },
     { label: 'Next Term Resumption', key: 'nextTermBegin', val: settings.nextTermBegin }
   ];
 
