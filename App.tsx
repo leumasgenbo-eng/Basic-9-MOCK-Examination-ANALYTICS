@@ -113,6 +113,8 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      
+      // Pull Registry for SuperAdmin visibility
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
@@ -150,7 +152,17 @@ const App: React.FC = () => {
 
   const handleLogout = async () => { await supabase.auth.signOut(); window.location.reload(); };
 
-  if (isInitializing) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Shard Gate Syncing...</p></div>;
+  const handleSaveAll = async () => {
+    if (!settings.schoolNumber) return;
+    const hubId = settings.schoolNumber;
+    await supabase.from('uba_persistence').upsert([
+      { id: `${hubId}_settings`, hub_id: hubId, payload: settings, last_updated: new Date().toISOString() },
+      { id: `${hubId}_students`, hub_id: hubId, payload: students, last_updated: new Date().toISOString() },
+      { id: `${hubId}_facilitators`, hub_id: hubId, payload: facilitators, last_updated: new Date().toISOString() }
+    ]);
+  };
+
+  if (isInitializing) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Master Identity Syncing...</p></div>;
 
   if (!isAuthenticated && !isSuperAdmin) {
     return (
@@ -159,7 +171,7 @@ const App: React.FC = () => {
           <SchoolRegistrationPortal 
             settings={settings} 
             onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} 
-            onSave={()=>{}} 
+            onSave={handleSaveAll} 
             onComplete={() => setIsAuthenticated(true)} 
             onResetStudents={() => setStudents([])} 
             onSwitchToLogin={() => setIsRegistering(false)} 
@@ -217,7 +229,7 @@ const App: React.FC = () => {
             {processedStudents.filter(s => (s.name || "").toLowerCase().includes(reportSearchTerm.toLowerCase())).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />)}
           </div>
         )}
-        {viewMode === 'management' && <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u)=>setSettings(p=>({...p,...u}))} onSave={()=>{}} processedSnapshot={processedStudents} onLoadDummyData={()=>{}} onClearData={()=>{}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />}
+        {viewMode === 'management' && <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u)=>setSettings(p=>({...p,...u}))} onSave={handleSaveAll} processedSnapshot={processedStudents} onLoadDummyData={()=>{}} onClearData={()=>{}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />}
       </div>
     </div>
   );

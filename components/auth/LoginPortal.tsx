@@ -40,7 +40,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
     const inputId = nodeId.trim().toUpperCase();
 
     try {
-      // 1. RECALL CHECK: Verify identity exists in uba_identities storage
+      // 1. GLOBAL RECALL: Verify identity particulars in uba_identities
       if (targetEmail !== MASTER_ADMIN_EMAIL) {
         const { data: identity, error: idError } = await supabase
           .from('uba_identities')
@@ -50,39 +50,22 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
 
         if (idError) throw idError;
         
-        if (!identity) {
-          throw new Error("GATE ACCESS DENIED: This email is not registered in our storage.");
-        }
+        if (!identity) throw new Error("GATE ACCESS DENIED: Identity not found in global registry.");
 
-        // Validate Triple-Match Handshake
+        // Validation Triple-Match Handshake
         if (identity.full_name.toUpperCase() !== inputName || identity.node_id.toUpperCase() !== inputId) {
-          throw new Error("IDENTITY CONFLICT: Name or Node ID does not match our storage records.");
+          throw new Error("IDENTITY CONFLICT: Name or Node ID does not match registered particulars.");
         }
 
-        const roleMap: Record<string, string> = {
-          'school_admin': 'admin',
-          'facilitator': 'facilitator',
-          'pupil': 'pupil'
-        };
-
-        if (roleMap[identity.role] !== activeGate) {
-          throw new Error(`GATE MISMATCH: Your credential profile belongs to the ${identity.role} portal.`);
-        }
+        const roleMap: Record<string, string> = { 'school_admin': 'admin', 'facilitator': 'facilitator', 'pupil': 'pupil' };
+        if (roleMap[identity.role] !== activeGate) throw new Error(`GATE MISMATCH: Profile belongs to the ${identity.role} node.`);
       }
 
-      // 2. TRIGGER AUTH: If storage match is successful, dispatch OTP
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: targetEmail,
-        options: { shouldCreateUser: targetEmail === MASTER_ADMIN_EMAIL }
-      });
-
+      // 2. DISPATCH PACKET: Authenticate session via OTP
+      const { error: otpError } = await supabase.auth.signInWithOtp({ email: targetEmail });
       if (otpError) throw otpError;
       setStep('PIN_VERIFICATION');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
   };
 
   const handleVerifyPin = async (e: React.FormEvent) => {
@@ -91,32 +74,18 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
     setError(null);
 
     try {
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email: email.toLowerCase().trim(),
-        token: otp.trim(),
-        type: 'email'
-      });
-
-      if (verifyError) throw new Error("INVALID PIN: Authentication handshake failed.");
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({ email: email.toLowerCase().trim(), token: otp.trim(), type: 'email' });
+      if (verifyError) throw new Error("INVALID PIN: Handshake failure.");
       if (!data.user) throw new Error("SYNC ERROR: Shard connection lost.");
 
       const metadata = data.user.user_metadata || {};
+      if (email.toLowerCase() === MASTER_ADMIN_EMAIL) { onSuperAdminLogin(); return; }
+
       const hubId = metadata.hubId;
-
-      if (email.toLowerCase() === MASTER_ADMIN_EMAIL) {
-        onSuperAdminLogin();
-        return;
-      }
-
       if (activeGate === 'admin') onLoginSuccess(hubId);
       else if (activeGate === 'facilitator') onFacilitatorLogin(metadata.name, metadata.subject, hubId);
       else if (activeGate === 'pupil') onPupilLogin(metadata.studentId, hubId);
-
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
   };
 
   if (step === 'GATE_SELECTION') {
@@ -124,19 +93,15 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
       <div className="w-full max-w-4xl p-4 animate-in fade-in zoom-in-95 duration-500">
         <div className="text-center mb-16">
            <h2 className="text-4xl font-black text-white uppercase tracking-tighter">SS-map ACADEMY</h2>
-           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Authorized Gate</p>
+           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Authorized Node</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
            {[
              { id: 'admin', label: 'Institutional Admin', color: 'from-blue-600 to-blue-900', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
-             { id: 'facilitator', label: 'Faculty Node', color: 'from-indigo-600 to-indigo-900', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2' },
-             { id: 'pupil', label: 'Candidate Portal', color: 'from-emerald-600 to-emerald-900', icon: 'M22 10v6M2 10l10-5 10 5-10 5z' }
+             { id: 'facilitator', label: 'Faculty Shard', color: 'from-indigo-600 to-indigo-900', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2' },
+             { id: 'pupil', label: 'Pupil Portal', color: 'from-emerald-600 to-emerald-900', icon: 'M22 10v6M2 10l10-5 10 5-10 5z' }
            ].map(gate => (
-             <button 
-               key={gate.id}
-               onClick={() => handleGateSelect(gate.id as UserRole)}
-               className="group relative bg-slate-950 border border-white/10 p-12 rounded-[3.5rem] text-center hover:border-white/30 transition-all hover:-translate-y-2 shadow-2xl overflow-hidden"
-             >
+             <button key={gate.id} onClick={() => handleGateSelect(gate.id as UserRole)} className="group bg-slate-950 border border-white/10 p-12 rounded-[3.5rem] text-center hover:border-white/30 transition-all hover:-translate-y-2 shadow-2xl">
                 <div className={`w-20 h-20 bg-gradient-to-br ${gate.color} text-white rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl group-hover:scale-110 transition-transform`}>
                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={gate.icon}/></svg>
                 </div>
@@ -144,9 +109,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
              </button>
            ))}
         </div>
-        <div className="mt-16 text-center">
-           <button onClick={onSwitchToRegister} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Register New Academy Node</button>
-        </div>
+        <div className="mt-16 text-center"><button onClick={onSwitchToRegister} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Onboard New Institution</button></div>
       </div>
     );
   }
@@ -159,45 +122,26 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
         <button onClick={() => setStep('GATE_SELECTION')} className="absolute top-10 left-10 text-slate-500 hover:text-white transition-colors">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
-
         <div className="text-center relative mb-12">
-          <div className={`w-24 h-24 mx-auto mb-6 rounded-3xl flex items-center justify-center text-white shadow-2xl border border-white/20 uppercase font-black text-xs bg-${gateColor}-600`}>
-            {activeGate?.substring(0, 3)}
-          </div>
+          <div className={`w-24 h-24 mx-auto mb-6 rounded-3xl flex items-center justify-center text-white shadow-2xl border border-white/20 uppercase font-black text-xs bg-${gateColor}-600`}>{activeGate?.substring(0, 3)}</div>
           <h2 className="text-2xl font-black text-white uppercase tracking-tight">IDENTITY RECALL</h2>
-          <p className={`text-[9px] font-black text-${gateColor}-400 uppercase tracking-[0.4em] mt-3`}>Particulars Verification</p>
+          <p className={`text-[9px] font-black text-${gateColor}-400 uppercase tracking-[0.4em] mt-3`}>Verification Handshake</p>
         </div>
 
         {step === 'IDENTITY_INPUT' ? (
           <form onSubmit={handleRequestPin} className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Full Legal Name</label>
-              <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="NAME AS REGISTERED" required />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">System Node ID</label>
-              <input type="text" value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-mono font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER ID" required />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Registered Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="user@ssmap.app" required />
-            </div>
+            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Full Legal Name</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="NAME AS REGISTERED" required /></div>
+            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">System Node ID</label><input type="text" value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-mono font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER ID" required /></div>
+            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Registered Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="user@ssmap.app" required /></div>
             {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
-            <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl disabled:opacity-50 mt-4 transition-colors`}>
-              {isLoading ? "Consulting Storage..." : "Recall & Sync"}
-            </button>
+            <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-colors`}>{isLoading ? "RECALLING SHARD..." : "SYNC IDENTITY"}</button>
           </form>
         ) : (
           <form onSubmit={handleVerifyPin} className="space-y-8 animate-in slide-in-from-right-4 duration-500 text-center">
-            <div className="space-y-2">
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Enter Secure PIN</h3>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Verification token dispatched to <span className={`text-${gateColor}-400 font-mono`}>{email}</span></p>
-            </div>
+            <h3 className="text-xl font-black text-white uppercase tracking-tight">Enter Secure PIN</h3>
             <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className={`w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-7 text-5xl font-black text-white text-center tracking-[0.6em] outline-none focus:ring-4 focus:ring-${gateColor}-500/10`} placeholder="000000" maxLength={6} required autoFocus />
             {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
-            <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl disabled:opacity-50 transition-colors`}>
-              {isLoading ? "Validating Shard..." : "Authorized Entrance"}
-            </button>
+            <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-colors`}>{isLoading ? "VALIDATING..." : "AUTHORIZE ACCESS"}</button>
           </form>
         )}
       </div>

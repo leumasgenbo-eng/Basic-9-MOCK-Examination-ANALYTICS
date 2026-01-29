@@ -45,6 +45,30 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<ManagementTabType>(isFacilitator ? 'facilitatorDesk' : 'scoreEntry');
 
+  const resetSchoolParticulars = () => {
+    if (window.confirm("CRITICAL ACTION: Reset all institutional identity particulars AND CLEAR ALL SHEETS? This cannot be undone.")) {
+      onBulkUpdate({
+        schoolName: "SS-map ACADEMY",
+        schoolLogo: "",
+        schoolContact: "+233 00 000 0000",
+        schoolEmail: "info@ssmap.app",
+        headTeacherName: "HEADMASTER NAME",
+        academicYear: "2024/2025",
+        termInfo: "TERM 2",
+        examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
+        nextTermBegin: "2025-05-12",
+        accessCode: "",
+        schoolNumber: ""
+      });
+
+      setStudents(prev => prev.map(student => ({
+        ...student, scores: {}, sbaScores: {}, examSubScores: {}, mockData: {}, seriesHistory: {}, attendance: 0, conductRemark: ""
+      })));
+      setTimeout(() => onSave(), 500);
+      alert("Institutional defaults restored.");
+    }
+  };
+
   return (
     <div className="p-0 max-w-7xl mx-auto pb-24 animate-in fade-in duration-500">
       <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100">
@@ -94,7 +118,12 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
               activeFacilitator={activeFacilitator}
             />
           )}
-          {activeTab === 'school' && <AcademyIdentityPortal settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
+          {activeTab === 'school' && (
+            <div className="space-y-6">
+              <div className="flex justify-end"><button onClick={resetSchoolParticulars} className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-black text-[10px] uppercase border border-red-100 shadow-sm">Reset Defaults</button></div>
+              <AcademyIdentityPortal settings={settings} onSettingChange={onSettingChange} onSave={onSave} />
+            </div>
+          )}
           {activeTab === 'credentials' && <SchoolCredentialView settings={settings} studentCount={students.length} />}
           {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} onSave={onSave} />}
           {activeTab === 'facilitators' && <FacilitatorPortal subjects={subjects} facilitators={facilitators} setFacilitators={setFacilitators} settings={settings} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />}

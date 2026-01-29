@@ -107,7 +107,7 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
       {/* Persistence Layer Validation */}
       <div className="mt-16 pt-8 border-t border-gray-200 flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-widest italic no-print">
          <span>Institutional Node Verified: {settings.schoolNumber}</span>
-         <span>UNITED BAYLOR ACADEMY — SHARD AUTHENTICATOR v4.0.1</span>
+         <span>SS-map ACADEMY — SHARD AUTHENTICATOR v4.0.1</span>
       </div>
     </div>
   );

@@ -1,8 +1,7 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { StaffAssignment, StaffRole, GlobalSettings, InvigilationSlot, MasterQuestion } from '../../types';
+import React, { useState } from 'react';
+import { StaffAssignment, StaffRole, GlobalSettings } from '../../types';
 import { supabase } from '../../supabaseClient';
-import EditableField from '../shared/EditableField';
 
 interface FacilitatorPortalProps {
   subjects: string[];
@@ -10,9 +9,11 @@ interface FacilitatorPortalProps {
   setFacilitators: React.Dispatch<React.SetStateAction<Record<string, StaffAssignment>>>;
   settings: GlobalSettings;
   isFacilitator?: boolean;
+  // Fix: Added missing activeFacilitator property to props interface
   activeFacilitator?: { name: string; subject: string } | null;
 }
 
+// Fix: Added activeFacilitator to destructured props
 const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilitators, setFacilitators, settings, isFacilitator, activeFacilitator }) => {
   const [newStaff, setNewStaff] = useState({ name: '', email: '', role: 'FACILITATOR' as StaffRole, subject: '' });
   const [isEnrolling, setIsEnrolling] = useState(false);
@@ -28,7 +29,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
       const targetEmail = newStaff.email.toLowerCase().trim();
       const targetName = newStaff.name.toUpperCase().trim();
 
-      // 1. STORAGE PERSISTENCE: Sync identity for recall handshake
+      // 1. IDENTITY STORAGE Handshake
       await supabase.from('uba_identities').upsert({
          email: targetEmail,
          full_name: targetName,
@@ -37,21 +38,14 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
          role: 'facilitator'
       });
 
-      // 2. TRIGGER AUTH OTP
+      // 2. DISPATCH Login Pack
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: targetEmail,
         options: {
-          data: { 
-            role: 'facilitator', 
-            hubId: hubId, 
-            name: targetName,
-            subject: newStaff.subject,
-            enrolledId: enrolledId
-          },
+          data: { role: 'facilitator', hubId: hubId, name: targetName, subject: newStaff.subject, enrolledId: enrolledId },
           shouldCreateUser: true
         }
       });
-
       if (otpError) throw otpError;
 
       const staff: StaffAssignment = {
@@ -66,60 +60,56 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
 
       setFacilitators(prev => ({ ...prev, [enrolledId]: staff }));
       setNewStaff({ name: '', email: '', role: 'FACILITATOR', subject: '' });
-      alert(`FACULTY ENROLLED: ID ${enrolledId} mirrored to storage. PIN sent.`);
+      alert(`FACILITATOR ADDED: ID ${enrolledId} mirrored to global storage. Credentials sent.`);
     } catch (err: any) {
-      alert("Faculty Storage Error: " + err.message);
+      alert("Faculty Error: " + err.message);
     } finally {
       setIsEnrolling(false);
     }
   };
 
-  const handleUpdateStaffMember = (id: string, field: keyof StaffAssignment, value: any) => {
-    setFacilitators(prev => {
-      const staff = prev[id];
-      if (!staff) return prev;
-      return { ...prev, [id]: { ...staff, [field]: value } };
-    });
+  const handleForwardCredentials = async (email: string) => {
+     if (!window.confirm(`FORWARD CREDENTIALS: Resend Login PIN to ${email}?`)) return;
+     try {
+       await supabase.auth.signInWithOtp({ email });
+       alert("Handshake packet resent.");
+     } catch (e) { alert("Dispatch failed."); }
   };
 
   return (
     <div className="space-y-12 animate-in fade-in duration-700 pb-20 font-sans">
-      <section className="bg-slate-950 text-white p-10 rounded-[3.5rem] border border-white/5 shadow-2xl relative overflow-hidden no-print">
-         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/10 rounded-full -mr-40 -mt-40 blur-[100px]"></div>
+      <section className="bg-slate-950 text-white p-10 rounded-[3.5rem] border border-white/5 shadow-2xl relative overflow-hidden">
          <div className="relative space-y-2">
-            <h2 className="text-3xl font-black uppercase tracking-tighter">Faculty Enrollment Desk</h2>
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Ingesting Faculty Participant Particulars</p>
+            <h2 className="text-3xl font-black uppercase tracking-tighter">Faculty Shard Ingestion</h2>
+            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Registering authorized educators in global storage</p>
          </div>
 
          {!isFacilitator && (
            <form onSubmit={handleAddStaff} className="mt-10 grid grid-cols-1 md:grid-cols-4 gap-4">
               <input type="text" value={newStaff.name} onChange={e=>setNewStaff({...newStaff, name: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none" placeholder="FULL LEGAL NAME..." required />
-              <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black outline-none" placeholder="PARTICIPANT EMAIL..." required />
+              <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none" placeholder="EMAIL ADDRESS..." required />
               <select value={newStaff.subject} onChange={e=>setNewStaff({...newStaff, subject: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none">
                  <option value="" className="text-slate-900">SUBJECT SHARD...</option>
                  {subjects.map(s => <option key={s} value={s} className="text-slate-900">{s.toUpperCase()}</option>)}
               </select>
               <button type="submit" disabled={isEnrolling} className="bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all">
-                 {isEnrolling ? "MIRRORING..." : "Enroll Participant"}
+                 {isEnrolling ? "MIRRORING..." : "Enroll Educator"}
               </button>
            </form>
          )}
       </section>
 
       <div className="grid grid-cols-1 gap-6">
-        {(Object.entries(facilitators || {}) as [string, StaffAssignment][]).map(([idKey, f]) => (
+        {Object.entries(facilitators || {}).map(([idKey, f]) => (
           <div key={idKey} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl flex justify-between items-center group">
              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-blue-900 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-lg">{f.name.charAt(0)}</div>
-                <div className="space-y-1">
+                <div className="w-16 h-16 bg-blue-900 text-white rounded-2xl flex items-center justify-center font-black text-xl">{f.name.charAt(0)}</div>
+                <div>
                    <h4 className="text-lg font-black text-slate-900 uppercase">{f.name}</h4>
                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{f.taughtSubject} — NODE ID: {f.enrolledId}</p>
                 </div>
              </div>
-             <div className="flex flex-col items-end gap-2">
-                <span className="text-[9px] font-black text-emerald-500 uppercase bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">Storage Synced</span>
-                <span className="text-[8px] font-mono text-slate-400 lowercase italic">{f.email}</span>
-             </div>
+             <button onClick={() => handleForwardCredentials(f.email)} className="bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 px-6 py-2 rounded-xl font-black text-[9px] uppercase transition-all">Forward Credentials</button>
           </div>
         ))}
       </div>
