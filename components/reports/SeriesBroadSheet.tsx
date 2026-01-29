@@ -37,6 +37,7 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
 
   return (
     <div className="bg-white p-6 print:p-0 min-h-screen max-w-full font-sans">
+      {/* 1. Editable Academy Particulars */}
       <ReportBrandingHeader 
         settings={settings} 
         onSettingChange={onSettingChange} 
@@ -45,6 +46,7 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
         isLandscape={true}
       />
 
+      {/* 2. Longitudinal Data Matrix */}
       <div className="shadow-2xl border border-gray-200 rounded-[2.5rem] bg-white overflow-hidden relative group mt-8">
         <div className="overflow-x-auto custom-scrollbar-horizontal scroll-smooth">
           <table className="w-full text-[10px] border-collapse min-w-[1200px]">
@@ -108,10 +110,11 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
         </div>
       </div>
 
+      {/* 3. Formal Authentication Signatures */}
       <div className="mt-12 flex justify-between items-end border-t-2 border-blue-900 pt-6">
          <div className="text-center w-[30%] border-t-2 border-slate-900 pt-2">
             <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest">
-              <EditableField value={settings.registryRoleTitle || "Registry Controller"} onChange={(v) => onSettingChange('registryRoleTitle', v)} className="text-center" />
+              <EditableField value={settings.registryRoleTitle || "Examination Registry"} onChange={(v) => onSettingChange('registryRoleTitle', v)} className="text-center" />
             </span>
          </div>
          <div className="text-center w-[30%] border-t-2 border-slate-900 pt-2">
