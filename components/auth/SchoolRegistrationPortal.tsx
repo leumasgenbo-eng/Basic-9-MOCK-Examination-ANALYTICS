@@ -30,18 +30,17 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
   const downloadCredentials = (hubId: string, accessKey: string) => {
     const text = `SS-map ACADEMY (SMA) - INSTITUTIONAL ACCESS PACK\n` +
                  `==============================================================\n\n` +
-                 `LOGIN CREDENTIALS:\n` +
-                 `1. Institution Name:   ${formData.schoolName.toUpperCase()}\n` +
-                 `2. Enrollment ID (Key): ${hubId}\n` +
-                 `3. Registrant Identity: ${formData.registrant.toUpperCase()}\n` +
-                 `4. System Access Key:   ${accessKey}\n\n` +
+                 `LOGIN CREDENTIALS (RECALL PARTICULARS):\n` +
+                 `Full Legal Name:  ${formData.registrant.toUpperCase()}\n` +
+                 `System Node ID:   ${hubId}\n` +
+                 `Registered Email: ${formData.email.toLowerCase()}\n\n` +
+                 `SYSTEM ACCESS KEY: ${accessKey}\n` +
                  `--------------------------------------------------------------\n` +
                  `REGISTRATION PARTICULARS:\n` +
+                 `Institution:      ${formData.schoolName.toUpperCase()}\n` +
                  `Location:         ${formData.location.toUpperCase()}\n` +
-                 `Registrant Name:  ${formData.registrant.toUpperCase()}\n` +
-                 `Contact Node:     ${formData.contact}\n` +
-                 `Registered Email: ${formData.email.toLowerCase()}\n\n` +
-                 `* IMPORTANT: Save this file. Your Access Key is unique.`;
+                 `Contact Node:     ${formData.contact}\n\n` +
+                 `* IMPORTANT: This information is stored in the Supabase Identity Shard.`;
     
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -62,6 +61,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       downloadCredentials(hubId, accessKey);
       setTempCredentials({ hubId, accessKey });
 
+      // TRIGGER OTP DISPATCH
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email.toLowerCase().trim(),
         options: {
@@ -93,7 +93,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       const { hubId, accessKey } = tempCredentials;
       const ts = new Date().toISOString();
 
-      // 1. DISPATCH ADMIN IDENTITY TO REGISTRY
+      // 1. STORAGE PERSISTENCE: Write Admin Identity to uba_identities
       await supabase.from('uba_identities').upsert({
          email: formData.email.toLowerCase().trim(),
          full_name: formData.registrant.toUpperCase().trim(),
@@ -115,6 +115,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         reportDate: new Date().toLocaleDateString()
       };
 
+      // 2. DATA HUB PERSISTENCE: Initialize Institution Shards
       await supabase.from('uba_persistence').insert([
         { id: `${hubId}_settings`, hub_id: hubId, payload: newSettings, user_id: data.user.id },
         { id: `${hubId}_students`, hub_id: hubId, payload: [], user_id: data.user.id },
@@ -126,7 +127,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       if (onResetStudents) onResetStudents();
       onComplete?.();
     } catch (err: any) {
-      alert("Activation Error: Verification failed.");
+      alert("Activation Error: Verification failed. " + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -138,25 +139,25 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         <div className="bg-white rounded-[3rem] p-10 md:p-14 relative overflow-hidden">
           <div className="text-center space-y-4 mb-12">
               <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Institutional Enrollment</h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">SS-map Hub Persistence Node Sync</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Storage Persistence Node Sync</p>
           </div>
 
           {step === 'FORM' ? (
             <form onSubmit={handleRegister} className="grid grid-cols-1 gap-6">
-              <input type="text" value={formData.schoolName} onChange={e=>setFormData({...formData, schoolName: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none" placeholder="SMA INSTITUTION NAME..." required />
-              <input type="text" value={formData.registrant} onChange={e=>setFormData({...formData, registrant: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none" placeholder="REGISTRANT NAME..." required />
+              <input type="text" value={formData.schoolName} onChange={e=>setFormData({...formData, schoolName: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none" placeholder="ACADEMY NAME..." required />
+              <input type="text" value={formData.registrant} onChange={e=>setFormData({...formData, registrant: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none" placeholder="FULL LEGAL NAME..." required />
               <input type="text" value={formData.contact} onChange={e=>setFormData({...formData, contact: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none" placeholder="CONTACT PHONE..." required />
               <input type="text" value={formData.location} onChange={e=>setFormData({...formData, location: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none" placeholder="LOCATION..." required />
-              <input type="email" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none" placeholder="ADMIN@SMA.NETWORK" required />
-              <button type="submit" disabled={isLoading} className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] disabled:opacity-50">
-                {isLoading ? "Validating..." : "Execute Enrollment"}
+              <input type="email" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none" placeholder="REGISTERED EMAIL..." required />
+              <button type="submit" disabled={isLoading} className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] disabled:opacity-50 transition-all hover:bg-black">
+                {isLoading ? "Analyzing Particulars..." : "Execute Storage Ingestion"}
               </button>
             </form>
           ) : (
             <form onSubmit={handleVerify} className="space-y-8 text-center">
               <input type="text" value={pin} onChange={e=>setPin(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-6 text-4xl font-black text-center tracking-[0.5em] outline-none" placeholder="000000" maxLength={6} required autoFocus />
               <button type="submit" disabled={isLoading} className="w-full bg-emerald-600 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-xl disabled:opacity-50">
-                {isLoading ? "Syncing..." : "Activate Institution"}
+                {isLoading ? "Syncing Shards..." : "Activate Academy Hub"}
               </button>
             </form>
           )}

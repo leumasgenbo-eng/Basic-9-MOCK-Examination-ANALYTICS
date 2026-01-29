@@ -27,6 +27,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
   const handleGateSelect = (role: UserRole) => {
     setActiveGate(role);
     setStep('IDENTITY_INPUT');
+    setError(null);
   };
 
   const handleRequestPin = async (e: React.FormEvent) => {
@@ -36,11 +37,11 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
 
     const targetEmail = email.toLowerCase().trim();
     const inputName = fullName.toUpperCase().trim();
-    const inputId = nodeId.trim();
+    const inputId = nodeId.trim().toUpperCase();
 
     try {
+      // 1. RECALL CHECK: Verify identity exists in uba_identities storage
       if (targetEmail !== MASTER_ADMIN_EMAIL) {
-        // PRE-AUTH IDENTITY MATCH: Check if Name, ID, and Email exist and match in the identity registry
         const { data: identity, error: idError } = await supabase
           .from('uba_identities')
           .select('*')
@@ -50,11 +51,12 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
         if (idError) throw idError;
         
         if (!identity) {
-          throw new Error("GATE ACCESS DENIED: Identity not found in network registry.");
+          throw new Error("GATE ACCESS DENIED: This email is not registered in our storage.");
         }
 
-        if (identity.full_name.toUpperCase() !== inputName || identity.node_id !== inputId) {
-          throw new Error("IDENTITY CONFLICT: Name or ID does not match registered shard.");
+        // Validate Triple-Match Handshake
+        if (identity.full_name.toUpperCase() !== inputName || identity.node_id.toUpperCase() !== inputId) {
+          throw new Error("IDENTITY CONFLICT: Name or Node ID does not match our storage records.");
         }
 
         const roleMap: Record<string, string> = {
@@ -64,11 +66,11 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
         };
 
         if (roleMap[identity.role] !== activeGate) {
-          throw new Error(`GATE MISMATCH: This identity belongs to the ${identity.role} gate.`);
+          throw new Error(`GATE MISMATCH: Your credential profile belongs to the ${identity.role} portal.`);
         }
       }
 
-      // DISPATCH OTP
+      // 2. TRIGGER AUTH: If storage match is successful, dispatch OTP
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: targetEmail,
         options: { shouldCreateUser: targetEmail === MASTER_ADMIN_EMAIL }
@@ -95,7 +97,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
         type: 'email'
       });
 
-      if (verifyError) throw new Error("INVALID PIN: Handshake failed.");
+      if (verifyError) throw new Error("INVALID PIN: Authentication handshake failed.");
       if (!data.user) throw new Error("SYNC ERROR: Shard connection lost.");
 
       const metadata = data.user.user_metadata || {};
@@ -122,7 +124,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
       <div className="w-full max-w-4xl p-4 animate-in fade-in zoom-in-95 duration-500">
         <div className="text-center mb-16">
            <h2 className="text-4xl font-black text-white uppercase tracking-tighter">SS-map ACADEMY</h2>
-           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Identity Gate</p>
+           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Authorized Gate</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
            {[
@@ -143,7 +145,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
            ))}
         </div>
         <div className="mt-16 text-center">
-           <button onClick={onSwitchToRegister} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Register New School Shard</button>
+           <button onClick={onSwitchToRegister} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Register New Academy Node</button>
         </div>
       </div>
     );
@@ -162,7 +164,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
           <div className={`w-24 h-24 mx-auto mb-6 rounded-3xl flex items-center justify-center text-white shadow-2xl border border-white/20 uppercase font-black text-xs bg-${gateColor}-600`}>
             {activeGate?.substring(0, 3)}
           </div>
-          <h2 className="text-2xl font-black text-white uppercase tracking-tight">{activeGate} HANDSHAKE</h2>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tight">IDENTITY RECALL</h2>
           <p className={`text-[9px] font-black text-${gateColor}-400 uppercase tracking-[0.4em] mt-3`}>Particulars Verification</p>
         </div>
 
@@ -182,19 +184,19 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
             </div>
             {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
             <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl disabled:opacity-50 mt-4 transition-colors`}>
-              {isLoading ? "Matching Identity..." : "Request OTP"}
+              {isLoading ? "Consulting Storage..." : "Recall & Sync"}
             </button>
           </form>
         ) : (
           <form onSubmit={handleVerifyPin} className="space-y-8 animate-in slide-in-from-right-4 duration-500 text-center">
             <div className="space-y-2">
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Enter Token</h3>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Verification PIN dispatched to <span className={`text-${gateColor}-400 font-mono`}>{email}</span></p>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Enter Secure PIN</h3>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Verification token dispatched to <span className={`text-${gateColor}-400 font-mono`}>{email}</span></p>
             </div>
             <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className={`w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-7 text-5xl font-black text-white text-center tracking-[0.6em] outline-none focus:ring-4 focus:ring-${gateColor}-500/10`} placeholder="000000" maxLength={6} required autoFocus />
             {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
             <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl disabled:opacity-50 transition-colors`}>
-              {isLoading ? "Validating..." : "Access Portal"}
+              {isLoading ? "Validating Shard..." : "Authorized Entrance"}
             </button>
           </form>
         )}
