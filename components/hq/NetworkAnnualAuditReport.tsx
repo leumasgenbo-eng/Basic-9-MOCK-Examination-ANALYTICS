@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { SchoolRegistryEntry, StaffAssignment } from '../../types';
 import EditableField from '../shared/EditableField';
@@ -9,7 +10,7 @@ interface NetworkAnnualAuditReportProps {
 const NetworkAnnualAuditReport: React.FC<NetworkAnnualAuditReportProps> = ({ registry }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [networkBranding, setNetworkBranding] = useState({
-     name: "UNITED BAYLOR ACADEMY NETWORK HUB",
+     name: "SS-map ACADEMY NETWORK HUB",
      address: "CENTRAL COMMAND, ACCRA DIGITAL CENTRE",
      director: "NETWORK CONTROLLER GENERAL"
   });

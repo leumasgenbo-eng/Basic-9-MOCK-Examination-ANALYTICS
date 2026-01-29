@@ -15,8 +15,10 @@ type UserRole = 'admin' | 'facilitator' | 'pupil' | null;
 const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
   const [activeGate, setActiveGate] = useState<UserRole>(null);
   const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [nodeId, setNodeId] = useState('');
   const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'GATE_SELECTION' | 'EMAIL_INPUT' | 'PIN_VERIFICATION'>('GATE_SELECTION');
+  const [step, setStep] = useState<'GATE_SELECTION' | 'IDENTITY_INPUT' | 'PIN_VERIFICATION'>('GATE_SELECTION');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +26,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
 
   const handleGateSelect = (role: UserRole) => {
     setActiveGate(role);
-    setStep('EMAIL_INPUT');
+    setStep('IDENTITY_INPUT');
   };
 
   const handleRequestPin = async (e: React.FormEvent) => {
@@ -33,20 +35,46 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
     setError(null);
 
     const targetEmail = email.toLowerCase().trim();
+    const inputName = fullName.toUpperCase().trim();
+    const inputId = nodeId.trim();
 
     try {
-      // Trigger Supabase OTP dispatch
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: targetEmail,
-        options: {
-          shouldCreateUser: targetEmail === MASTER_ADMIN_EMAIL // Only HQ can create on login
-        }
-      });
+      if (targetEmail !== MASTER_ADMIN_EMAIL) {
+        // PRE-AUTH IDENTITY MATCH: Check if Name, ID, and Email exist and match in the identity registry
+        const { data: identity, error: idError } = await supabase
+          .from('uba_identities')
+          .select('*')
+          .eq('email', targetEmail)
+          .maybeSingle();
 
-      if (otpError) {
-        throw new Error("GATE ACCESS DENIED: Node not found in registry.");
+        if (idError) throw idError;
+        
+        if (!identity) {
+          throw new Error("GATE ACCESS DENIED: Identity not found in network registry.");
+        }
+
+        if (identity.full_name.toUpperCase() !== inputName || identity.node_id !== inputId) {
+          throw new Error("IDENTITY CONFLICT: Name or ID does not match registered shard.");
+        }
+
+        const roleMap: Record<string, string> = {
+          'school_admin': 'admin',
+          'facilitator': 'facilitator',
+          'pupil': 'pupil'
+        };
+
+        if (roleMap[identity.role] !== activeGate) {
+          throw new Error(`GATE MISMATCH: This identity belongs to the ${identity.role} gate.`);
+        }
       }
 
+      // DISPATCH OTP
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: targetEmail,
+        options: { shouldCreateUser: targetEmail === MASTER_ADMIN_EMAIL }
+      });
+
+      if (otpError) throw otpError;
       setStep('PIN_VERIFICATION');
     } catch (err: any) {
       setError(err.message);
@@ -67,26 +95,21 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
         type: 'email'
       });
 
-      if (verifyError) throw new Error("INVALID PIN: Handshake timed out.");
-      if (!data.user) throw new Error("SYNC ERROR: Identity node corrupted.");
+      if (verifyError) throw new Error("INVALID PIN: Handshake failed.");
+      if (!data.user) throw new Error("SYNC ERROR: Shard connection lost.");
 
       const metadata = data.user.user_metadata || {};
       const hubId = metadata.hubId;
-      const registeredRole = metadata.role;
 
-      // ROLE VALIDATION GATE: Prevent role leakage
       if (email.toLowerCase() === MASTER_ADMIN_EMAIL) {
         onSuperAdminLogin();
-      } else if (activeGate === 'admin' && (registeredRole === 'school_admin' || hubId)) {
-        onLoginSuccess(hubId);
-      } else if (activeGate === 'facilitator' && registeredRole === 'facilitator') {
-        onFacilitatorLogin(metadata.name || "STAFF", metadata.subject || "GENERAL", hubId);
-      } else if (activeGate === 'pupil' && registeredRole === 'pupil') {
-        onPupilLogin(metadata.studentId, hubId);
-      } else {
-        await supabase.auth.signOut();
-        throw new Error(`GATE MISMATCH: This identity does not have ${activeGate?.toUpperCase()} permissions.`);
+        return;
       }
+
+      if (activeGate === 'admin') onLoginSuccess(hubId);
+      else if (activeGate === 'facilitator') onFacilitatorLogin(metadata.name, metadata.subject, hubId);
+      else if (activeGate === 'pupil') onPupilLogin(metadata.studentId, hubId);
+
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -98,14 +121,14 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
     return (
       <div className="w-full max-w-4xl p-4 animate-in fade-in zoom-in-95 duration-500">
         <div className="text-center mb-16">
-           <h2 className="text-4xl font-black text-white uppercase tracking-tighter">Access Terminal</h2>
-           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select your institutional node gate</p>
+           <h2 className="text-4xl font-black text-white uppercase tracking-tighter">SS-map ACADEMY</h2>
+           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Identity Gate</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
            {[
              { id: 'admin', label: 'Institutional Admin', color: 'from-blue-600 to-blue-900', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
              { id: 'facilitator', label: 'Faculty Node', color: 'from-indigo-600 to-indigo-900', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2' },
-             { id: 'pupil', label: 'Candidate Node', color: 'from-emerald-600 to-emerald-900', icon: 'M22 10v6M2 10l10-5 10 5-10 5z' }
+             { id: 'pupil', label: 'Candidate Portal', color: 'from-emerald-600 to-emerald-900', icon: 'M22 10v6M2 10l10-5 10 5-10 5z' }
            ].map(gate => (
              <button 
                key={gate.id}
@@ -116,80 +139,62 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d={gate.icon}/></svg>
                 </div>
                 <h3 className="text-sm font-black text-white uppercase tracking-widest leading-none">{gate.label}</h3>
-                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
              </button>
            ))}
         </div>
         <div className="mt-16 text-center">
-           <button onClick={onSwitchToRegister} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Onboard New School Cluster</button>
+           <button onClick={onSwitchToRegister} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">Register New School Shard</button>
         </div>
       </div>
     );
   }
 
+  const gateColor = activeGate === 'pupil' ? 'emerald' : activeGate === 'facilitator' ? 'indigo' : 'blue';
+
   return (
-    <div className="w-full max-w-lg p-4 animate-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-slate-950 p-12 md:p-16 rounded-[4rem] shadow-[0_40px_80px_rgba(0,0,0,0.4)] border border-white/10 relative overflow-hidden">
-        <button 
-          onClick={() => setStep('GATE_SELECTION')}
-          className="absolute top-10 left-10 text-slate-500 hover:text-white transition-colors"
-        >
+    <div className="w-full max-w-xl p-4 animate-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-slate-950 p-10 md:p-14 rounded-[4rem] shadow-2xl border border-white/10 relative overflow-hidden">
+        <button onClick={() => setStep('GATE_SELECTION')} className="absolute top-10 left-10 text-slate-500 hover:text-white transition-colors">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
 
         <div className="text-center relative mb-12">
-          <div className={`w-24 h-24 mx-auto mb-6 rounded-3xl flex items-center justify-center text-white shadow-2xl border border-white/20 uppercase font-black text-xs ${activeGate === 'pupil' ? 'bg-emerald-600' : activeGate === 'facilitator' ? 'bg-indigo-600' : 'bg-blue-600'}`}>
+          <div className={`w-24 h-24 mx-auto mb-6 rounded-3xl flex items-center justify-center text-white shadow-2xl border border-white/20 uppercase font-black text-xs bg-${gateColor}-600`}>
             {activeGate?.substring(0, 3)}
           </div>
           <h2 className="text-2xl font-black text-white uppercase tracking-tight">{activeGate} HANDSHAKE</h2>
-          <p className="text-[9px] font-black text-blue-400 uppercase tracking-[0.4em] mt-3">Node Identity Verification</p>
+          <p className={`text-[9px] font-black text-${gateColor}-400 uppercase tracking-[0.4em] mt-3`}>Particulars Verification</p>
         </div>
 
-        {step === 'EMAIL_INPUT' ? (
-          <form onSubmit={handleRequestPin} className="space-y-6">
+        {step === 'IDENTITY_INPUT' ? (
+          <form onSubmit={handleRequestPin} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Full Legal Name</label>
+              <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="NAME AS REGISTERED" required />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">System Node ID</label>
+              <input type="text" value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-mono font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER ID" required />
+            </div>
             <div className="space-y-2">
               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Registered Email</label>
-              <input 
-                type="email" 
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-                className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-5 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" 
-                placeholder="USER@HUB.UBA" 
-                required 
-              />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="user@ssmap.app" required />
             </div>
             {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl disabled:opacity-50"
-            >
-              {isLoading ? "Validating Node..." : "Request Access PIN"}
+            <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl disabled:opacity-50 mt-4 transition-colors`}>
+              {isLoading ? "Matching Identity..." : "Request OTP"}
             </button>
           </form>
         ) : (
           <form onSubmit={handleVerifyPin} className="space-y-8 animate-in slide-in-from-right-4 duration-500 text-center">
             <div className="space-y-2">
               <h3 className="text-xl font-black text-white uppercase tracking-tight">Enter Token</h3>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Sent to {email}</p>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Verification PIN dispatched to <span className={`text-${gateColor}-400 font-mono`}>{email}</span></p>
             </div>
-            <input 
-              type="text" 
-              value={otp} 
-              onChange={(e) => setOtp(e.target.value)} 
-              className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-7 text-5xl font-black text-white text-center tracking-[0.6em] outline-none focus:ring-4 focus:ring-emerald-500/10" 
-              placeholder="000000" 
-              maxLength={6}
-              required 
-              autoFocus
-            />
+            <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className={`w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-7 text-5xl font-black text-white text-center tracking-[0.6em] outline-none focus:ring-4 focus:ring-${gateColor}-500/10`} placeholder="000000" maxLength={6} required autoFocus />
             {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl disabled:opacity-50"
-            >
-              {isLoading ? "Synchronizing..." : "Access Shard Interface"}
+            <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl disabled:opacity-50 transition-colors`}>
+              {isLoading ? "Validating..." : "Access Portal"}
             </button>
           </form>
         )}

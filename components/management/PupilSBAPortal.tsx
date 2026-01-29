@@ -31,15 +31,26 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
 
     try {
       const nextId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 101;
+      const targetEmail = formData.email.toLowerCase().trim();
+      const targetName = formData.name.toUpperCase().trim();
+
+      // 1. DISPATCH IDENTITY TO REGISTRY
+      await supabase.from('uba_identities').upsert({
+         email: targetEmail,
+         full_name: targetName,
+         node_id: nextId.toString(),
+         hub_id: settings.schoolNumber,
+         role: 'pupil'
+      });
       
-      // Trigger Sign In with OTP for the pupil/parent email to create auth node and send PIN
+      // 2. TRIGGER OTP FOR ACCOUNT CREATION
       const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: formData.email.toLowerCase(),
+        email: targetEmail,
         options: {
           data: { 
             role: 'pupil', 
             hubId: settings.schoolNumber, 
-            name: formData.name.toUpperCase(),
+            name: targetName,
             studentId: nextId
           },
           shouldCreateUser: true
@@ -50,8 +61,8 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
 
       const newStudent: StudentData = {
         id: nextId,
-        name: formData.name.toUpperCase(),
-        email: formData.email.toLowerCase(),
+        name: targetName,
+        email: targetEmail,
         gender: formData.gender,
         parentName: formData.guardianName.toUpperCase(),
         parentContact: formData.contact,
@@ -64,9 +75,9 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
       
       setStudents([...students, newStudent]);
       setFormData({ name: '', email: '', gender: 'M', guardianName: '', contact: '' });
-      alert(`CANDIDATE ENROLLED: Access PIN sent to ${formData.email}`);
+      alert(`CANDIDATE ENROLLED: Shard created. Access PIN sent to ${targetEmail}`);
     } catch (err: any) {
-      alert("Auth Gateway Error: " + err.message);
+      alert("Enrollment Error: " + err.message);
     } finally {
       setIsEnrolling(false);
     }
@@ -136,7 +147,7 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
               <input type="email" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none" placeholder="PUPIL EMAIL (FOR LOGIN)..." required />
               <select value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none"><option value="M">MALE</option><option value="F">FEMALE</option></select>
               <input type="text" value={formData.guardianName} onChange={e=>setFormData({...formData, guardianName: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none" placeholder="GUARDIAN NAME..." />
-              <input type="text" value={formData.contact} onChange={e=>setFormData({...formData, contact: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none" placeholder="CONTACT PHONE..." />
+              <input type="text" value={formData.contact} onChange={e=>setFormData({...formData, contact: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none" placeholder="CONTACT PHONE..." />
               <button type="submit" disabled={isEnrolling} className="bg-blue-900 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all disabled:opacity-50">
                 {isEnrolling ? "AUTHORIZING..." : "Enroll Candidate Node"}
               </button>

@@ -37,7 +37,6 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
 
   return (
     <div className="bg-white p-6 print:p-0 min-h-screen max-w-full font-sans">
-      {/* Universal Academy Branding Header - Editable particulars */}
       <ReportBrandingHeader 
         settings={settings} 
         onSettingChange={onSettingChange} 
@@ -46,7 +45,6 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
         isLandscape={true}
       />
 
-      {/* Main Analysis Matrix */}
       <div className="shadow-2xl border border-gray-200 rounded-[2.5rem] bg-white overflow-hidden relative group mt-8">
         <div className="overflow-x-auto custom-scrollbar-horizontal scroll-smooth">
           <table className="w-full text-[10px] border-collapse min-w-[1200px]">
@@ -61,7 +59,7 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
                 <th className="p-3 bg-red-700 text-center font-black min-w-[180px]" colSpan={3}>Live State</th>
               </tr>
               <tr className="bg-blue-50 text-blue-900 uppercase text-[7px] font-black border-b-2 border-blue-900">
-                <th className="p-3 border-r border-blue-100 sticky left-0 bg-blue-50 z-40">Identity</th>
+                <th className="p-3 border-r border-blue-100 sticky left-0 bg-blue-50 z-40">Identity Node</th>
                 {mockSeriesNames.map((m) => (
                   <React.Fragment key={m + '-sub'}>
                     <th className="p-1.5 border-r border-blue-100 w-10 text-center">Agg</th>
@@ -110,7 +108,6 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
         </div>
       </div>
 
-      {/* Signature & Validation Area */}
       <div className="mt-12 flex justify-between items-end border-t-2 border-blue-900 pt-6">
          <div className="text-center w-[30%] border-t-2 border-slate-900 pt-2">
             <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest">

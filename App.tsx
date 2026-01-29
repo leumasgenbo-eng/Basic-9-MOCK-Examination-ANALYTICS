@@ -4,26 +4,29 @@ import { calculateClassStatistics, processStudentData } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
 import { supabase } from './supabaseClient';
 
-// Portal Components
+// Shared Components
+import ReportBrandingHeader from './components/shared/ReportBrandingHeader';
+
+// Portal Layers
+import LoginPortal from './components/auth/LoginPortal';
+import SchoolRegistrationPortal from './components/auth/SchoolRegistrationPortal';
+import ManagementDesk from './components/management/ManagementDesk';
+import HomeDashboard from './components/management/HomeDashboard';
 import MasterSheet from './components/reports/MasterSheet';
 import ReportCard from './components/reports/ReportCard';
 import SeriesBroadSheet from './components/reports/SeriesBroadSheet';
-import ManagementDesk from './components/management/ManagementDesk';
 import SuperAdminPortal from './components/hq/SuperAdminPortal';
-import LoginPortal from './components/auth/LoginPortal';
-import SchoolRegistrationPortal from './components/auth/SchoolRegistrationPortal';
 import PupilDashboard from './components/pupil/PupilDashboard';
-import HomeDashboard from './components/management/HomeDashboard';
 
 import { SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGORY_THRESHOLDS } from './constants';
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-  schoolName: "UNITED BAYLOR ACADEMY",
+  schoolName: "SS-map ACADEMY",
   schoolMotto: "EXCELLENCE IN KNOWLEDGE AND CHARACTER",
-  schoolWebsite: "www.unitedbaylor.edu",
+  schoolWebsite: "www.ssmap.app",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
   schoolNumber: "", 
-  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
+  schoolLogo: "", 
   examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
   termInfo: "TERM 2",
   academicYear: "2024/2025",
@@ -34,7 +37,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   headTeacherName: "DIRECTOR NAME",
   reportDate: new Date().toLocaleDateString(),
   schoolContact: "+233 24 350 4091",
-  schoolEmail: "info@unitedbaylor.edu",
+  schoolEmail: "info@ssmap.app",
   gradingThresholds: DEFAULT_THRESHOLDS,
   categoryThresholds: DEFAULT_CATEGORY_THRESHOLDS,
   normalizationConfig: DEFAULT_NORMALIZATION,
@@ -60,7 +63,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
-  const [viewMode, setViewMode] = useState<'home' | 'master' | 'reports' | 'management' | 'series'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'master' | 'reports' | 'management' | 'series' | 'pupil_hub'>('home');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
   
   const [isAuthenticated, setIsAuthenticated] = useState(false); 
@@ -90,7 +93,7 @@ const App: React.FC = () => {
         setSettings(s); setStudents(st); setFacilitators(f);
         return { settings: s, students: st, facilitators: f };
       }
-    } catch (e) { console.error("Persistence Failure:", e); }
+    } catch (e) { console.error("Gate Handshake Failure:", e); }
     return null;
   }, []);
 
@@ -138,7 +141,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => { await supabase.auth.signOut(); window.location.reload(); };
 
-  if (isInitializing) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Shard Handshake...</p></div>;
+  if (isInitializing) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Shard Gate Syncing...</p></div>;
 
   if (!isAuthenticated && !isSuperAdmin) {
     return (
@@ -160,12 +163,10 @@ const App: React.FC = () => {
 
   if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
 
-  // PUPIL ISOLATION GATE: COMPLETELY DECOUPLED FROM ADMIN SHELL
   if (isPupil && activePupil) {
     return <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} onLogout={handleLogout} />;
   }
 
-  // ADMIN / FACILITATOR SHARD
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
       <div className="no-print bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-md flex justify-between items-center">
@@ -174,7 +175,7 @@ const App: React.FC = () => {
           <button onClick={() => setViewMode('master')} className={`px-4 py-2 rounded transition-all ${viewMode === 'master' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Sheets</button>
           <button onClick={() => setViewMode('reports')} className={`px-4 py-2 rounded transition-all ${viewMode === 'reports' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Reports</button>
           <button onClick={() => setViewMode('series')} className={`px-4 py-2 rounded transition-all ${viewMode === 'series' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Tracker</button>
-          <button onClick={() => setViewMode('management')} className={`px-4 py-2 rounded transition-all ${viewMode === 'management' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Hub</button>
+          <button onClick={() => setViewMode('management')} className={`px-4 py-2 rounded transition-all ${viewMode === 'management' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Mgmt</button>
         </div>
         <button onClick={handleLogout} className="bg-red-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase active:scale-95 transition-all">Logout</button>
       </div>
