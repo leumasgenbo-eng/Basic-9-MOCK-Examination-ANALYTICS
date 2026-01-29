@@ -77,45 +77,32 @@ const App: React.FC = () => {
   const [students, setStudents] = useState<StudentData[]>([]); 
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
-  // Dynamic Identity Synchronization
-  useEffect(() => {
-    if (settings.schoolName) {
-      document.title = `${settings.schoolName.toUpperCase()} | ${isPupil ? 'Candidate Node' : 'Institutional Hub'}`;
-    }
-  }, [settings.schoolName, isPupil]);
-
   const loadSchoolSession = useCallback(async (hubId: string) => {
     if (!hubId) return null;
     try {
       const { data } = await supabase.from('uba_persistence').select('id, payload').eq('hub_id', hubId);
       if (data && data.length > 0) {
-        let loadedSettings = settings;
-        let loadedStudents = students;
-        let loadedFacilitators = facilitators;
+        let s = { ...DEFAULT_SETTINGS };
+        let st: StudentData[] = [];
+        let f: Record<string, StaffAssignment> = {};
 
         data.forEach(row => {
-          if (row.id === `${hubId}_settings`) {
-             setSettings(row.payload);
-             loadedSettings = row.payload;
-          }
-          if (row.id === `${hubId}_students`) {
-             setStudents(row.payload);
-             loadedStudents = row.payload;
-          }
-          if (row.id === `${hubId}_facilitators`) {
-             setFacilitators(row.payload || {});
-             loadedFacilitators = row.payload || {};
-          }
+          if (row.id === `${hubId}_settings`) s = row.payload;
+          if (row.id === `${hubId}_students`) st = row.payload;
+          if (row.id === `${hubId}_facilitators`) f = row.payload;
         });
-        return { settings: loadedSettings, students: loadedStudents, facilitators: loadedFacilitators };
+
+        setSettings(s);
+        setStudents(st);
+        setFacilitators(f);
+        return { settings: s, students: st, facilitators: f };
       }
     } catch (e) {
       console.error("Load failed:", e);
     }
     return null;
-  }, [settings, students, facilitators]);
+  }, []);
 
-  // Unified Pupil Node Resolution
   const resolvePupilPortal = useCallback((studentId: number, studentList: StudentData[], currentSettings: GlobalSettings) => {
     const statsObj = calculateClassStatistics(studentList, currentSettings);
     const processed = processStudentData(statsObj, studentList, {}, currentSettings);
@@ -129,6 +116,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
@@ -158,7 +146,7 @@ const App: React.FC = () => {
       setIsInitializing(false);
     };
     checkSession();
-  }, []); 
+  }, [loadSchoolSession, resolvePupilPortal]);
 
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
@@ -178,14 +166,12 @@ const App: React.FC = () => {
     const ts = new Date().toISOString();
     const { data: { user } } = await supabase.auth.getUser();
     
-    const { error } = await supabase.from('uba_persistence').upsert([
+    await supabase.from('uba_persistence').upsert([
       { id: `${hubId}_settings`, hub_id: hubId, payload: settings, last_updated: ts, user_id: user?.id },
       { id: `${hubId}_students`, hub_id: hubId, payload: students, last_updated: ts, user_id: user?.id },
       { id: `${hubId}_facilitators`, hub_id: hubId, payload: facilitators, last_updated: ts, user_id: user?.id },
       { id: `registry_${hubId}`, hub_id: hubId, payload: [{ ...settings, studentCount: students.length, avgAggregate: classAvgAggregate, status: 'active', lastActivity: ts }], last_updated: ts, user_id: user?.id }
-    ], { onConflict: 'id' });
-
-    if (error) alert("Cloud Sync Failure.");
+    ]);
   }, [settings, students, facilitators, classAvgAggregate, isAuthenticated]);
 
   const handleLogout = async () => {
@@ -196,11 +182,10 @@ const App: React.FC = () => {
   if (isInitializing) return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest animate-pulse">Syncing Hub Shards...</p>
+      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Shard Sync...</p>
     </div>
   );
 
-  // 1. UNAUTHENTICATED ENTRANCE
   if (!isAuthenticated && !isSuperAdmin) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -238,28 +223,14 @@ const App: React.FC = () => {
     );
   }
 
-  // 2. SUPER ADMIN HUB
   if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
 
-  // 3. ISOLATED PUPIL DASHBOARD (Strictly no Managerial Headers)
+  // PUPIL VIEW: NO MANAGER HEADER
   if (isPupil && activePupil) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center no-print">
-           <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-900 text-white rounded-lg flex items-center justify-center font-black text-xs">UBA</div>
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Candidate Performance Node</span>
-           </div>
-           <button onClick={handleLogout} className="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-red-600 hover:text-white transition-all">Logout</button>
-        </div>
-        <div className="flex-1 overflow-auto p-4 md:p-8">
-           <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} />
-        </div>
-      </div>
-    );
+    return <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} onLogout={handleLogout} />;
   }
 
-  // 4. FACILITATOR & ADMIN INTERFACE (Includes instructional & restricted mgmt tools)
+  // STAFF/ADMIN VIEW: WITH MANAGER HEADER
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
       <div className="no-print bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-md flex flex-wrap justify-between items-center gap-4">
