@@ -11,8 +11,6 @@ interface EnrolmentForwardingPortalProps {
   activeFacilitator?: { name: string; subject: string } | null;
 }
 
-const LANGUAGES = ['Asante Twi', 'Akuapem Twi', 'Fante', 'Ga', 'Ewe', 'Dangme', 'Nzema', 'Dagbani'];
-
 const EnrolmentForwardingPortal: React.FC<EnrolmentForwardingPortalProps> = ({ settings, students, facilitators, isFacilitator, activeFacilitator }) => {
   const [feedback, setFeedback] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -52,7 +50,7 @@ const EnrolmentForwardingPortal: React.FC<EnrolmentForwardingPortalProps> = ({ s
 
       payload.feedback = feedback;
       payload.submissionTimestamp = new Date().toISOString();
-      payload.schoolName = settings.schoolName; // Ensure name is current
+      payload.schoolName = settings.schoolName;
 
       const { error } = await supabase.from('uba_persistence').upsert({
         id: `forward_${settings.schoolNumber}`,
@@ -134,7 +132,7 @@ const EnrolmentForwardingPortal: React.FC<EnrolmentForwardingPortalProps> = ({ s
         </section>
       )}
 
-      {/* 2. Pupil Enrolment & Financial Checklist - Admin Only */}
+      {/* 2. Pupil Enrolment Ledger - Admin Only */}
       {!isFacilitator && (
         <section className="bg-white rounded-[3rem] shadow-2xl border border-gray-100 overflow-hidden">
           <div className="bg-blue-900 px-10 py-8 flex flex-col md:flex-row justify-between items-center gap-6">
@@ -148,7 +146,9 @@ const EnrolmentForwardingPortal: React.FC<EnrolmentForwardingPortalProps> = ({ s
                 </div>
              </div>
           </div>
-          {/* ... Rest of Pupil table - omitting for brevity as it's admin only ... */}
+          <div className="p-10 text-center opacity-40">
+             <p className="font-black uppercase text-[10px] tracking-[0.5em]">Enrollment Financial particulars restricted to master terminal</p>
+          </div>
         </section>
       )}
 
@@ -157,7 +157,7 @@ const EnrolmentForwardingPortal: React.FC<EnrolmentForwardingPortalProps> = ({ s
          <div className="bg-slate-900 px-10 py-8 flex justify-between items-center">
             <div className="space-y-1">
                <h3 className="text-2xl font-black text-white uppercase tracking-tight">
-                 {isFacilitator ? 'My Payroll Verification' : 'Facilitator Payroll Verification'}
+                 {isFacilitator ? 'My Payroll Verification' : 'Facilitator Payroll Ledger'}
                </h3>
                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                  {isFacilitator ? 'Individual revenue disbursement confirmation node' : 'Enrolment revenue disbursement confirmation'}
@@ -187,47 +187,33 @@ const EnrolmentForwardingPortal: React.FC<EnrolmentForwardingPortalProps> = ({ s
                   const p = forwardingData?.facilitatorPayments[f.enrolledId] || { paid: false, particulars: { amount: 0, paidBy: '', sentBy: '', transactionId: '', date: '', isBulk: false, isVerified: false } };
                   return (
                      <div key={f.enrolledId} className="flex items-center gap-6 p-8 bg-white border border-gray-100 rounded-[2.5rem] shadow-sm hover:shadow-lg transition-all group">
-                        <input 
-                           type="checkbox" 
-                           checked={p.paid} 
-                           onChange={e=>updateStaffPayment(f.enrolledId, 'paid', e.target.checked)} 
-                           className="w-8 h-8 rounded-xl text-slate-900 focus:ring-slate-500" 
-                           disabled={isFacilitator}
-                        />
+                        {!isFacilitator && (
+                          <input 
+                             type="checkbox" 
+                             checked={p.paid} 
+                             onChange={e=>updateStaffPayment(f.enrolledId, 'paid', e.target.checked)} 
+                             className="w-8 h-8 rounded-xl text-slate-900 focus:ring-slate-500" 
+                          />
+                        )}
                         <div className="flex-1 space-y-1">
                            <p className="text-sm font-black uppercase text-slate-800">{f.name}</p>
                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{f.taughtSubject || f.role}</p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
                            <span className={`text-[10px] font-black uppercase px-4 py-1.5 rounded-full ${p.particulars.isVerified ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                              {p.particulars.isVerified ? 'APPROVED' : 'PENDING'}
+                              {p.particulars.isVerified ? 'VERIFIED' : 'AWAITING HQ'}
                            </span>
                            <div className="text-right">
                               <span className="text-[9px] font-black text-slate-300 uppercase block">TX REF</span>
-                              <span className="text-[10px] font-mono font-black text-blue-600">{p.particulars.transactionId || 'AWAITING_SYNC'}</span>
+                              <span className="text-[10px] font-mono font-black text-blue-600">{p.particulars.transactionId || 'NOT_SYNCED'}</span>
                            </div>
                         </div>
                      </div>
                   );
                })}
-               {visibleStaff.length === 0 && (
-                  <div className="py-20 text-center opacity-30 col-span-full">
-                     <p className="font-black uppercase text-[10px] tracking-widest">Unauthorized Access or Staff Record Not Synchronised</p>
-                  </div>
-               )}
             </div>
          </div>
       </section>
-
-      {!isFacilitator && (
-        <div className="flex justify-center pt-10 sticky bottom-4 z-40">
-           <button onClick={handleForwardToHQ} disabled={isSyncing} className="group relative bg-blue-900 hover:bg-black text-white px-24 py-8 rounded-[2.5rem] font-black text-sm uppercase tracking-[0.6em] shadow-[0_20px_50px_rgba(30,58,138,0.4)] transition-all active:scale-95 disabled:opacity-50">
-             <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-[2.5rem]"></div>
-             {isSyncing ? 'Encrypting Matrix...' : 'PUSH COMPREHENSIVE FORWARDING DATA'}
-           </button>
-        </div>
-      )}
-
     </div>
   );
 };
