@@ -1,5 +1,6 @@
 
-import { SUBJECT_LIST, CORE_SUBJECTS, PREDEFINED_CONDUCT_REMARKS, RAW_STUDENTS, FACILITATORS } from './constants';
+// Fix: Removed FACILITATORS from import as it does not exist in constants.ts and is not used here.
+import { SUBJECT_LIST, CORE_SUBJECTS, PREDEFINED_CONDUCT_REMARKS, RAW_STUDENTS } from './constants';
 import { ClassStatistics, ProcessedStudent, ComputedSubject, StudentData, GradingThresholds, GlobalSettings, MockScoreSet, MockResource, QuestionIndicatorMapping, MockSeriesRecord, MockSnapshotMetadata, SchoolRegistryEntry, InstitutionalPerformance } from './types';
 
 export const calculateMean = (values: number[]): number => {

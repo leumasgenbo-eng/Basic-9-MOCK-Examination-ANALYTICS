@@ -74,7 +74,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
           </div>
         </div>
 
-        {/* Dynamic Series Assessment Stripe */}
+        {/* Dynamic Assessment Stripe */}
         <div className="mt-8 bg-blue-50/50 py-8 border-y-2 border-blue-900/10 relative overflow-hidden group">
           <h2 className="text-3xl font-black text-blue-900 uppercase tracking-tight relative">
             {readOnly ? <span>{reportTitle}</span> : <EditableField value={reportTitle} onChange={(v) => onSettingChange('examTitle', v.toUpperCase())} className="text-center w-full border-none" />}
@@ -82,7 +82,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
           {subtitle && <p className="text-[11px] font-black text-blue-950/40 tracking-[0.6em] uppercase mt-2">{subtitle}</p>}
         </div>
 
-        {/* Shard Metadata Node */}
+        {/* Temporal Metadata */}
         <div className="flex justify-center items-center gap-16 text-[13px] font-black text-gray-800 uppercase tracking-[0.3em] mt-6">
            <div className="flex flex-col items-center"><span className="text-[8px] text-blue-400 mb-1">TERM NODE</span><span className="bg-blue-900 text-white px-5 py-1.5 rounded-xl shadow-lg">{settings.termInfo}</span></div>
            <div className="flex flex-col items-center"><span className="text-[8px] text-blue-400 mb-1">SERIES ID</span><span className="text-blue-600 underline decoration-double underline-offset-4">{settings.activeMock}</span></div>

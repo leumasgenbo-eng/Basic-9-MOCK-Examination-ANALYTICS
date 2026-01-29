@@ -4,17 +4,23 @@ import { calculateClassStatistics, processStudentData } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
 import { supabase } from './supabaseClient';
 
-// Shared Components
+// Shared
 import ReportBrandingHeader from './components/shared/ReportBrandingHeader';
 
-// Portal Layers
+// Auth Gates
 import LoginPortal from './components/auth/LoginPortal';
 import SchoolRegistrationPortal from './components/auth/SchoolRegistrationPortal';
+
+// Management Sub-Portals
 import ManagementDesk from './components/management/ManagementDesk';
 import HomeDashboard from './components/management/HomeDashboard';
+
+// Reporting Engines
 import MasterSheet from './components/reports/MasterSheet';
 import ReportCard from './components/reports/ReportCard';
 import SeriesBroadSheet from './components/reports/SeriesBroadSheet';
+
+// HQ & Network
 import SuperAdminPortal from './components/hq/SuperAdminPortal';
 import PupilDashboard from './components/pupil/PupilDashboard';
 
@@ -118,7 +124,7 @@ const App: React.FC = () => {
         setIsAuthenticated(true);
         if (role === 'facilitator') {
           setIsFacilitator(true);
-          setActiveFacilitator({ name: metadata.name || "STAFF", subject: metadata.subject || "GENERAL" });
+          setActiveFacilitator({ name: metadata.name || "FACULTY", subject: metadata.subject || "GENERAL" });
         } else if (role === 'pupil' && result) {
           resolvePupilPortal(metadata.studentId, result.students, result.settings);
         } else if (session.user.email === 'leumasgenbo4@gmail.com') {
@@ -133,7 +139,10 @@ const App: React.FC = () => {
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
     const staffNames: Record<string, string> = {};
-    Object.keys(facilitators || {}).forEach(k => { if (facilitators[k].name && facilitators[k].taughtSubject) staffNames[facilitators[k].taughtSubject!] = facilitators[k].name; });
+    Object.keys(facilitators || {}).forEach(k => { 
+        if (facilitators[k].name && facilitators[k].taughtSubject) 
+            staffNames[facilitators[k].taughtSubject!] = facilitators[k].name; 
+    });
     const processed = processStudentData(s, students, staffNames, settings);
     const avgAgg = processed.reduce((sum, st) => sum + (st.bestSixAggregate || 0), 0) / (processed.length || 1);
     return { stats: s, processedStudents: processed, classAvgAggregate: avgAgg };
@@ -147,13 +156,32 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         {isRegistering ? (
-          <SchoolRegistrationPortal settings={settings} onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} onSave={()=>{}} onComplete={() => setIsAuthenticated(true)} onResetStudents={() => setStudents([])} onSwitchToLogin={() => setIsRegistering(false)} />
+          <SchoolRegistrationPortal 
+            settings={settings} 
+            onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} 
+            onSave={()=>{}} 
+            onComplete={() => setIsAuthenticated(true)} 
+            onResetStudents={() => setStudents([])} 
+            onSwitchToLogin={() => setIsRegistering(false)} 
+          />
         ) : (
           <LoginPortal 
             onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
             onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('home'); }); }} 
-            onPupilLogin={(id, hId) => { loadSchoolSession(hId).then((result) => { setIsAuthenticated(true); if (result) resolvePupilPortal(id, result.students, result.settings); }); }} 
+            onFacilitatorLogin={(n, s, id) => { 
+                loadSchoolSession(id).then(() => { 
+                    setIsFacilitator(true); 
+                    setActiveFacilitator({ name: n, subject: s }); 
+                    setIsAuthenticated(true); 
+                    setViewMode('home'); 
+                }); 
+            }} 
+            onPupilLogin={(id, hId) => { 
+                loadSchoolSession(hId).then((result) => { 
+                    setIsAuthenticated(true); 
+                    if (result) resolvePupilPortal(id, result.students, result.settings); 
+                }); 
+            }} 
             onSwitchToRegister={() => setIsRegistering(true)} 
           />
         )}
