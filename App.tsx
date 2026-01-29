@@ -27,13 +27,13 @@ import PupilDashboard from './components/pupil/PupilDashboard';
 import { SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGORY_THRESHOLDS } from './constants';
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-  schoolName: "SS-map ACADEMY",
+  schoolName: "UNITED BAYLOR ACADEMY",
   schoolMotto: "EXCELLENCE IN KNOWLEDGE AND CHARACTER",
-  schoolWebsite: "www.ssmap.app",
+  schoolWebsite: "www.uba-academy.app",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
   schoolNumber: "", 
   schoolLogo: "", 
-  examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
+  examTitle: "OFFICIAL MOCK ASSESSMENT SERIES",
   termInfo: "TERM 2",
   academicYear: "2024/2025",
   nextTermBegin: "2025-05-12",
@@ -43,15 +43,15 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   headTeacherName: "DIRECTOR NAME",
   reportDate: new Date().toLocaleDateString(),
   schoolContact: "+233 24 350 4091",
-  schoolEmail: "info@ssmap.app",
+  schoolEmail: "info@uba-academy.app",
   gradingThresholds: DEFAULT_THRESHOLDS,
   categoryThresholds: DEFAULT_CATEGORY_THRESHOLDS,
   normalizationConfig: DEFAULT_NORMALIZATION,
   sbaConfig: { enabled: true, isLocked: false, sbaWeight: 30, examWeight: 70 },
   isConductLocked: false,
   securityPin: "0000",
-  scoreEntryMetadata: { mockSeries: "MOCK 2", entryDate: new Date().toISOString().split('T')[0] },
-  committedMocks: ["MOCK 1", "MOCK 2"],
+  scoreEntryMetadata: { mockSeries: "MOCK 1", entryDate: new Date().toISOString().split('T')[0] },
+  committedMocks: ["MOCK 1"],
   activeMock: "MOCK 1",
   resourcePortal: {},
   maxSectionA: 40,
@@ -114,7 +114,6 @@ const App: React.FC = () => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Pull Registry for SuperAdmin visibility
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
@@ -201,7 +200,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
+  if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={(id) => { loadSchoolSession(id).then(() => { setIsSuperAdmin(false); setIsAuthenticated(true); }); }} />;
 
   if (isPupil && activePupil) {
     return <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} onLogout={handleLogout} />;
