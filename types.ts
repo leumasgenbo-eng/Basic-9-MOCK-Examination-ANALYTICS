@@ -104,6 +104,7 @@ export interface StudentData {
   gender: string;
   parentName?: string;
   parentContact: string;
+  parentEmail?: string; 
   attendance: number;
   conductRemark?: string;
   scores: Record<string, number>;
@@ -283,7 +284,6 @@ export interface QuestionIndicatorMapping {
   weight: number;
 }
 
-/* Added PaymentParticulars to fix module export error in EnrolmentForwardingPortal */
 export interface PaymentParticulars {
   amount: number;
   paidBy: string;
@@ -311,7 +311,6 @@ export interface ForwardingData {
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
-/* Added SerializedPupil to fix module export error in SerializationHubView */
 export interface SerializedPupil {
   id: number;
   name: string;
@@ -332,7 +331,6 @@ export interface SerializationData {
 
 export type BloomsScale = 'Knowledge' | 'Understanding' | 'Application' | 'Analysis' | 'Synthesis' | 'Evaluation';
 
-/* Added QuestionSubPart to fix module export error in QuestionSerializationPortal */
 export interface QuestionSubPart {
   partLabel: string;
   text: string;
