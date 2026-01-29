@@ -85,10 +85,13 @@ const App: React.FC = () => {
   const [students, setStudents] = useState<StudentData[]>([]); 
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
-  const loadSchoolSession = useCallback(async (hubId: string) => {
+  /**
+   * CORE CLOUD HYDRATION: Uploads latest JSON shards from Supabase into application state.
+   */
+  const syncCloudShards = useCallback(async (hubId: string) => {
     if (!hubId) return null;
     try {
-      // ATOMIC SYNC: Fetch all up-to-date shards from the cloud for this institution
+      console.log(`[SMA SYNC] Pulling shards for Institutional Node: ${hubId}`);
       const { data, error } = await supabase
         .from('uba_persistence')
         .select('id, payload')
@@ -111,10 +114,11 @@ const App: React.FC = () => {
         setStudents(cloudStudents);
         setFacilitators(cloudFacilitators);
         
+        console.log(`[SMA SYNC] Successfully loaded ${cloudStudents.length} pupil records.`);
         return { settings: cloudSettings, students: cloudStudents, facilitators: cloudFacilitators };
       }
     } catch (e) {
-      console.error("Cloud Handshake Failure:", e);
+      console.error("[SMA SYNC] Shard Hydration Failure:", e);
     }
     return null;
   }, []);
@@ -130,9 +134,10 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const checkSession = async () => {
+    const initializeSystem = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
+      // Pull Global Registry for Pupil Matrix
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
@@ -141,8 +146,8 @@ const App: React.FC = () => {
         const hubId = metadata.hubId;
         const role = metadata.role;
         
-        // AUTO-SYNC: Hydrate browser on existing session
-        const result = await loadSchoolSession(hubId);
+        // HYDRATE BROWSER FROM CLOUD JSON
+        const result = await syncCloudShards(hubId);
         
         if (session.user.email === 'leumasgenbo4@gmail.com') {
           setIsSuperAdmin(true);
@@ -158,8 +163,8 @@ const App: React.FC = () => {
       }
       setIsInitializing(false);
     };
-    checkSession();
-  }, [loadSchoolSession, resolvePupilPortal]);
+    initializeSystem();
+  }, [syncCloudShards, resolvePupilPortal]);
 
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
@@ -192,7 +197,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Synchronizing Cloud Shards...</p>
+        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Hydrating Institutional Shards...</p>
       </div>
     );
   }
@@ -212,19 +217,19 @@ const App: React.FC = () => {
         ) : (
           <LoginPortal 
             onLoginSuccess={async (id) => { 
-                await loadSchoolSession(id);
+                await syncCloudShards(id);
                 setIsAuthenticated(true); 
             }} 
             onSuperAdminLogin={() => setIsSuperAdmin(true)} 
             onFacilitatorLogin={async (n, s, id) => { 
-                await loadSchoolSession(id);
+                await syncCloudShards(id);
                 setIsFacilitator(true); 
                 setActiveFacilitator({ name: n, subject: s }); 
                 setIsAuthenticated(true); 
                 setViewMode('home'); 
             }} 
             onPupilLogin={async (id, hId) => { 
-                const result = await loadSchoolSession(hId);
+                const result = await syncCloudShards(hId);
                 setIsAuthenticated(true); 
                 if (result) resolvePupilPortal(id, result.students, result.settings); 
             }} 
@@ -235,7 +240,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={async (id) => { await loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
+  if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={async (id) => { await syncCloudShards(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
 
   if (isPupil && activePupil) {
     return <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} onLogout={handleLogout} />;
