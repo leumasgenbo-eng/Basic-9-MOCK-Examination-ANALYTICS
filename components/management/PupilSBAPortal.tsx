@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { StudentData, GlobalSettings, MockScoreSet } from '../../types';
+import { StudentData, GlobalSettings } from '../../types';
 import { supabase } from '../../supabaseClient';
 
 interface PupilSBAPortalProps {
@@ -35,15 +35,27 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
       const targetEmail = formData.email.toLowerCase().trim();
       const targetName = formData.name.toUpperCase().trim();
       const studentId = editingId || (students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 101);
+      const hubId = settings.schoolNumber;
 
-      // TRIGGER CREDENTIAL DISPATCH with trigger-aligned keys
+      // 1. DIRECT IDENTITY UPSERT: Ensure the recall shard is updated immediately
+      const { error: idError } = await supabase.from('uba_identities').upsert({
+        email: targetEmail,
+        full_name: targetName,
+        node_id: studentId.toString(),
+        hub_id: hubId,
+        role: 'pupil'
+      });
+
+      if (idError) throw new Error("Recall Shard Failure: " + idError.message);
+
+      // 2. AUTH HANDSHAKE (OTP DISPATCH)
       if (!editingId) {
         const { error: otpError } = await supabase.auth.signInWithOtp({
           email: targetEmail,
           options: {
             data: { 
               role: 'pupil', 
-              hubId: settings.schoolNumber, 
+              hubId: hubId, 
               nodeId: studentId.toString(),
               full_name: targetName, 
               studentId: studentId 
@@ -52,11 +64,6 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
           }
         });
         if (otpError) throw otpError;
-      } else {
-        // If editing, force a metadata refresh in auth.users to trigger SQL update
-        await supabase.auth.admin.updateUserById(editingId.toString(), {
-           user_metadata: { full_name: targetName }
-        }).catch(() => {}); // Admin operations might fail on client, ignore
       }
 
       const updatedStudent: StudentData = {
@@ -72,17 +79,17 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
       
       if (editingId) {
         setStudents(prev => prev.map(s => s.id === editingId ? { ...s, ...updatedStudent, mockData: s.mockData } : s));
-        alert("PUPIL RECORD REFRESHED: Metadata synced to cloud.");
+        alert("PUPIL RECORD REFRESHED: Identity shard synchronized.");
       } else {
         setStudents(prev => [...prev, updatedStudent]);
-        alert(`PUPIL ENROLLED: ID ${studentId} synchronized. PIN dispatched to ${targetEmail}.`);
+        alert(`PUPIL ENROLLED: ID ${studentId} forged in global registry. PIN dispatched to ${targetEmail}.`);
       }
 
       setFormData({ name: '', email: '', gender: 'M', guardianName: '', parentContact: '', parentEmail: '' });
       setEditingId(null);
       setTimeout(onSave, 100);
     } catch (err: any) {
-      alert("Enrollment Error: " + err.message);
+      alert("Enrollment Fault: " + err.message);
     } finally {
       setIsEnrolling(false);
     }
@@ -92,18 +99,18 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
     if (!window.confirm(`FORWARD CREDENTIALS: Resend Login PIN to ${student.email}?`)) return;
     try {
       await supabase.auth.signInWithOtp({ email: student.email });
-      alert(`CREDENTIALS FORWARDED to ${student.name}.`);
-    } catch (e) { alert("Forwarding Failed."); }
+      alert(`CREDENTIAL PACK DISPATCHED to ${student.name}.`);
+    } catch (e) { alert("Dispatch Failed."); }
   };
 
   const handleDeletePupil = async (id: number, name: string) => {
-    if (!window.confirm(`CRITICAL: Permanent deletion of ${name}? Identity shard will be decommissioned.`)) return;
+    if (!window.confirm(`CRITICAL: Decommission ${name}? Identity shard will be erased from recall hub.`)) return;
     try {
       const student = students.find(s => s.id === id);
       if (student) await supabase.from('uba_identities').delete().eq('email', student.email);
       setStudents(prev => prev.filter(s => s.id !== id));
       setTimeout(onSave, 100);
-    } catch (err) { alert("Deletion Fault."); }
+    } catch (err) { alert("Decommissioning Fault."); }
   };
 
   const handleEditClick = (s: StudentData) => {
@@ -126,8 +133,8 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
       <section className="bg-white p-10 rounded-[3.5rem] border border-gray-100 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/5 rounded-full -mr-40 -mt-40 blur-[120px]"></div>
         <div className="relative mb-10 space-y-2">
-           <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">{editingId ? `Modify Pupil: ${editingId}` : 'Pupil Enrollment Desk'}</h3>
-           <p className="text-[10px] font-bold text-blue-500 uppercase tracking-[0.4em]">Automated Sync Trigger Protocol Active</p>
+           <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">{editingId ? `Modify Shard: ${editingId}` : 'Pupil Enrollment Desk'}</h3>
+           <p className="text-[10px] font-bold text-blue-500 uppercase tracking-[0.4em]">Multi-Tenant Identity Sync Protocol Active</p>
         </div>
         
         <form onSubmit={handleAddOrUpdateStudent} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
@@ -140,7 +147,7 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
 
           <div className="md:col-span-2 lg:col-span-3 pt-4">
              <button type="submit" disabled={isEnrolling} className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl active:scale-95 transition-all">
-                {isEnrolling ? "FORGING IDENTITY..." : editingId ? "Update Shard" : "Enroll Candidate"}
+                {isEnrolling ? "FORGING IDENTITY SHARD..." : editingId ? "Refactor Shard" : "Execute Enrollment"}
              </button>
           </div>
         </form>
@@ -162,10 +169,10 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
                     </div>
 
                     <div className="flex flex-wrap justify-end gap-3">
-                       <button onClick={() => { setShowCredsId(isCredsOpen ? null : s.id); setSbaEntryId(null); }} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all ${isCredsOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>View Identity</button>
+                       <button onClick={() => { setShowCredsId(isCredsOpen ? null : s.id); setSbaEntryId(null); }} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all ${isCredsOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>Recall Keys</button>
                        <button onClick={() => { setSbaEntryId(isSbaOpen ? null : s.id); setShowCredsId(null); }} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all ${isSbaOpen ? 'bg-indigo-900 text-white' : 'bg-indigo-50 text-indigo-700'}`}>SBA Ledger</button>
                        <button onClick={() => handleForwardCredentials(s)} className="bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all">Resend PIN</button>
-                       <button onClick={() => handleEditClick(s)} className="bg-gray-50 text-slate-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border border-gray-200">Edit</button>
+                       <button onClick={() => handleEditClick(s)} className="bg-gray-50 text-slate-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border border-gray-200">Modify</button>
                        <button onClick={() => handleDeletePupil(s.id, s.name)} className="bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all">Purge</button>
                     </div>
                  </div>
@@ -174,20 +181,20 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
                    <div className="bg-slate-50 p-8 border-t border-gray-100 animate-in slide-in-from-top-4 duration-300">
                       <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="space-y-1">
-                           <h5 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Sync Particulars</h5>
-                           <p className="text-xs font-bold text-slate-400 uppercase">Recall Keys for {s.name}</p>
+                           <h5 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Recall Particulars</h5>
+                           <p className="text-xs font-bold text-slate-400 uppercase">Verification Keys for {s.name}</p>
                         </div>
                         <div className="bg-white border border-gray-200 p-6 rounded-[2rem] shadow-sm flex flex-wrap gap-10">
                            <div className="space-y-1">
-                              <span className="text-[8px] font-black text-slate-400 uppercase">Recall Name</span>
+                              <span className="text-[8px] font-black text-slate-400 uppercase">Handshake Name</span>
                               <p className="text-sm font-black text-slate-800 uppercase">{s.name}</p>
                            </div>
                            <div className="space-y-1">
-                              <span className="text-[8px] font-black text-slate-400 uppercase">Recall ID</span>
+                              <span className="text-[8px] font-black text-slate-400 uppercase">Recall ID (Node)</span>
                               <p className="text-sm font-black text-blue-600 font-mono">{s.id}</p>
                            </div>
                            <div className="space-y-1">
-                              <span className="text-[8px] font-black text-slate-400 uppercase">Recall Email</span>
+                              <span className="text-[8px] font-black text-slate-400 uppercase">Registered Email</span>
                               <p className="text-sm font-black text-slate-800 lowercase font-mono">{s.email}</p>
                            </div>
                         </div>

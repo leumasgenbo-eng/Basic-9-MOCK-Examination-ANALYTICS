@@ -27,7 +27,18 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
       const targetEmail = newStaff.email.toLowerCase().trim();
       const targetName = newStaff.name.toUpperCase().trim();
 
-      // DISPATCH Login Pack with standard trigger keys
+      // 1. DIRECT IDENTITY UPSERT: Mirror to public shard immediately
+      const { error: idError } = await supabase.from('uba_identities').upsert({
+        email: targetEmail,
+        full_name: targetName,
+        node_id: enrolledId,
+        hub_id: hubId,
+        role: 'facilitator'
+      });
+
+      if (idError) throw new Error("Recall Shard Failure: " + idError.message);
+
+      // 2. DISPATCH Login Pack
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: targetEmail,
         options: {
@@ -56,9 +67,9 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
 
       setFacilitators(prev => ({ ...prev, [enrolledId]: staff }));
       setNewStaff({ name: '', email: '', role: 'FACILITATOR', subject: '' });
-      alert(`FACILITATOR ADDED: Identity mirrored via SQL Trigger. Verification PIN sent to ${targetEmail}.`);
+      alert(`FACULTY ENROLLED: Identity forged in global registry. Verification PIN sent to ${targetEmail}.`);
     } catch (err: any) {
-      alert("Faculty Error: " + err.message);
+      alert("Faculty Fault: " + err.message);
     } finally {
       setIsEnrolling(false);
     }
@@ -68,7 +79,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
      if (!window.confirm(`FORWARD CREDENTIALS: Resend Login PIN to ${email}?`)) return;
      try {
        await supabase.auth.signInWithOtp({ email });
-       alert("Handshake packet resent.");
+       alert("Credential packet dispatched.");
      } catch (e) { alert("Dispatch failed."); }
   };
 
@@ -76,19 +87,19 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
     <div className="space-y-12 animate-in fade-in duration-700 pb-20 font-sans">
       <section className="bg-slate-950 text-white p-10 rounded-[3.5rem] border border-white/5 shadow-2xl relative overflow-hidden">
          <div className="relative space-y-2">
-            <h2 className="text-3xl font-black uppercase tracking-tighter">Faculty Shard Ingestion</h2>
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Registering authorized educators in global storage</p>
+            <h2 className="text-3xl font-black uppercase tracking-tighter">Faculty Registry Desk</h2>
+            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Forging authorized educators in network shards</p>
          </div>
 
          {!isFacilitator && (
            <form onSubmit={handleAddStaff} className="mt-10 grid grid-cols-1 md:grid-cols-4 gap-4">
-              <input type="text" value={newStaff.name} onChange={e=>setNewStaff({...newStaff, name: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none" placeholder="FULL LEGAL NAME..." required />
-              <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black outline-none" placeholder="EMAIL ADDRESS..." required />
+              <input type="text" value={newStaff.name} onChange={e=>setNewStaff({...newStaff, name: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="FULL LEGAL NAME..." required />
+              <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="EMAIL ADDRESS..." required />
               <select value={newStaff.subject} onChange={e=>setNewStaff({...newStaff, subject: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none">
                  <option value="" className="text-slate-900">SUBJECT SHARD...</option>
                  {subjects.map(s => <option key={s} value={s} className="text-slate-900">{s.toUpperCase()}</option>)}
               </select>
-              <button type="submit" disabled={isEnrolling} className="bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all">
+              <button type="submit" disabled={isEnrolling} className="bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all active:scale-95">
                  {isEnrolling ? "MIRRORING..." : "Enroll Educator"}
               </button>
            </form>
@@ -99,13 +110,13 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
         {Object.entries(facilitators || {}).map(([idKey, f]) => (
           <div key={idKey} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl flex justify-between items-center group">
              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-blue-900 text-white rounded-2xl flex items-center justify-center font-black text-xl">{f.name.charAt(0)}</div>
+                <div className="w-16 h-16 bg-blue-900 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-lg border-4 border-white">{f.name.charAt(0)}</div>
                 <div>
-                   <h4 className="text-lg font-black text-slate-900 uppercase">{f.name}</h4>
-                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{f.taughtSubject} — NODE ID: {f.enrolledId}</p>
+                   <h4 className="text-lg font-black text-slate-900 uppercase leading-none">{f.name}</h4>
+                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">{f.taughtSubject} — NODE ID: {f.enrolledId}</p>
                 </div>
              </div>
-             <button onClick={() => handleForwardCredentials(f.email)} className="bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 px-6 py-2 rounded-xl font-black text-[9px] uppercase transition-all">Forward Credentials</button>
+             <button onClick={() => handleForwardCredentials(f.email)} className="bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 px-6 py-2 rounded-xl font-black text-[9px] uppercase transition-all shadow-sm">Resend Keys</button>
           </div>
         ))}
       </div>
