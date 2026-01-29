@@ -97,9 +97,7 @@ const App: React.FC = () => {
         setFacilitators(f);
         return { settings: s, students: st, facilitators: f };
       }
-    } catch (e) {
-      console.error("Load failed:", e);
-    }
+    } catch (e) { console.error("Load failed:", e); }
     return null;
   }, []);
 
@@ -116,31 +114,22 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
       if (session) {
-        const userEmail = (session.user.email || "").toLowerCase();
-        if (userEmail === 'leumasgenbo4@gmail.com') {
-          setIsSuperAdmin(true);
-          setIsAuthenticated(true);
-          setIsInitializing(false);
-          return;
-        }
-
         const metadata = session.user.user_metadata || {};
         const hubId = metadata.hubId;
         const role = metadata.role;
-
         const result = await loadSchoolSession(hubId);
         setIsAuthenticated(true);
-        
         if (role === 'facilitator') {
           setIsFacilitator(true);
           setActiveFacilitator({ name: metadata.name || "STAFF", subject: metadata.subject || "GENERAL" });
         } else if (role === 'pupil' && result) {
           resolvePupilPortal(metadata.studentId, result.students, result.settings);
+        } else if (session.user.email === 'leumasgenbo4@gmail.com') {
+          setIsSuperAdmin(true);
         }
       }
       setIsInitializing(false);
@@ -151,10 +140,7 @@ const App: React.FC = () => {
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
     const staffNames: Record<string, string> = {};
-    Object.keys(facilitators || {}).forEach(k => { 
-      const fac = facilitators[k];
-      if (fac && fac.name && fac.taughtSubject) staffNames[fac.taughtSubject] = fac.name; 
-    });
+    Object.keys(facilitators || {}).forEach(k => { if (facilitators[k].name && facilitators[k].taughtSubject) staffNames[facilitators[k].taughtSubject!] = facilitators[k].name; });
     const processed = processStudentData(s, students, staffNames, settings);
     const avgAgg = processed.reduce((sum, st) => sum + (st.bestSixAggregate || 0), 0) / (processed.length || 1);
     return { stats: s, processedStudents: processed, classAvgAggregate: avgAgg };
@@ -164,60 +150,28 @@ const App: React.FC = () => {
     const hubId = settings.schoolNumber;
     if (!hubId || !isAuthenticated) return;
     const ts = new Date().toISOString();
-    const { data: { user } } = await supabase.auth.getUser();
-    
     await supabase.from('uba_persistence').upsert([
-      { id: `${hubId}_settings`, hub_id: hubId, payload: settings, last_updated: ts, user_id: user?.id },
-      { id: `${hubId}_students`, hub_id: hubId, payload: students, last_updated: ts, user_id: user?.id },
-      { id: `${hubId}_facilitators`, hub_id: hubId, payload: facilitators, last_updated: ts, user_id: user?.id },
-      { id: `registry_${hubId}`, hub_id: hubId, payload: [{ ...settings, studentCount: students.length, avgAggregate: classAvgAggregate, status: 'active', lastActivity: ts }], last_updated: ts, user_id: user?.id }
+      { id: `${hubId}_settings`, hub_id: hubId, payload: settings, last_updated: ts },
+      { id: `${hubId}_students`, hub_id: hubId, payload: students, last_updated: ts },
+      { id: `${hubId}_facilitators`, hub_id: hubId, payload: facilitators, last_updated: ts },
+      { id: `registry_${hubId}`, hub_id: hubId, payload: [{ ...settings, studentCount: students.length, status: 'active', lastActivity: ts }], last_updated: ts }
     ]);
-  }, [settings, students, facilitators, classAvgAggregate, isAuthenticated]);
+  }, [settings, students, facilitators, isAuthenticated]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.reload();
   };
 
-  if (isInitializing) return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
-      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Shard Sync...</p>
-    </div>
-  );
+  if (isInitializing) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4"><div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Shard Handshake...</p></div>;
 
   if (!isAuthenticated && !isSuperAdmin) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         {isRegistering ? (
-          <SchoolRegistrationPortal 
-            settings={settings} 
-            onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} 
-            onSave={handleSave} 
-            onComplete={() => setIsAuthenticated(true)} 
-            onResetStudents={() => setStudents([])} 
-            onSwitchToLogin={() => setIsRegistering(false)} 
-          />
+          <SchoolRegistrationPortal settings={settings} onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} onSave={handleSave} onComplete={() => setIsAuthenticated(true)} onResetStudents={() => setStudents([])} onSwitchToLogin={() => setIsRegistering(false)} />
         ) : (
-          <LoginPortal 
-            onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
-            onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={(n, s, id) => { 
-              loadSchoolSession(id).then(() => { 
-                setIsFacilitator(true); 
-                setActiveFacilitator({ name: n, subject: s }); 
-                setIsAuthenticated(true); 
-                setViewMode('home');
-              }); 
-            }} 
-            onPupilLogin={(id, hId) => { 
-              loadSchoolSession(hId).then((result) => { 
-                setIsAuthenticated(true);
-                if (result) resolvePupilPortal(id, result.students, result.settings);
-              }); 
-            }} 
-            onSwitchToRegister={() => setIsRegistering(true)} 
-          />
+          <LoginPortal onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} onSuperAdminLogin={() => setIsSuperAdmin(true)} onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('home'); }); }} onPupilLogin={(id, hId) => { loadSchoolSession(hId).then((result) => { setIsAuthenticated(true); if (result) resolvePupilPortal(id, result.students, result.settings); }); }} onSwitchToRegister={() => setIsRegistering(true)} />
         )}
       </div>
     );
@@ -225,39 +179,35 @@ const App: React.FC = () => {
 
   if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={(id) => { loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
 
-  // PUPIL VIEW: NO MANAGER HEADER
   if (isPupil && activePupil) {
     return <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} onLogout={handleLogout} />;
   }
 
-  // STAFF/ADMIN VIEW: WITH MANAGER HEADER
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
-      <div className="no-print bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-md flex flex-wrap justify-between items-center gap-4">
-        <div className="flex bg-blue-800 rounded p-1 gap-1 text-[10px] font-black uppercase overflow-x-auto no-scrollbar">
-          <button onClick={() => setViewMode('home')} className={`px-4 py-2 rounded transition-all ${viewMode === 'home' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Home</button>
-          <button onClick={() => setViewMode('master')} className={`px-4 py-2 rounded transition-all ${viewMode === 'master' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Sheets</button>
-          <button onClick={() => setViewMode('series')} className={`px-4 py-2 rounded transition-all ${viewMode === 'series' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Tracker</button>
-          <button onClick={() => setViewMode('reports')} className={`px-4 py-2 rounded transition-all ${viewMode === 'reports' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Reports</button>
-          <button onClick={() => setViewMode('management')} className={`px-4 py-2 rounded transition-all ${viewMode === 'management' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Mgmt Hub</button>
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      <div className="no-print bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-md flex justify-between items-center">
+        <div className="flex bg-blue-800 rounded p-1 gap-1 text-[10px] font-black uppercase">
+          <button onClick={() => setViewMode('home')} className={`px-4 py-2 rounded ${viewMode === 'home' ? 'bg-white text-blue-900' : 'hover:bg-blue-700'}`}>Home</button>
+          <button onClick={() => setViewMode('master')} className={`px-4 py-2 rounded ${viewMode === 'master' ? 'bg-white text-blue-900' : 'hover:bg-blue-700'}`}>Sheets</button>
+          <button onClick={() => setViewMode('reports')} className={`px-4 py-2 rounded ${viewMode === 'reports' ? 'bg-white text-blue-900' : 'hover:bg-blue-700'}`}>Reports</button>
+          <button onClick={() => setViewMode('management')} className={`px-4 py-2 rounded ${viewMode === 'management' ? 'bg-white text-blue-900' : 'hover:bg-blue-700'}`}>Hub</button>
         </div>
         <div className="flex gap-2">
-           <button onClick={handleSave} className="bg-yellow-500 text-blue-900 px-5 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Sync Hub</button>
-           <button onClick={handleLogout} className="bg-red-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Logout</button>
+           <button onClick={handleSave} className="bg-yellow-500 text-blue-900 px-5 py-2 rounded-xl font-black text-[10px] uppercase">Sync</button>
+           <button onClick={handleLogout} className="bg-red-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase">Logout</button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-4 md:p-8">
+      <div className="flex-1 p-4 md:p-8">
         {(() => {
           switch (viewMode) {
             case 'home': return <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />;
             case 'master': return <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />;
-            case 'series': return <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(ps => ({ id: ps.id, bestSixAggregate: ps.bestSixAggregate, rank: ps.rank, totalScore: ps.totalScore, category: ps.category }))} />;
             case 'reports': {
               const query = (reportSearchTerm || "").toLowerCase();
               return (
                 <div className="space-y-8">
-                  <input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-5 rounded-2xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none focus:border-blue-300 transition-all" />
-                  {processedStudents.filter(s => (s.name || "").toLowerCase().includes(query)).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onStudentUpdate={(id, r) => setStudents(prev => prev.map(stud => stud.id === id ? { ...stud, overallRemark: r } : stud))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />)}
+                  <input type="text" placeholder="Filter pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-5 rounded-2xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none" />
+                  {processedStudents.filter(s => (s.name || "").toLowerCase().includes(query)).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />)}
                 </div>
               );
             }
