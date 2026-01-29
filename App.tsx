@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   schoolWebsite: "www.unitedbaylor.edu",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
   schoolNumber: "", 
-  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
+  schoolLogo: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6AMXDA0YOT8bkgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmhuAAAAsklEQVR42u3XQQqAMAxE0X9P7n8pLhRBaS3idGbgvYVAKX0mSZI0SZIU47X2vPcZay1rrV+S6XUt9ba9621pLXWfP9PkiRJkiRpqgB7/X/f53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le53le578HAAB//6B+n9VvAAAAAElFTkSuQmCC", 
   examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
   termInfo: "TERM 2",
   academicYear: "2024/2025",
@@ -89,17 +89,42 @@ const App: React.FC = () => {
     try {
       const { data } = await supabase.from('uba_persistence').select('id, payload').eq('hub_id', hubId);
       if (data && data.length > 0) {
+        let loadedSettings = settings;
+        let loadedStudents = students;
+        let loadedFacilitators = facilitators;
+
         data.forEach(row => {
-          if (row.id === `${hubId}_settings`) setSettings(row.payload);
-          if (row.id === `${hubId}_students`) setStudents(row.payload);
-          if (row.id === `${hubId}_facilitators`) setFacilitators(row.payload || {});
+          if (row.id === `${hubId}_settings`) {
+             setSettings(row.payload);
+             loadedSettings = row.payload;
+          }
+          if (row.id === `${hubId}_students`) {
+             setStudents(row.payload);
+             loadedStudents = row.payload;
+          }
+          if (row.id === `${hubId}_facilitators`) {
+             setFacilitators(row.payload || {});
+             loadedFacilitators = row.payload || {};
+          }
         });
-        return true;
+        return { settings: loadedSettings, students: loadedStudents, facilitators: loadedFacilitators };
       }
     } catch (e) {
       console.error("Load failed:", e);
     }
     return null;
+  }, [settings, students, facilitators]);
+
+  // Unified Pupil Node Resolution
+  const resolvePupilPortal = useCallback((studentId: number, studentList: StudentData[], currentSettings: GlobalSettings) => {
+    const statsObj = calculateClassStatistics(studentList, currentSettings);
+    const processed = processStudentData(statsObj, studentList, {}, currentSettings);
+    const pupil = processed.find(p => p.id === studentId);
+    if (pupil) {
+      setActivePupil(pupil);
+      setIsPupil(true);
+      setViewMode('pupil_hub');
+    }
   }, []);
 
   useEffect(() => {
@@ -122,28 +147,21 @@ const App: React.FC = () => {
         const hubId = metadata.hubId;
         const role = metadata.role;
 
-        const sessionLoaded = await loadSchoolSession(hubId);
+        const result = await loadSchoolSession(hubId);
         setIsAuthenticated(true);
         
         if (role === 'facilitator') {
           setIsFacilitator(true);
           setActiveFacilitator({ name: metadata.name || "STAFF", subject: metadata.subject || "GENERAL" });
           setViewMode('management');
-        } else if (role === 'pupil' && sessionLoaded) {
-          const statsObj = calculateClassStatistics(students, settings);
-          const processed = processStudentData(statsObj, students, {}, settings);
-          const pupil = processed.find(p => (p.id === metadata.studentId));
-          if (pupil) {
-            setActivePupil(pupil);
-            setIsPupil(true);
-            setViewMode('pupil_hub');
-          }
+        } else if (role === 'pupil' && result) {
+          resolvePupilPortal(metadata.studentId, result.students, result.settings);
         }
       }
       setIsInitializing(false);
     };
     checkSession();
-  }, [loadSchoolSession, students, settings]);
+  }, []); // Run only on mount
 
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
@@ -204,8 +222,20 @@ const App: React.FC = () => {
           <LoginPortal 
             onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
             onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={(n, s, id) => { loadSchoolSession(id).then(() => { setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); }); }} 
-            onPupilLogin={(id, hId) => { loadSchoolSession(hId).then(() => { setIsAuthenticated(true); }); }} 
+            onFacilitatorLogin={(n, s, id) => { 
+              loadSchoolSession(id).then(() => { 
+                setIsFacilitator(true); 
+                setActiveFacilitator({ name: n, subject: s }); 
+                setIsAuthenticated(true); 
+                setViewMode('management');
+              }); 
+            }} 
+            onPupilLogin={(id, hId) => { 
+              loadSchoolSession(hId).then((result) => { 
+                setIsAuthenticated(true);
+                if (result) resolvePupilPortal(id, result.students, result.settings);
+              }); 
+            }} 
             onSwitchToRegister={() => setIsRegistering(true)} 
           />
         )}
@@ -242,7 +272,7 @@ const App: React.FC = () => {
             case 'home': return <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />;
             case 'master': return <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />;
             case 'series': return <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(ps => ({ id: ps.id, bestSixAggregate: ps.bestSixAggregate, rank: ps.rank, totalScore: ps.totalScore, category: ps.category }))} />;
-            case 'cleanup': return <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={handleSave} subjects={SUBJECT_LIST} />;
+            case 'cleanup': return <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={handleSave} subjects={SUBJECT_LIST} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />;
             case 'reports': {
               const query = (reportSearchTerm || "").toLowerCase();
               return (
