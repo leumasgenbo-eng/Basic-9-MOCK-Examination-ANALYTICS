@@ -77,6 +77,13 @@ const App: React.FC = () => {
   const [students, setStudents] = useState<StudentData[]>([]); 
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
+  // Dynamic Identity Synchronization
+  useEffect(() => {
+    if (settings.schoolName) {
+      document.title = `${settings.schoolName.toUpperCase()} | Institutional Hub`;
+    }
+  }, [settings.schoolName]);
+
   const loadSchoolSession = useCallback(async (hubId: string) => {
     if (!hubId) return null;
     try {
@@ -141,7 +148,6 @@ const App: React.FC = () => {
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
     const staffNames: Record<string, string> = {};
-    // Safety check for facilitators enumeration
     Object.keys(facilitators || {}).forEach(k => { 
       const fac = facilitators[k];
       if (fac && fac.name && fac.taughtSubject) staffNames[fac.taughtSubject] = fac.name; 
@@ -242,7 +248,7 @@ const App: React.FC = () => {
               return (
                 <div className="space-y-8">
                   <input type="text" placeholder="Search pupils..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-5 rounded-2xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none focus:border-blue-300 transition-all" />
-                  {processedStudents.filter(s => (s.name || "").toLowerCase().includes(query)).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />)}
+                  {processedStudents.filter(s => (s.name || "").toLowerCase().includes(query)).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onStudentUpdate={(id, r) => setStudents(prev => prev.map(stud => stud.id === id ? { ...stud, overallRemark: r } : stud))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />)}
                 </div>
               );
             }

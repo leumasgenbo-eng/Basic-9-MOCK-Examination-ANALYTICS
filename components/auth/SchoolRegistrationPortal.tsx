@@ -54,6 +54,10 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.schoolName || !formData.registrant || !formData.email || !formData.contact) {
+        alert("Please complete all institutional particulars.");
+        return;
+    }
     setIsLoading(true);
 
     try {
@@ -80,7 +84,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
 
       if (error) throw error;
       
-      alert("CREDENTIALS DOWNLOADED & PIN DISPATCHED: Check your downloads folder and email inbox.");
+      alert("INSTITUTIONAL PACK READY: Credentials downloaded. PIN dispatched to email.");
       setStep('PIN');
     } catch (err: any) {
       alert("Registration Fault: " + err.message);
@@ -113,6 +117,9 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         registrantName: formData.registrant.toUpperCase(),
         registrantEmail: formData.email.toLowerCase(),
         schoolContact: formData.contact,
+        schoolEmail: formData.email.toLowerCase(), // Default school email to registrant email
+        schoolWebsite: `www.${formData.schoolName.toLowerCase().replace(/\s+/g, '')}.edu.gh`,
+        schoolMotto: "EXCELLENCE IN KNOWLEDGE AND CHARACTER",
         schoolNumber: hubId,
         accessCode: accessKey,
         reportDate: new Date().toLocaleDateString()
@@ -140,54 +147,64 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       <div className="bg-slate-950 p-1 rounded-[3.2rem] shadow-2xl border border-white/10">
         <div className="bg-white rounded-[3rem] p-10 md:p-14 relative overflow-hidden">
           <div className="text-center space-y-4 mb-12">
-              <div className="w-20 h-20 bg-blue-900 text-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
+              <div className="w-20 h-20 bg-blue-900 text-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border border-white/10 transition-transform hover:rotate-12">
                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3L17 12"/></svg>
               </div>
-              <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Institutional Enrollment</h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">United Baylor Academy Persistence Layer</p>
+              <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">Institutional Shard Enrollment</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Establish your Academy Persistence Node</p>
           </div>
 
           {step === 'FORM' ? (
             <form onSubmit={handleRegister} className="grid grid-cols-1 gap-6">
               <div className="space-y-1.5">
-                 <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Official Academy Name</label>
-                 <input type="text" value={formData.schoolName} onChange={e=>setFormData({...formData, schoolName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="e.g. UNITED BAYLOR ACADEMY..." required />
+                 <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Official Academy Identity</label>
+                 <input type="text" value={formData.schoolName} onChange={e=>setFormData({...formData, schoolName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="e.g. UNITED BAYLOR ACADEMY..." required />
               </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Registrant Name</label>
-                   <input type="text" value={formData.registrant} onChange={e=>setFormData({...formData, registrant: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="FULL NAME..." required />
+                   <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Registrant (Legal Name)</label>
+                   <input type="text" value={formData.registrant} onChange={e=>setFormData({...formData, registrant: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="FULL NAME..." required />
                 </div>
                 <div className="space-y-1.5">
-                   <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Primary Contact</label>
-                   <input type="text" value={formData.contact} onChange={e=>setFormData({...formData, contact: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="000 000 0000" required />
+                   <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Primary Contact Node</label>
+                   <input type="text" value={formData.contact} onChange={e=>setFormData({...formData, contact: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="000 000 0000" required />
                 </div>
               </div>
+
               <div className="space-y-1.5">
-                 <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Registered Email (PIN Delivery)</label>
-                 <input type="email" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="ADMIN@DOMAIN.COM" required />
+                 <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Academy Shard Location</label>
+                 <input type="text" value={formData.location} onChange={e=>setFormData({...formData, location: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="TOWN, REGION, COUNTRY..." required />
               </div>
+
+              <div className="space-y-1.5">
+                 <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Registered Email (PIN Activation)</label>
+                 <input type="email" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="ADMIN@ACADEMY.EDU" required />
+              </div>
+
               <div className="pt-6">
-                <button type="submit" disabled={isLoading} className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50">
-                  {isLoading ? "Generating Shards..." : "Download Credentials & Get PIN"}
+                <button type="submit" disabled={isLoading} className="group relative w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50">
+                  <span className="relative z-10">{isLoading ? "Validating Matrix..." : "Download Keys & Request PIN"}</span>
+                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 </button>
               </div>
               <div className="text-center pt-4">
-                <button type="button" onClick={onSwitchToLogin} className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Already Registered? Login</button>
+                <button type="button" onClick={onSwitchToLogin} className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:text-indigo-600 transition-colors">Already Active? Access Hub</button>
               </div>
             </form>
           ) : (
-            <form onSubmit={handleVerify} className="space-y-8 text-center animate-in slide-in-from-right-4">
+            <form onSubmit={handleVerify} className="space-y-8 text-center animate-in slide-in-from-right-4 duration-500">
               <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100">
-                 <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">
-                   SHARD ACCESS DISPATCHED TO {formData.email.toUpperCase()}
+                 <p className="text-[10px] font-black text-emerald-700 uppercase tracking-[0.2em] leading-relaxed">
+                   SHARD ACTIVATION TOKEN DISPATCHED TO<br/>
+                   <span className="text-xs font-mono font-black">{formData.email.toUpperCase()}</span>
                  </p>
               </div>
-              <input type="text" value={pin} onChange={e=>setPin(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-6 text-4xl font-black text-center tracking-[0.5em] outline-none" placeholder="000000" maxLength={6} required autoFocus />
-              <button type="submit" disabled={isLoading} className="w-full bg-emerald-600 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-xl hover:bg-emerald-700 transition-all">
-                {isLoading ? "Activating Node..." : "Verify & Activate Portal"}
+              <input type="text" value={pin} onChange={e=>setPin(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-6 text-4xl font-black text-center tracking-[0.5em] outline-none focus:ring-8 focus:ring-emerald-500/5 transition-all" placeholder="000000" maxLength={6} required autoFocus />
+              <button type="submit" disabled={isLoading} className="w-full bg-emerald-600 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-xl hover:bg-emerald-700 transition-all active:scale-95">
+                {isLoading ? "Synchronizing Node..." : "Verify & Activate Institution"}
               </button>
-              <button type="button" onClick={()=>setStep('FORM')} className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Go Back</button>
+              <button type="button" onClick={()=>setStep('FORM')} className="text-[9px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-900">Return to Particulars</button>
             </form>
           )}
         </div>
