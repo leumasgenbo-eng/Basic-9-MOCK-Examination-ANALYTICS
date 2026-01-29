@@ -29,9 +29,11 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
   useEffect(() => {
     const fetchCounts = async () => {
       const counts: Record<string, QuestionCounts> = {};
-      const staffEntries = Object.entries(facilitators || {});
+      /* Fix: Explicitly cast entries to [string, StaffAssignment][] to resolve 'unknown' property access errors */
+      const staffEntries = Object.entries(facilitators || {}) as [string, StaffAssignment][];
 
       for (const [idKey, f] of staffEntries) {
+        /* Fix: Accessing properties on properly typed StaffAssignment object */
         if (!f.taughtSubject || !f.name) continue;
         // The bankId matches the one used in LikelyQuestionDesk.tsx
         const bankId = `likely_${f.taughtSubject.replace(/\s+/g, '')}_${f.name.replace(/\s+/g, '')}`;
@@ -62,9 +64,21 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
       const hubId = settings.schoolNumber;
       const enrolledId = `${hubId}/FAC-${Math.floor(100 + Math.random() * 899)}`;
       
-      // LOGIC UPDATE: We do not send OTP here. 
-      // We simply register the node in the local state. 
-      // The staff will receive their OTP when they attempt to sign in via the LoginPortal using this registered email.
+      /* Trigger Sign In with OTP for the facilitator to create auth node and send PIN as requested */
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: newStaff.email.toLowerCase().trim(),
+        options: {
+          data: { 
+            role: 'facilitator', 
+            hubId: hubId, 
+            name: newStaff.name.toUpperCase(),
+            subject: newStaff.subject
+          },
+          shouldCreateUser: true
+        }
+      });
+
+      if (otpError) throw otpError;
 
       const emptyInvigilations: InvigilationSlot[] = Array.from({ length: 9 }, () => ({
         dutyDate: '',
@@ -84,7 +98,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
 
       setFacilitators(prev => ({ ...prev, [enrolledId]: staff }));
       setNewStaff({ name: '', email: '', role: 'FACILITATOR', subject: '' });
-      alert(`STAFF NODE ENROLLED: ${staff.name} is now authorized. They can login to receive their PIN.`);
+      alert(`STAFF NODE ENROLLED: ${staff.name} is now authorized. Access PIN sent to ${staff.email}`);
     } catch (err: any) {
       alert("HR Sync Error: " + err.message);
     } finally {
@@ -126,9 +140,12 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
 
   const masterRoster = useMemo(() => {
     const list: any[] = [];
-    Object.values(facilitators || {}).forEach(f => {
+    /* Fix: Explicitly cast values to StaffAssignment[] to resolve 'unknown' property access errors */
+    (Object.values(facilitators || {}) as StaffAssignment[]).forEach(f => {
+      /* Fix: Accessing invigilations on typed object */
       (f.invigilations || []).forEach(slot => {
         if (slot.dutyDate) {
+          /* Fix: Accessing name on typed object */
           list.push({ ...slot, staffName: f.name });
         }
       });
@@ -192,23 +209,29 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
       <div className="space-y-6 no-print">
          <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.5em] px-4">Specialist Facilitator Cadre</h3>
          <div className="grid grid-cols-1 gap-12">
-            {Object.entries(facilitators || {}).map(([idKey, f], i) => {
+            {/* Fix: Explicitly cast entries to [string, StaffAssignment][] to resolve 'unknown' property access errors */}
+            {(Object.entries(facilitators || {}) as [string, StaffAssignment][]).map(([idKey, f], i) => {
               if (!f) return null;
+              /* Fix: Accessing invigilations on typed object */
               const safeInvigilations = f.invigilations || Array.from({ length: 9 }, () => ({ dutyDate: '', timeSlot: '', subject: '' }));
               const invigilationCount = safeInvigilations.filter(d => d.dutyDate).length;
               const counts = qCounts[idKey] || { theory: 0, objective: 0 };
               
               return (
-                <div key={idKey} className="bg-white rounded-[3.5rem] border border-gray-100 shadow-2xl overflow-hidden group hover:border-blue-500/30 transition-all">
+                <div key={idKey} className="bg-white rounded-[3.5rem] border border-gray-100 shadow-2xl overflow-hidden group hover:border-blue-50/30 transition-all">
                   <div className="bg-gray-50 px-10 py-8 border-b border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
                     <div className="flex items-center gap-6">
                         <div className="w-20 h-20 bg-blue-900 text-white rounded-3xl flex items-center justify-center font-black text-3xl shadow-xl">#{i+1}</div>
                         <div className="space-y-1">
+                          {/* Fix: Accessing taughtSubject on typed object */}
                           <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{f.taughtSubject || "General"} Specialist</span>
                           <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                            {/* Fix: Accessing name on typed object */}
                             <EditableField value={f.name} onChange={(v) => handleUpdateStaffMember(idKey, 'name', v.toUpperCase())} className="border-none" />
                           </h4>
+                          {/* Fix: Accessing email on typed object */}
                           <p className="text-[10px] font-mono font-bold text-slate-400 uppercase">{f.email}</p>
+                          {/* Fix: Accessing enrolledId on typed object */}
                           <p className="text-[9px] font-mono font-bold text-blue-400 uppercase tracking-tighter">Legal ID: {f.enrolledId}</p>
                         </div>
                     </div>
@@ -229,6 +252,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
                        </div>
                        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-center">
                           <span className="text-[8px] font-black text-gray-400 uppercase block mb-1">Marking Exams</span>
+                          {/* Fix: Accessing marking on typed object */}
                           <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${f.marking?.inProgress ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
                             {f.marking?.inProgress ? 'IN PROGRESS' : 'RETURNED'}
                           </span>
@@ -238,6 +262,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
                     <div className="flex flex-col items-end gap-3">
                         <div className="flex gap-2">
                            {!isFacilitator && (
+                             /* Fix: Accessing email on typed object */
                              <button onClick={() => handleResendPin(f.email)} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-blue-600 transition-all">Resend Code</button>
                            )}
                            <div className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-[9px] font-black uppercase border border-emerald-100">Identity Verified</div>
@@ -245,6 +270,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
                         <div className="text-right">
                           <span className="text-[8px] font-black text-slate-400 uppercase block">Hub Role</span>
                           <select 
+                             /* Fix: Accessing role on typed object */
                              value={f.role || 'FACILITATOR'} 
                              onChange={(e) => handleUpdateStaffMember(idKey, 'role', e.target.value)}
                              className="text-sm font-black text-blue-900 uppercase bg-transparent outline-none border-b border-dashed border-blue-200"

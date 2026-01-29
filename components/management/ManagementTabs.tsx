@@ -21,7 +21,7 @@ const ManagementTabs: React.FC<ManagementTabsProps> = ({ activeTab, setActiveTab
     { id: 'cleanup', label: 'Data Forge', adminOnly: true },
     { id: 'credentials', label: 'School Credential', adminOnly: true },
     { id: 'school', label: 'Identity', adminOnly: true },
-    { id: 'pupils', label: 'Pupils & SBA' },
+    { id: 'pupils', label: 'Pupils & SBA', adminOnly: true },
     { id: 'facilitators', label: 'Staff Hub', adminOnly: true },
     { id: 'grading', label: 'Grading', adminOnly: true },
     { id: 'history', label: 'History', adminOnly: true },
