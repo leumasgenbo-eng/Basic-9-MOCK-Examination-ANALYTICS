@@ -72,10 +72,28 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
           )}
           {activeTab === 'facilitatorDesk' && <FacilitatorDesk students={students} setStudents={setStudents} settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
           {activeTab === 'likelyQuestions' && <LikelyQuestionDesk activeFacilitator={activeFacilitator} />}
-          {activeTab === 'enrolmentForward' && <EnrolmentForwardingPortal settings={settings} students={students} facilitators={facilitators} />}
+          {activeTab === 'enrolmentForward' && (
+            <EnrolmentForwardingPortal 
+              settings={settings} 
+              students={students} 
+              facilitators={facilitators} 
+              isFacilitator={isFacilitator}
+              activeFacilitator={activeFacilitator}
+            />
+          )}
           {activeTab === 'localSync' && <LocalSyncPortal students={students} settings={settings} />}
           {activeTab === 'rewards' && <RewardPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} facilitators={facilitators} onSave={onSave} onSettingChange={onSettingChange} isFacilitator={isFacilitator} />}
-          {activeTab === 'cleanup' && <DataCleanupPortal students={students} setStudents={setStudents} settings={settings} onSave={onSave} subjects={subjects} />}
+          {activeTab === 'cleanup' && (
+            <DataCleanupPortal 
+              students={students} 
+              setStudents={setStudents} 
+              settings={settings} 
+              onSave={onSave} 
+              subjects={subjects} 
+              isFacilitator={isFacilitator}
+              activeFacilitator={activeFacilitator}
+            />
+          )}
           {activeTab === 'school' && <AcademyIdentityPortal settings={settings} onSettingChange={onSettingChange} onSave={onSave} />}
           {activeTab === 'credentials' && <SchoolCredentialView settings={settings} studentCount={students.length} />}
           {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} onSave={onSave} />}

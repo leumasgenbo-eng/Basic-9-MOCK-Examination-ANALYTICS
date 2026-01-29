@@ -8,12 +8,14 @@ interface DataCleanupPortalProps {
   settings: GlobalSettings;
   onSave: () => void;
   subjects: string[];
+  isFacilitator?: boolean;
+  activeFacilitator?: { name: string; subject: string } | null;
 }
 
-const DataCleanupPortal: React.FC<DataCleanupPortalProps> = ({ students, setStudents, settings, onSave, subjects }) => {
+const DataCleanupPortal: React.FC<DataCleanupPortalProps> = ({ students, setStudents, settings, onSave, subjects, isFacilitator, activeFacilitator }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMock, setSelectedMock] = useState(settings.activeMock);
-  const [targetSubject, setTargetSubject] = useState(subjects[0]);
+  const [targetSubject, setTargetSubject] = useState(isFacilitator ? activeFacilitator?.subject || subjects[0] : subjects[0]);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -105,6 +107,18 @@ const DataCleanupPortal: React.FC<DataCleanupPortalProps> = ({ students, setStud
         </div>
       )}
 
+      {isFacilitator && (
+         <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-3xl flex items-center gap-4 mb-4">
+            <div className="w-10 h-10 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black shadow-lg">
+               !
+            </div>
+            <div>
+               <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Restricted Forge Node</p>
+               <h4 className="text-sm font-black text-indigo-900 uppercase mt-1">Authorized for {targetSubject} purge only</h4>
+            </div>
+         </div>
+      )}
+
       <div className="bg-slate-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
         <div className="relative flex flex-col md:flex-row justify-between items-center gap-8">
@@ -121,7 +135,12 @@ const DataCleanupPortal: React.FC<DataCleanupPortalProps> = ({ students, setStud
               </div>
               <div className="flex flex-col gap-1">
                  <label className="text-[8px] font-black text-slate-500 uppercase ml-2">Target Subject</label>
-                 <select value={targetSubject} onChange={(e) => setTargetSubject(e.target.value)} className="bg-white/10 border border-white/20 rounded-2xl px-5 py-3 text-xs font-black outline-none text-white">
+                 <select 
+                    value={targetSubject} 
+                    onChange={(e) => setTargetSubject(e.target.value)} 
+                    disabled={isFacilitator}
+                    className={`bg-white/10 border border-white/20 rounded-2xl px-5 py-3 text-xs font-black outline-none text-white ${isFacilitator ? 'opacity-50 cursor-not-allowed' : ''}`}
+                 >
                     {subjects.map(s => <option key={s} value={s} className="text-gray-900">{s}</option>)}
                  </select>
               </div>
@@ -144,7 +163,7 @@ const DataCleanupPortal: React.FC<DataCleanupPortalProps> = ({ students, setStud
          <div className="bg-slate-100 p-8 rounded-[2.5rem] flex items-center gap-6 border-2 border-dashed border-slate-200">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-400"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             <p className="text-[10px] text-slate-500 font-bold leading-relaxed uppercase tracking-widest">
-              Record deletions are synchronized instantly. Always export a Broad Sheet before performing destructive operations.
+              Record deletions are synchronized instantly. {isFacilitator ? "Only your assigned subject is accessible for purge protocol." : "Always export a Broad Sheet before performing destructive operations."}
             </p>
          </div>
       </div>
@@ -170,7 +189,9 @@ const DataCleanupPortal: React.FC<DataCleanupPortalProps> = ({ students, setStud
                 </td>
                 <td className="px-10 py-8 text-right space-x-3">
                    <button onClick={() => handleClearSubjectForPupil(s.id, s.name)} className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:border-red-500 hover:text-red-600 transition-all">Clear {targetSubject.substring(0,3)}</button>
-                   <button onClick={() => handlePurgePupilCompletely(s.id, s.name)} className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-red-600 hover:text-white transition-all">Full Purge</button>
+                   {!isFacilitator && (
+                      <button onClick={() => handlePurgePupilCompletely(s.id, s.name)} className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-red-600 hover:text-white transition-all">Full Purge</button>
+                   )}
                 </td>
               </tr>
             ))}
