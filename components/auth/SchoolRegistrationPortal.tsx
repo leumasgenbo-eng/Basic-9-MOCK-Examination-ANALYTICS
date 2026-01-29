@@ -40,7 +40,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
                  `Institution:      ${formData.schoolName.toUpperCase()}\n` +
                  `Location:         ${formData.location.toUpperCase()}\n` +
                  `Contact Node:     ${formData.contact}\n\n` +
-                 `* IMPORTANT: This information is stored in the Supabase Identity Shard.`;
+                 `* IMPORTANT: This information is automatically synced to the Global Registry.`;
     
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -58,18 +58,26 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     try {
       const hubId = `SMA-2025-${Math.floor(1000 + Math.random() * 9000)}`;
       const accessKey = `SSMAP-SEC-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-      downloadCredentials(hubId, accessKey);
+      
       setTempCredentials({ hubId, accessKey });
 
-      // TRIGGER OTP DISPATCH
+      // TRIGGER OTP DISPATCH with Trigger-aligned metadata
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email.toLowerCase().trim(),
         options: {
-          data: { role: 'school_admin', hubId, name: formData.registrant.toUpperCase() },
+          data: { 
+            role: 'school_admin', 
+            hubId: hubId, 
+            nodeId: hubId,
+            full_name: formData.registrant.toUpperCase().trim() 
+          },
           shouldCreateUser: true
         }
       });
+      
       if (error) throw error;
+      
+      downloadCredentials(hubId, accessKey);
       setStep('PIN');
     } catch (err: any) {
       alert("Registration Fault: " + err.message);
@@ -93,15 +101,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       const { hubId, accessKey } = tempCredentials;
       const ts = new Date().toISOString();
 
-      // 1. STORAGE PERSISTENCE: Write Admin Identity to uba_identities
-      await supabase.from('uba_identities').upsert({
-         email: formData.email.toLowerCase().trim(),
-         full_name: formData.registrant.toUpperCase().trim(),
-         node_id: hubId,
-         hub_id: hubId,
-         role: 'school_admin'
-      });
-
       const newSettings: GlobalSettings = {
         ...settings,
         schoolName: formData.schoolName.toUpperCase(),
@@ -115,7 +114,8 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         reportDate: new Date().toLocaleDateString()
       };
 
-      // 2. DATA HUB PERSISTENCE: Initialize Institution Shards
+      // DATA HUB PERSISTENCE: Initialize Institution Shards
+      // The uba_identities record is handled by the SQL trigger on auth.users
       await supabase.from('uba_persistence').insert([
         { id: `${hubId}_settings`, hub_id: hubId, payload: newSettings, user_id: data.user.id },
         { id: `${hubId}_students`, hub_id: hubId, payload: [], user_id: data.user.id },
@@ -127,7 +127,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       if (onResetStudents) onResetStudents();
       onComplete?.();
     } catch (err: any) {
-      alert("Activation Error: Verification failed. " + err.message);
+      alert("Activation Error: " + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -152,13 +152,18 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
               <button type="submit" disabled={isLoading} className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] disabled:opacity-50 transition-all hover:bg-black">
                 {isLoading ? "Analyzing Particulars..." : "Execute Storage Ingestion"}
               </button>
+              <button type="button" onClick={onSwitchToLogin} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline mt-2">Already registered? Access Hub Login</button>
             </form>
           ) : (
             <form onSubmit={handleVerify} className="space-y-8 text-center">
+              <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 text-[11px] font-bold text-blue-900 leading-relaxed uppercase">
+                 Enter the 6-digit verification PIN sent to {formData.email.toLowerCase()}. <br/> This will finalize your identity shard registration.
+              </div>
               <input type="text" value={pin} onChange={e=>setPin(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-6 text-4xl font-black text-center tracking-[0.5em] outline-none" placeholder="000000" maxLength={6} required autoFocus />
               <button type="submit" disabled={isLoading} className="w-full bg-emerald-600 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-xl disabled:opacity-50">
                 {isLoading ? "Syncing Shards..." : "Activate Academy Hub"}
               </button>
+              <button type="button" onClick={() => setStep('FORM')} className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Back to Details</button>
             </form>
           )}
         </div>

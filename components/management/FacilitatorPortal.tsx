@@ -9,11 +9,9 @@ interface FacilitatorPortalProps {
   setFacilitators: React.Dispatch<React.SetStateAction<Record<string, StaffAssignment>>>;
   settings: GlobalSettings;
   isFacilitator?: boolean;
-  // Fix: Added missing activeFacilitator property to props interface
   activeFacilitator?: { name: string; subject: string } | null;
 }
 
-// Fix: Added activeFacilitator to destructured props
 const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilitators, setFacilitators, settings, isFacilitator, activeFacilitator }) => {
   const [newStaff, setNewStaff] = useState({ name: '', email: '', role: 'FACILITATOR' as StaffRole, subject: '' });
   const [isEnrolling, setIsEnrolling] = useState(false);
@@ -29,23 +27,21 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
       const targetEmail = newStaff.email.toLowerCase().trim();
       const targetName = newStaff.name.toUpperCase().trim();
 
-      // 1. IDENTITY STORAGE Handshake
-      await supabase.from('uba_identities').upsert({
-         email: targetEmail,
-         full_name: targetName,
-         node_id: enrolledId,
-         hub_id: hubId,
-         role: 'facilitator'
-      });
-
-      // 2. DISPATCH Login Pack
+      // DISPATCH Login Pack with standard trigger keys
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: targetEmail,
         options: {
-          data: { role: 'facilitator', hubId: hubId, name: targetName, subject: newStaff.subject, enrolledId: enrolledId },
+          data: { 
+            role: 'facilitator', 
+            hubId: hubId, 
+            nodeId: enrolledId,
+            full_name: targetName, 
+            subject: newStaff.subject 
+          },
           shouldCreateUser: true
         }
       });
+      
       if (otpError) throw otpError;
 
       const staff: StaffAssignment = {
@@ -60,7 +56,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
 
       setFacilitators(prev => ({ ...prev, [enrolledId]: staff }));
       setNewStaff({ name: '', email: '', role: 'FACILITATOR', subject: '' });
-      alert(`FACILITATOR ADDED: ID ${enrolledId} mirrored to global storage. Credentials sent.`);
+      alert(`FACILITATOR ADDED: Identity mirrored via SQL Trigger. Verification PIN sent to ${targetEmail}.`);
     } catch (err: any) {
       alert("Faculty Error: " + err.message);
     } finally {
@@ -87,7 +83,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
          {!isFacilitator && (
            <form onSubmit={handleAddStaff} className="mt-10 grid grid-cols-1 md:grid-cols-4 gap-4">
               <input type="text" value={newStaff.name} onChange={e=>setNewStaff({...newStaff, name: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none" placeholder="FULL LEGAL NAME..." required />
-              <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none" placeholder="EMAIL ADDRESS..." required />
+              <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black outline-none" placeholder="EMAIL ADDRESS..." required />
               <select value={newStaff.subject} onChange={e=>setNewStaff({...newStaff, subject: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none">
                  <option value="" className="text-slate-900">SUBJECT SHARD...</option>
                  {subjects.map(s => <option key={s} value={s} className="text-slate-900">{s.toUpperCase()}</option>)}

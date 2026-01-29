@@ -39,33 +39,58 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
     const inputName = fullName.toUpperCase().trim();
     const inputId = nodeId.trim().toUpperCase();
 
+    if (!targetEmail || !inputName || !inputId) {
+      setError("Complete all identity fields.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // 1. GLOBAL RECALL: Verify identity particulars in uba_identities
       if (targetEmail !== MASTER_ADMIN_EMAIL) {
         const { data: identity, error: idError } = await supabase
           .from('uba_identities')
           .select('*')
-          .eq('email', targetEmail)
+          .ilike('email', targetEmail)
           .maybeSingle();
 
         if (idError) throw idError;
         
-        if (!identity) throw new Error("GATE ACCESS DENIED: Identity not found in global registry.");
-
-        // Validation Triple-Match Handshake
-        if (identity.full_name.toUpperCase() !== inputName || identity.node_id.toUpperCase() !== inputId) {
-          throw new Error("IDENTITY CONFLICT: Name or Node ID does not match registered particulars.");
+        if (!identity) {
+          throw new Error("Recall Failed: Identity not found. Verify your registered email.");
         }
 
-        const roleMap: Record<string, string> = { 'school_admin': 'admin', 'facilitator': 'facilitator', 'pupil': 'pupil' };
-        if (roleMap[identity.role] !== activeGate) throw new Error(`GATE MISMATCH: Profile belongs to the ${identity.role} node.`);
+        // Standardized Handshake Check (Case Insensitive)
+        const isNameMatch = identity.full_name.trim().toUpperCase() === inputName;
+        const isNodeMatch = identity.node_id.trim().toUpperCase() === inputId;
+
+        if (!isNameMatch || !isNodeMatch) {
+          throw new Error("Recall Mismatch: The Name or Node ID provided does not match our records.");
+        }
+
+        const roleMap: Record<string, string> = { 
+          'school_admin': 'admin', 
+          'facilitator': 'facilitator', 
+          'pupil': 'pupil' 
+        };
+        
+        if (roleMap[identity.role] !== activeGate) {
+          throw new Error(`Gate Refusal: This identity is assigned to the ${identity.role} node.`);
+        }
       }
 
-      // 2. DISPATCH PACKET: Authenticate session via OTP
-      const { error: otpError } = await supabase.auth.signInWithOtp({ email: targetEmail });
+      // 2. DISPATCH PIN
+      const { error: otpError } = await supabase.auth.signInWithOtp({ 
+        email: targetEmail 
+      });
+      
       if (otpError) throw otpError;
       setStep('PIN_VERIFICATION');
-    } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
+    } catch (err: any) { 
+      setError(err.message); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
   const handleVerifyPin = async (e: React.FormEvent) => {
@@ -74,23 +99,37 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
     setError(null);
 
     try {
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({ email: email.toLowerCase().trim(), token: otp.trim(), type: 'email' });
-      if (verifyError) throw new Error("INVALID PIN: Handshake failure.");
-      if (!data.user) throw new Error("SYNC ERROR: Shard connection lost.");
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({ 
+        email: email.toLowerCase().trim(), 
+        token: otp.trim(), 
+        type: 'email' 
+      });
+      
+      if (verifyError) throw new Error("Recall Rejected: Invalid or expired PIN.");
+      if (!data.user) throw new Error("Sync Interrupted: Shard handshake lost.");
 
       const metadata = data.user.user_metadata || {};
-      if (email.toLowerCase() === MASTER_ADMIN_EMAIL) { onSuperAdminLogin(); return; }
+      
+      // HQ Override
+      if (email.toLowerCase() === MASTER_ADMIN_EMAIL) { 
+        onSuperAdminLogin(); 
+        return; 
+      }
 
       const hubId = metadata.hubId;
       if (activeGate === 'admin') onLoginSuccess(hubId);
-      else if (activeGate === 'facilitator') onFacilitatorLogin(metadata.name, metadata.subject, hubId);
+      else if (activeGate === 'facilitator') onFacilitatorLogin(metadata.full_name || metadata.name, metadata.subject, hubId);
       else if (activeGate === 'pupil') onPupilLogin(metadata.studentId, hubId);
-    } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
+    } catch (err: any) { 
+      setError(err.message); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
   if (step === 'GATE_SELECTION') {
     return (
-      <div className="w-full max-w-4xl p-4 animate-in fade-in zoom-in-95 duration-500">
+      <div className="w-full max-w-4xl p-4 animate-in fade-in duration-500">
         <div className="text-center mb-16">
            <h2 className="text-4xl font-black text-white uppercase tracking-tighter">SS-map ACADEMY</h2>
            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Authorized Node</p>
@@ -130,7 +169,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
 
         {step === 'IDENTITY_INPUT' ? (
           <form onSubmit={handleRequestPin} className="space-y-5">
-            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Full Legal Name</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="NAME AS REGISTERED" required /></div>
+            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Full Legal Name</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER NAME" required /></div>
             <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">System Node ID</label><input type="text" value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-mono font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER ID" required /></div>
             <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Registered Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="user@ssmap.app" required /></div>
             {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
@@ -139,6 +178,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
         ) : (
           <form onSubmit={handleVerifyPin} className="space-y-8 animate-in slide-in-from-right-4 duration-500 text-center">
             <h3 className="text-xl font-black text-white uppercase tracking-tight">Enter Secure PIN</h3>
+            <div className="bg-blue-50/5 p-4 rounded-2xl border border-white/10 text-[10px] font-bold text-slate-400 uppercase leading-relaxed">Identity Recall verified for {email.toLowerCase()}. <br/> Verification PIN has been dispatched.</div>
             <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className={`w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-7 text-5xl font-black text-white text-center tracking-[0.6em] outline-none focus:ring-4 focus:ring-${gateColor}-500/10`} placeholder="000000" maxLength={6} required autoFocus />
             {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
             <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-colors`}>{isLoading ? "VALIDATING..." : "AUTHORIZE ACCESS"}</button>
