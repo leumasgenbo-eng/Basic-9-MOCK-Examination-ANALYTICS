@@ -88,18 +88,34 @@ const App: React.FC = () => {
   const loadSchoolSession = useCallback(async (hubId: string) => {
     if (!hubId) return null;
     try {
-      const { data } = await supabase.from('uba_persistence').select('id, payload').eq('hub_id', hubId);
+      // ATOMIC SYNC: Fetch all up-to-date shards from the cloud for this institution
+      const { data, error } = await supabase
+        .from('uba_persistence')
+        .select('id, payload')
+        .eq('hub_id', hubId);
+
+      if (error) throw error;
+
       if (data && data.length > 0) {
-        let s = { ...DEFAULT_SETTINGS }, st: StudentData[] = [], f: Record<string, StaffAssignment> = {};
+        let cloudSettings = { ...DEFAULT_SETTINGS };
+        let cloudStudents: StudentData[] = [];
+        let cloudFacilitators: Record<string, StaffAssignment> = {};
+
         data.forEach(row => {
-          if (row.id === `${hubId}_settings`) s = row.payload;
-          if (row.id === `${hubId}_students`) st = row.payload;
-          if (row.id === `${hubId}_facilitators`) f = row.payload;
+          if (row.id === `${hubId}_settings`) cloudSettings = row.payload;
+          if (row.id === `${hubId}_students`) cloudStudents = row.payload;
+          if (row.id === `${hubId}_facilitators`) cloudFacilitators = row.payload;
         });
-        setSettings(s); setStudents(st); setFacilitators(f);
-        return { settings: s, students: st, facilitators: f };
+
+        setSettings(cloudSettings);
+        setStudents(cloudStudents);
+        setFacilitators(cloudFacilitators);
+        
+        return { settings: cloudSettings, students: cloudStudents, facilitators: cloudFacilitators };
       }
-    } catch (e) { console.error("Gate Handshake Failure:", e); }
+    } catch (e) {
+      console.error("Cloud Handshake Failure:", e);
+    }
     return null;
   }, []);
 
@@ -107,7 +123,10 @@ const App: React.FC = () => {
     const statsObj = calculateClassStatistics(studentList, currentSettings);
     const processed = processStudentData(statsObj, studentList, {}, currentSettings);
     const pupil = processed.find(p => p.id === studentId);
-    if (pupil) { setActivePupil(pupil); setIsPupil(true); }
+    if (pupil) { 
+      setActivePupil(pupil); 
+      setIsPupil(true); 
+    }
   }, []);
 
   useEffect(() => {
@@ -121,15 +140,20 @@ const App: React.FC = () => {
         const metadata = session.user.user_metadata || {};
         const hubId = metadata.hubId;
         const role = metadata.role;
+        
+        // AUTO-SYNC: Hydrate browser on existing session
         const result = await loadSchoolSession(hubId);
-        setIsAuthenticated(true);
-        if (role === 'facilitator') {
-          setIsFacilitator(true);
-          setActiveFacilitator({ name: metadata.name || "FACULTY", subject: metadata.subject || "GENERAL" });
-        } else if (role === 'pupil' && result) {
-          resolvePupilPortal(metadata.studentId, result.students, result.settings);
-        } else if (session.user.email === 'leumasgenbo4@gmail.com') {
+        
+        if (session.user.email === 'leumasgenbo4@gmail.com') {
           setIsSuperAdmin(true);
+        } else {
+          setIsAuthenticated(true);
+          if (role === 'facilitator') {
+            setIsFacilitator(true);
+            setActiveFacilitator({ name: metadata.name || "FACULTY", subject: metadata.subject || "GENERAL" });
+          } else if (role === 'pupil' && result) {
+            resolvePupilPortal(metadata.studentId, result.students, result.settings);
+          }
         }
       }
       setIsInitializing(false);
@@ -149,7 +173,10 @@ const App: React.FC = () => {
     return { stats: s, processedStudents: processed, classAvgAggregate: avgAgg };
   }, [students, facilitators, settings]);
 
-  const handleLogout = async () => { await supabase.auth.signOut(); window.location.reload(); };
+  const handleLogout = async () => { 
+    await supabase.auth.signOut(); 
+    window.location.reload(); 
+  };
 
   const handleSaveAll = async () => {
     if (!settings.schoolNumber) return;
@@ -161,7 +188,14 @@ const App: React.FC = () => {
     ]);
   };
 
-  if (isInitializing) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Master Identity Syncing...</p></div>;
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Synchronizing Cloud Shards...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated && !isSuperAdmin) {
     return (
@@ -177,21 +211,22 @@ const App: React.FC = () => {
           />
         ) : (
           <LoginPortal 
-            onLoginSuccess={(id) => { loadSchoolSession(id).then(() => setIsAuthenticated(true)); }} 
-            onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={(n, s, id) => { 
-                loadSchoolSession(id).then(() => { 
-                    setIsFacilitator(true); 
-                    setActiveFacilitator({ name: n, subject: s }); 
-                    setIsAuthenticated(true); 
-                    setViewMode('home'); 
-                }); 
+            onLoginSuccess={async (id) => { 
+                await loadSchoolSession(id);
+                setIsAuthenticated(true); 
             }} 
-            onPupilLogin={(id, hId) => { 
-                loadSchoolSession(hId).then((result) => { 
-                    setIsAuthenticated(true); 
-                    if (result) resolvePupilPortal(id, result.students, result.settings); 
-                }); 
+            onSuperAdminLogin={() => setIsSuperAdmin(true)} 
+            onFacilitatorLogin={async (n, s, id) => { 
+                await loadSchoolSession(id);
+                setIsFacilitator(true); 
+                setActiveFacilitator({ name: n, subject: s }); 
+                setIsAuthenticated(true); 
+                setViewMode('home'); 
+            }} 
+            onPupilLogin={async (id, hId) => { 
+                const result = await loadSchoolSession(hId);
+                setIsAuthenticated(true); 
+                if (result) resolvePupilPortal(id, result.students, result.settings); 
             }} 
             onSwitchToRegister={() => setIsRegistering(true)} 
           />
@@ -200,7 +235,7 @@ const App: React.FC = () => {
     );
   }
 
-  if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={(id) => { loadSchoolSession(id).then(() => { setIsSuperAdmin(false); setIsAuthenticated(true); }); }} />;
+  if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={async (id) => { await loadSchoolSession(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
 
   if (isPupil && activePupil) {
     return <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} onLogout={handleLogout} />;
