@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { StudentData, GlobalSettings, MockSeriesRecord } from '../../types';
 import EditableField from '../shared/EditableField';
@@ -7,7 +8,6 @@ interface SeriesBroadSheetProps {
   students: StudentData[];
   settings: GlobalSettings;
   onSettingChange: (key: keyof GlobalSettings, value: any) => void;
-  // Fix: Renamed 'aggregate' to 'bestSixAggregate' to match ProcessedStudent type
   currentProcessed: { id: number; bestSixAggregate: number; rank: number; totalScore: number; category: string }[];
 }
 
@@ -36,8 +36,8 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
   };
 
   return (
-    <div className="bg-white p-6 print:p-0 min-h-screen max-w-full">
-      {/* Editable Academy Branding Header */}
+    <div className="bg-white p-6 print:p-0 min-h-screen max-w-full font-sans">
+      {/* Universal Academy Branding Header - Editable particulars */}
       <ReportBrandingHeader 
         settings={settings} 
         onSettingChange={onSettingChange} 
@@ -46,8 +46,8 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
         isLandscape={true}
       />
 
-      {/* Main Sliding Matrix */}
-      <div className="shadow-2xl border border-gray-200 rounded-[2.5rem] bg-white overflow-hidden relative group">
+      {/* Main Analysis Matrix */}
+      <div className="shadow-2xl border border-gray-200 rounded-[2.5rem] bg-white overflow-hidden relative group mt-8">
         <div className="overflow-x-auto custom-scrollbar-horizontal scroll-smooth">
           <table className="w-full text-[10px] border-collapse min-w-[1200px]">
             <thead>
@@ -99,7 +99,6 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
                         </React.Fragment>
                       );
                     })}
-                    {/* Fix: Using bestSixAggregate instead of aggregate */}
                     <td className="p-3 bg-red-50 text-center font-black text-red-700 text-sm border-r border-red-100">{live?.bestSixAggregate || '-'}</td>
                     <td className="p-3 bg-red-50 text-center font-mono text-xs text-red-600 border-r border-red-100">{live ? ((live.totalScore / (subjectCount * 100)) * 100).toFixed(1) + '%' : '-'}</td>
                     <td className="p-3 bg-red-50 text-center font-black text-[8px] uppercase text-red-800">{live?.category || '-'}</td>
@@ -111,12 +110,17 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
         </div>
       </div>
 
+      {/* Signature & Validation Area */}
       <div className="mt-12 flex justify-between items-end border-t-2 border-blue-900 pt-6">
-         <div className="text-center w-[30%] border-t border-black pt-1">
-            <span className="text-[9px] font-black uppercase text-gray-400">Hub Controller</span>
+         <div className="text-center w-[30%] border-t-2 border-slate-900 pt-2">
+            <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest">
+              <EditableField value={settings.registryRoleTitle || "Registry Controller"} onChange={(v) => onSettingChange('registryRoleTitle', v)} className="text-center" />
+            </span>
          </div>
-         <div className="text-center w-[30%] border-t border-black pt-1">
-            <span className="text-[9px] font-black uppercase text-gray-400">Academy Director</span>
+         <div className="text-center w-[30%] border-t-2 border-slate-900 pt-2">
+            <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest">
+               <EditableField value={settings.adminRoleTitle || "Academy Director"} onChange={(v) => onSettingChange('adminRoleTitle', v)} className="text-center" />
+            </span>
             <p className="text-[10px] font-black text-blue-900 uppercase truncate mt-1">
                <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center" />
             </p>

@@ -18,9 +18,9 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
   const [formData, setFormData] = useState({
     schoolName: '',
     location: '',
-    registrant: '',
+    registrant: '', // Full Name
     email: '',
-    contact: ''
+    contact: '' // Contact Node
   });
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<'FORM' | 'PIN'>('FORM');
@@ -38,6 +38,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
                  `--------------------------------------------------------------\n` +
                  `REGISTRATION PARTICULARS:\n` +
                  `Location:         ${formData.location.toUpperCase()}\n` +
+                 `Registrant Name:  ${formData.registrant.toUpperCase()}\n` +
                  `Contact Node:     ${formData.contact}\n` +
                  `Registered Email: ${formData.email.toLowerCase()}\n\n` +
                  `* IMPORTANT: Save this file. Your Access Key is unique.`;
@@ -59,11 +60,9 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       const hubId = `UBA-2025-${Math.floor(1000 + Math.random() * 9000)}`;
       const accessKey = `SSMAP-SEC-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
       
-      // Trigger Credentials Download
       downloadCredentials(hubId, accessKey);
       setTempCredentials({ hubId, accessKey });
 
-      // Trigger OTP
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email.toLowerCase().trim(),
         options: {
@@ -71,6 +70,8 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
             role: 'school_admin', 
             hubId, 
             schoolName: formData.schoolName.toUpperCase(),
+            registrantName: formData.registrant.toUpperCase(),
+            schoolContact: formData.contact,
             accessCode: accessKey
           },
           shouldCreateUser: true
@@ -79,7 +80,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
 
       if (error) throw error;
       
-      // REQUESTED ALERT 1
       alert("CREDENTIALS DOWNLOADED & PIN DISPATCHED: Check your downloads folder and email inbox.");
       setStep('PIN');
     } catch (err: any) {
@@ -112,6 +112,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
         schoolAddress: formData.location.toUpperCase(),
         registrantName: formData.registrant.toUpperCase(),
         registrantEmail: formData.email.toLowerCase(),
+        schoolContact: formData.contact,
         schoolNumber: hubId,
         accessCode: accessKey,
         reportDate: new Date().toLocaleDateString()
@@ -128,7 +129,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       if (onResetStudents) onResetStudents();
       onComplete?.();
     } catch (err: any) {
-      // REQUESTED ALERT 2
       alert("Activation Error: Token has expired or is invalid");
     } finally {
       setIsLoading(false);
@@ -151,11 +151,21 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
             <form onSubmit={handleRegister} className="grid grid-cols-1 gap-6">
               <div className="space-y-1.5">
                  <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Official Academy Name</label>
-                 <input type="text" value={formData.schoolName} onChange={e=>setFormData({...formData, schoolName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="e.g. UNITED BAYLOR ACADEMY..." required />
+                 <input type="text" value={formData.schoolName} onChange={e=>setFormData({...formData, schoolName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="e.g. UNITED BAYLOR ACADEMY..." required />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                   <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Registrant Name</label>
+                   <input type="text" value={formData.registrant} onChange={e=>setFormData({...formData, registrant: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="FULL NAME..." required />
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Primary Contact</label>
+                   <input type="text" value={formData.contact} onChange={e=>setFormData({...formData, contact: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="000 000 0000" required />
+                </div>
               </div>
               <div className="space-y-1.5">
                  <label className="text-[9px] font-black text-blue-900 uppercase tracking-widest ml-2">Registered Email (PIN Delivery)</label>
-                 <input type="email" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="ADMIN@DOMAIN.COM" required />
+                 <input type="email" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10" placeholder="ADMIN@DOMAIN.COM" required />
               </div>
               <div className="pt-6">
                 <button type="submit" disabled={isLoading} className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 disabled:opacity-50">
