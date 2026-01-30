@@ -33,11 +33,10 @@ CREATE TABLE IF NOT EXISTS public.uba_audit (
 -- 2. BI-DIRECTIONAL SYNC AUTOMATION (LOOP-PROOF)
 -- ==========================================================
 
--- TRIGGER A: Auth Metadata -> Database Table (Sync on Login/Signup)
+-- TRIGGER A: Auth Metadata -> Database Table
 CREATE OR REPLACE FUNCTION public.sync_uba_identity()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- CIRCUIT BREAKER: Stop if the database already matches the incoming metadata
   IF EXISTS (
     SELECT 1 FROM public.uba_identities 
     WHERE email = NEW.email 
@@ -65,11 +64,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- TRIGGER B: Database Table -> Auth Metadata (Self-Healing Back-Sync)
+-- TRIGGER B: Database Table -> Auth Metadata
 CREATE OR REPLACE FUNCTION public.backfill_auth_metadata()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- CIRCUIT BREAKER: Only update Auth if the new table data is actually different from current Auth metadata
   IF EXISTS (
     SELECT 1 FROM auth.users 
     WHERE email = NEW.email 
@@ -92,16 +90,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Bind the Loop-Proof Triggers
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT OR UPDATE OF raw_user_meta_data ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.sync_uba_identity();
+CREATE TRIGGER on_auth_user_created AFTER INSERT OR UPDATE OF raw_user_meta_data ON auth.users FOR EACH ROW EXECUTE FUNCTION public.sync_uba_identity();
 
 DROP TRIGGER IF EXISTS on_identity_update_sync_auth ON public.uba_identities;
-CREATE TRIGGER on_identity_update_sync_auth
-  AFTER UPDATE OF hub_id, role, full_name ON public.uba_identities
-  FOR EACH ROW EXECUTE FUNCTION public.backfill_auth_metadata();
+CREATE TRIGGER on_identity_update_sync_auth AFTER UPDATE OF hub_id, role, full_name ON public.uba_identities FOR EACH ROW EXECUTE FUNCTION public.backfill_auth_metadata();
 
 -- ==========================================================
 -- 3. ROW LEVEL SECURITY (RLS) - HARDENED
@@ -118,11 +111,15 @@ CREATE POLICY "Public Identity Handshake" ON public.uba_identities FOR SELECT TO
 DROP POLICY IF EXISTS "Anon School Registration" ON public.uba_identities;
 CREATE POLICY "Anon School Registration" ON public.uba_identities FOR INSERT TO anon WITH CHECK (role = 'school_admin');
 
+-- recruitment fix: ensures superadmin and admin hub matching works correctly
 DROP POLICY IF EXISTS "Admin Recruitment" ON public.uba_identities;
 CREATE POLICY "Admin Recruitment" ON public.uba_identities FOR INSERT TO authenticated
 WITH CHECK (
   (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com') OR 
-  ((auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') AND (hub_id = COALESCE(auth.jwt() -> 'user_metadata' ->> 'hubId', hub_id)))
+  (
+    (auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') 
+    AND (hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId'))
+  )
 );
 
 DROP POLICY IF EXISTS "Admin Management" ON public.uba_identities;
@@ -147,10 +144,13 @@ USING (
 -- 4. MASTER REPAIR & BOOTSTRAP
 -- ==========================================================
 
--- Repair Superadmin (Bypasses triggers via manual injection)
+-- Repair Superadmin and Admin 1
 UPDATE auth.users SET raw_user_meta_data = jsonb_build_object('hubId', 'NETWORK', 'role', 'school_admin', 'full_name', 'HQ CONTROLLER') WHERE email = 'leumasgenbo4@gmail.com';
 UPDATE auth.users SET raw_user_meta_data = raw_user_meta_data || '{"hubId": "SMA-2025-8891", "role": "school_admin"}'::jsonb WHERE email = 'leumasgenbo2009@gmail.com';
 
+-- Force insert identities to bridge the gap
 INSERT INTO public.uba_identities (email, full_name, node_id, hub_id, role)
-VALUES ('leumasgenbo4@gmail.com', 'HQ CONTROLLER', 'MASTER-NODE-01', 'NETWORK', 'school_admin')
-ON CONFLICT (email) DO UPDATE SET hub_id = 'NETWORK', role = 'school_admin';
+VALUES 
+  ('leumasgenbo4@gmail.com', 'HQ CONTROLLER', 'MASTER-NODE-01', 'NETWORK', 'school_admin'),
+  ('leumasgenbo2009@gmail.com', 'SMA ADMIN', 'SMA-ADMIN-NODE', 'SMA-2025-8891', 'school_admin')
+ON CONFLICT (email) DO UPDATE SET hub_id = EXCLUDED.hub_id, role = EXCLUDED.role;
