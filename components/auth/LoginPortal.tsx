@@ -46,6 +46,11 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
     }
 
     try {
+      let resolvedHubId = 'PENDING';
+      let resolvedRole = activeGate === 'admin' ? 'school_admin' : activeGate || 'pupil';
+      let resolvedSubject = 'GENERAL';
+      let resolvedStudentId = 0;
+
       // 1. GLOBAL RECALL: Verify identity particulars in uba_identities
       if (targetEmail !== MASTER_ADMIN_EMAIL) {
         const { data: identity, error: idError } = await supabase
@@ -77,11 +82,34 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
         if (roleMap[identity.role] !== activeGate) {
           throw new Error(`Gate Refusal: This identity is assigned to the ${identity.role} node.`);
         }
+
+        resolvedHubId = identity.hub_id;
+        resolvedRole = identity.role;
+        
+        // Handle specific role metadata
+        if (resolvedRole === 'pupil') resolvedStudentId = parseInt(identity.node_id);
+      } else {
+        // Master Admin Defaults
+        resolvedHubId = 'NETWORK';
+        resolvedRole = 'school_admin';
       }
 
-      // 2. DISPATCH PIN
+      // 2. DISPATCH PIN WITH METADATA HANDSHAKE
+      // metadata keys must match SQL trigger expectations (nodeId, hubId, facilitatorId, studentId)
       const { error: otpError } = await supabase.auth.signInWithOtp({ 
-        email: targetEmail 
+        email: targetEmail,
+        options: {
+          data: {
+            role: resolvedRole,
+            full_name: inputName,
+            nodeId: inputId,
+            hubId: resolvedHubId,
+            studentId: resolvedStudentId,
+            facilitatorId: resolvedRole === 'facilitator' ? inputId : null,
+            subject: resolvedSubject
+          },
+          shouldCreateUser: true
+        }
       });
       
       if (otpError) throw otpError;
