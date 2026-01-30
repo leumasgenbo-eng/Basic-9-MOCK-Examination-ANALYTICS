@@ -23,29 +23,31 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
 
     try {
       const hubId = settings.schoolNumber;
-      const enrolledId = `FAC-${Math.floor(100 + Math.random() * 899)}`;
+      // THREE-WAY HANDSHAKE: Email, Node ID (Institution ID), Hub ID (Institution ID)
+      const nodeId = hubId; 
       const targetEmail = newStaff.email.toLowerCase().trim();
       const targetName = newStaff.name.toUpperCase().trim();
 
-      // 1. DIRECT IDENTITY UPSERT: Mirror to public shard immediately
+      // 1. IDENTITY SHARD SYNC: Email + Node + Hub
       const { error: idError } = await supabase.from('uba_identities').upsert({
         email: targetEmail,
         full_name: targetName,
-        node_id: enrolledId,
-        hub_id: hubId,
+        node_id: nodeId, 
+        hub_id: hubId,   
         role: 'facilitator'
       });
 
-      if (idError) throw new Error("Recall Shard Failure: " + idError.message);
+      if (idError) throw new Error("Handshake Injection Failure: " + idError.message);
 
-      // 2. DISPATCH Login Pack
+      // 2. AUTH METADATA INJECTION: Mirror handshake to Supabase Auth
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: targetEmail,
         options: {
           data: { 
             role: 'facilitator', 
             hubId: hubId, 
-            nodeId: enrolledId,
+            nodeId: nodeId,
+            email: targetEmail,
             full_name: targetName, 
             subject: newStaff.subject 
           },
@@ -60,27 +62,27 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
         email: targetEmail,
         role: newStaff.role,
         taughtSubject: newStaff.subject,
-        enrolledId,
+        enrolledId: nodeId, 
         invigilations: Array.from({ length: 9 }, () => ({ dutyDate: '', timeSlot: '', subject: '' })),
         marking: { dateTaken: '', dateReturned: '', inProgress: false }
       };
 
-      setFacilitators(prev => ({ ...prev, [enrolledId]: staff }));
+      setFacilitators(prev => ({ ...prev, [targetEmail]: staff }));
       setNewStaff({ name: '', email: '', role: 'FACILITATOR', subject: '' });
-      alert(`FACULTY ENROLLED: Identity forged in global registry. Verification PIN sent to ${targetEmail}.`);
+      alert(`THREE-WAY HANDSHAKE COMPLETE: Facilitator ${targetName} authorized on Node ${nodeId}. Verification PIN sent.`);
     } catch (err: any) {
-      alert("Faculty Fault: " + err.message);
+      alert("Faculty Shard Fault: " + err.message);
     } finally {
       setIsEnrolling(false);
     }
   };
 
   const handleForwardCredentials = async (email: string) => {
-     if (!window.confirm(`FORWARD CREDENTIALS: Resend Login PIN to ${email}?`)) return;
+     if (!window.confirm(`FORWARD CREDENTIALS: Resend Handshake PIN to ${email}?`)) return;
      try {
        await supabase.auth.signInWithOtp({ email });
-       alert("Credential packet dispatched.");
-     } catch (e) { alert("Dispatch failed."); }
+       alert("Credential handshake dispatched.");
+     } catch (e) { alert("Handshake dispatch failed."); }
   };
 
   return (
@@ -88,7 +90,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
       <section className="bg-slate-950 text-white p-10 rounded-[3.5rem] border border-white/5 shadow-2xl relative overflow-hidden">
          <div className="relative space-y-2">
             <h2 className="text-3xl font-black uppercase tracking-tighter">Faculty Registry Desk</h2>
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Forging authorized educators in network shards</p>
+            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Multi-Tenant Handshake Protocol Active</p>
          </div>
 
          {!isFacilitator && (
@@ -100,7 +102,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
                  {subjects.map(s => <option key={s} value={s} className="text-slate-900">{s.toUpperCase()}</option>)}
               </select>
               <button type="submit" disabled={isEnrolling} className="bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all active:scale-95">
-                 {isEnrolling ? "MIRRORING..." : "Enroll Educator"}
+                 {isEnrolling ? "SYNCING..." : "Enroll Educator"}
               </button>
            </form>
          )}
@@ -113,10 +115,14 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
                 <div className="w-16 h-16 bg-blue-900 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-lg border-4 border-white">{f.name.charAt(0)}</div>
                 <div>
                    <h4 className="text-lg font-black text-slate-900 uppercase leading-none">{f.name}</h4>
-                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">{f.taughtSubject} — NODE ID: {f.enrolledId}</p>
+                   <div className="flex items-center gap-3 mt-2">
+                      <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{f.taughtSubject}</span>
+                      <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Handshake ID: {f.enrolledId}</span>
+                   </div>
                 </div>
              </div>
-             <button onClick={() => handleForwardCredentials(f.email)} className="bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 px-6 py-2 rounded-xl font-black text-[9px] uppercase transition-all shadow-sm">Resend Keys</button>
+             <button onClick={() => handleForwardCredentials(f.email)} className="bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 px-6 py-2 rounded-xl font-black text-[9px] uppercase transition-all shadow-sm">Sync Keys</button>
           </div>
         ))}
       </div>

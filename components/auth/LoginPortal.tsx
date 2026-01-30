@@ -60,12 +60,12 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
           throw new Error("Recall Failed: Identity not found. Verify your registered email.");
         }
 
-        // Standardized Handshake Check (Case Insensitive)
+        // THREE-WAY HANDSHAKE VERIFICATION
         const isNameMatch = identity.full_name.trim().toUpperCase() === inputName;
         const isNodeMatch = identity.node_id.trim().toUpperCase() === inputId;
 
         if (!isNameMatch || !isNodeMatch) {
-          throw new Error("Recall Mismatch: The Name or Node ID provided does not match our records.");
+          throw new Error("Recall Mismatch: Full Name or System Node ID provided does not match our records.");
         }
 
         const roleMap: Record<string, string> = { 
@@ -132,7 +132,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
       <div className="w-full max-w-4xl p-4 animate-in fade-in duration-500">
         <div className="text-center mb-16">
            <h2 className="text-4xl font-black text-white uppercase tracking-tighter">SS-map ACADEMY</h2>
-           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Authorized Node</p>
+           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Authorized Identity Gate</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
            {[
@@ -169,16 +169,16 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
 
         {step === 'IDENTITY_INPUT' ? (
           <form onSubmit={handleRequestPin} className="space-y-5">
-            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Full Legal Name</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER NAME" required /></div>
-            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">System Node ID</label><input type="text" value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-mono font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER ID" required /></div>
+            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Verification Name</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER FULL NAME" required /></div>
+            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">System Node ID</label><input type="text" value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-mono font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER NODE ID" required /></div>
             <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Registered Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="user@ssmap.app" required /></div>
             {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
-            <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-colors`}>{isLoading ? "RECALLING SHARD..." : "SYNC IDENTITY"}</button>
+            <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-colors`}>{isLoading ? "RECALLING..." : "SYNC IDENTITY"}</button>
           </form>
         ) : (
           <form onSubmit={handleVerifyPin} className="space-y-8 animate-in slide-in-from-right-4 duration-500 text-center">
             <h3 className="text-xl font-black text-white uppercase tracking-tight">Enter Secure PIN</h3>
-            <div className="bg-blue-50/5 p-4 rounded-2xl border border-white/10 text-[10px] font-bold text-slate-400 uppercase leading-relaxed">Identity Recall verified for {email.toLowerCase()}. <br/> Verification PIN has been dispatched.</div>
+            <div className="bg-blue-50/5 p-4 rounded-2xl border border-white/10 text-[10px] font-bold text-slate-400 uppercase leading-relaxed">Verification Shard found for {email.toLowerCase()}. <br/> Handshake PIN has been dispatched.</div>
             <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className={`w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-7 text-5xl font-black text-white text-center tracking-[0.6em] outline-none focus:ring-4 focus:ring-${gateColor}-500/10`} placeholder="000000" maxLength={6} required autoFocus />
             {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
             <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-colors`}>{isLoading ? "VALIDATING..." : "AUTHORIZE ACCESS"}</button>

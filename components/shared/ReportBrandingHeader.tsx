@@ -23,7 +23,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
   return (
     <div className={`text-center relative border-b-[8px] border-double border-blue-900 pb-8 mb-8 w-full ${isLandscape ? 'px-10' : 'px-4'} animate-in fade-in duration-1000 font-sans`}>
       
-      {/* Academy Institutional Seal - Click to change logic handled in Management Identity Tab */}
+      {/* Academy Institutional Seal */}
       <div className="absolute top-0 left-0 w-24 h-24 flex items-center justify-center no-print">
         {settings.schoolLogo ? (
           <img src={settings.schoolLogo} alt="Academy Seal" className="max-w-full max-h-full object-contain" />
@@ -44,6 +44,15 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
             className="text-center font-black w-full text-blue-950 border-none"
           />
         </h1>
+
+        <div className="text-[11px] font-black text-blue-900/60 uppercase tracking-[0.3em] italic mb-1">
+          <EditableField 
+            value={settings.schoolMotto || "EXCELLENCE IN KNOWLEDGE AND CHARACTER"} 
+            onChange={(v) => onSettingChange('schoolMotto', v.toUpperCase())} 
+            className="text-center w-full border-none"
+            placeholder="ACADEMY MOTTO..."
+          />
+        </div>
 
         <p className="text-[12px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed">
           <EditableField 
