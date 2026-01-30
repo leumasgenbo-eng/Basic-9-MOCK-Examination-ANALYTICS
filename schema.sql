@@ -1,15 +1,10 @@
-
--- ==========================================================
--- UNITED BAYLOR ACADEMY - CLOUD ARCHITECTURE (v7.3)
--- ==========================================================
-
 -- 1. IDENTITY RECALL HUB
 CREATE TABLE IF NOT EXISTS public.uba_identities (
     email TEXT PRIMARY KEY,
     full_name TEXT NOT NULL,
     node_id TEXT NOT NULL,
     hub_id TEXT NOT NULL,
-    role TEXT NOT NULL,                 -- 'school_admin', 'facilitator', 'pupil'
+    role TEXT NOT NULL,                  -- 'school_admin', 'facilitator', 'pupil'
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -34,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.uba_audit (
 );
 
 -- ==========================================================
--- AUTOMATION: IDENTITY SYNC TRIGGER
+-- AUTOMATION: IDENTITY SYNC TRIGGER (Facilitator Aware)
 -- ==========================================================
 
 CREATE OR REPLACE FUNCTION public.sync_uba_identity()
@@ -44,14 +39,21 @@ BEGIN
   VALUES (
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', 'UBA User'),
-    COALESCE(NEW.raw_user_meta_data->>'nodeId', NEW.raw_user_meta_data->>'studentId', 'PENDING_NODE'),
+    -- Fix: Now correctly checks for facilitatorId during recruitment
+    COALESCE(
+        NEW.raw_user_meta_data->>'nodeId', 
+        NEW.raw_user_meta_data->>'studentId', 
+        NEW.raw_user_meta_data->>'facilitatorId', 
+        'PENDING_NODE'
+    ),
     COALESCE(NEW.raw_user_meta_data->>'hubId', 'PENDING_HUB'),
     COALESCE(NEW.raw_user_meta_data->>'role', 'pupil')
   )
   ON CONFLICT (email) DO UPDATE SET
     full_name = EXCLUDED.full_name,
-    node_id = EXCLUDED.node_id,
-    hub_id = EXCLUDED.hub_id,
+    -- Prevent overwriting PENDING values with new login data
+    node_id = CASE WHEN public.uba_identities.node_id = 'PENDING_NODE' THEN EXCLUDED.node_id ELSE public.uba_identities.node_id END,
+    hub_id = CASE WHEN public.uba_identities.hub_id = 'PENDING_HUB' THEN EXCLUDED.hub_id ELSE public.uba_identities.hub_id END,
     role = EXCLUDED.role;
   RETURN NEW;
 END;
@@ -72,65 +74,41 @@ ALTER TABLE public.uba_audit ENABLE ROW LEVEL SECURITY;
 
 -- 1. IDENTITY RECALL HUB POLICIES
 
-DROP POLICY IF EXISTS "Public Identity Handshake" ON public.uba_identities;
-CREATE POLICY "Public Identity Handshake" ON public.uba_identities
-FOR SELECT TO anon, authenticated
-USING (true);
+CREATE POLICY "Public Identity Handshake" ON public.uba_identities FOR SELECT TO anon, authenticated USING (true);
 
--- CRITICAL FIX: Allow anonymous enrollment and updates for registration retries
-DROP POLICY IF EXISTS "Anonymous Hub Enrollment" ON public.uba_identities;
-DROP POLICY IF EXISTS "Anonymous Hub Enrollment - Insert" ON public.uba_identities;
-DROP POLICY IF EXISTS "Anonymous Hub Enrollment - Update" ON public.uba_identities;
+-- Anonymous Enrollment (For School Admins only)
+CREATE POLICY "Anon School Registration" ON public.uba_identities FOR INSERT TO anon WITH CHECK (role = 'school_admin');
 
-CREATE POLICY "Anonymous Hub Enrollment - Insert" ON public.uba_identities
-FOR INSERT TO anon
-WITH CHECK (role = 'school_admin');
-
-CREATE POLICY "Anonymous Hub Enrollment - Update" ON public.uba_identities
-FOR UPDATE TO anon
-USING (role = 'school_admin')
-WITH CHECK (role = 'school_admin');
-
+-- FIXED Admin Recruitment: Ensures Admin can only add to their OWN hub (Fixes Enrollment Fault)
 DROP POLICY IF EXISTS "Admin Recruitment" ON public.uba_identities;
 CREATE POLICY "Admin Recruitment" ON public.uba_identities
 FOR INSERT TO authenticated
 WITH CHECK (
-  (auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') 
-  OR (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com')
+  (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com') OR 
+  ((auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') AND (hub_id = auth.jwt() -> 'user_metadata' ->> 'hubId'))
 );
 
+-- Admin Management (Update/Delete)
 DROP POLICY IF EXISTS "Admin Management" ON public.uba_identities;
 CREATE POLICY "Admin Management" ON public.uba_identities
 FOR ALL TO authenticated
 USING (
-  (hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId') AND (auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin'))
-  OR (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com')
+  (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com') OR 
+  ((hub_id = auth.jwt() -> 'user_metadata' ->> 'hubId') AND (auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin'))
 );
 
--- 2. INSTITUTIONAL PERSISTENCE POLICIES
+-- 2. INSTITUTIONAL PERSISTENCE POLICIES (Facilitator Visibility)
 
 DROP POLICY IF EXISTS "Hub Shard Isolation" ON public.uba_persistence;
 CREATE POLICY "Hub Shard Isolation" ON public.uba_persistence
 FOR ALL TO authenticated
 USING (
-    -- HQ/Superadmin sees everything
-    (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com')
-    OR
-    -- Owner always has access (Critical for initial shard creation before metadata sync)
-    (user_id = auth.uid())
-    OR 
-    -- School Admins see everything in their Hub
-    ((auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') 
-      AND hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId'))
-    OR
-    -- Facilitators see data in their Hub, but ONLY if the payload isn't marked 'admin_only'
-    ((auth.jwt() -> 'user_metadata' ->> 'role' = 'facilitator') 
-      AND hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId')
-      AND (COALESCE(payload->>'visibility', '') != 'admin_only'))
-    OR
-    -- Pupils only see their own specific data
-    ((auth.jwt() -> 'user_metadata' ->> 'role' = 'pupil') 
-      AND user_id = auth.uid())
+    (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com') OR
+    (user_id = auth.uid()) OR 
+    ((auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') AND hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId')) OR
+    -- Facilitator visibility logic
+    ((auth.jwt() -> 'user_metadata' ->> 'role' = 'facilitator') AND hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId') AND (COALESCE(payload->>'visibility', '') != 'admin_only')) OR
+    ((auth.jwt() -> 'user_metadata' ->> 'role' = 'pupil') AND user_id = auth.uid())
 );
 
 -- 3. AUDIT TRAIL POLICIES
@@ -138,8 +116,7 @@ DROP POLICY IF EXISTS "Audit Visibility" ON public.uba_audit;
 CREATE POLICY "Audit Visibility" ON public.uba_audit
 FOR ALL TO authenticated
 USING (
-    target = (auth.jwt() -> 'user_metadata' ->> 'hubId')
-    OR (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com')
+    (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com') OR (target = (auth.jwt() -> 'user_metadata' ->> 'hubId'))
 );
 
 -- HQ INITIALIZATION

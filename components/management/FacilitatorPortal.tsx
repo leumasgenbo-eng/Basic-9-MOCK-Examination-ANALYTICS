@@ -33,11 +33,13 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
     try {
       const hubId = settings.schoolNumber;
       // THREE-WAY HANDSHAKE: Email, Node ID (Institution ID), Hub ID (Institution ID)
+      // Facilitators use the school's unique ID as their authorized Node ID.
       const nodeId = hubId; 
       const targetEmail = newStaff.email.toLowerCase().trim();
       const targetName = newStaff.name.toUpperCase().trim();
 
-      // 1. IDENTITY RECALL SYNC: Public Shard Injection
+      // 1. IDENTITY RECALL HUB SYNC: Direct Shard Ingestion into public.uba_identities
+      // This ensures the identity is recallable even if Auth triggers have latency.
       const { error: idError } = await supabase.from('uba_identities').upsert({
         email: targetEmail,
         full_name: targetName,
@@ -46,16 +48,17 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
         role: 'facilitator'
       });
 
-      if (idError) throw new Error("Handshake Injection Failure: " + idError.message);
+      if (idError) throw new Error("Identity Shard Failure: " + idError.message);
 
-      // 2. AUTH METADATA INJECTION: Supabase Handshake Pack
+      // 2. AUTH METADATA INJECTION: Ensure keys match SQL trigger expectations (nodeId, hubId, facilitatorId)
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: targetEmail,
         options: {
           data: { 
             role: 'facilitator', 
             hubId: hubId, 
-            nodeId: nodeId,
+            nodeId: nodeId,          // Primary trigger key
+            facilitatorId: nodeId,   // Secondary fallback key
             email: targetEmail,
             full_name: targetName, 
             subject: newStaff.subject 
@@ -76,18 +79,18 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
         marking: { dateTaken: '', dateReturned: '', inProgress: false }
       };
 
-      // 3. PERSISTENCE LAYER SYNC: Update Local State and Trigger Global Submission
+      // 3. INSTITUTIONAL PERSISTENCE: Update Local State and Trigger Global Submission
       setFacilitators(prev => {
         const next = { ...prev, [targetEmail]: staff };
-        // Trigger actual database submission after state update
+        // Trigger institutional database submission for private persistence
         setTimeout(onSave, 100);
         return next;
       });
 
       setNewStaff({ name: '', email: '', role: 'FACILITATOR', subject: '' });
-      alert(`HANDSHAKE COMPLETE: Educator ${targetName} enrolled. Identity ingested into the ${hubId} Hub.`);
+      alert(`THREE-WAY HANDSHAKE COMPLETE:\n\nEducator: ${targetName}\nNode ID: ${nodeId}\nHub ID: ${hubId}\n\nIdentity shards successfully synchronized for Recall authentication.`);
     } catch (err: any) {
-      alert("Faculty Shard Fault: " + err.message);
+      alert("Faculty Shard Sync Fault: " + err.message);
     } finally {
       setIsEnrolling(false);
     }
@@ -119,7 +122,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
                  {subjects.map(s => <option key={s} value={s} className="text-slate-900">{s.toUpperCase()}</option>)}
               </select>
               <button type="submit" disabled={isEnrolling} className="bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all active:scale-95">
-                 {isEnrolling ? "SUBMITTING..." : "Enroll Educator"}
+                 {isEnrolling ? "FORGING SHARDS..." : "Enroll Educator"}
               </button>
            </form>
          )}
@@ -135,7 +138,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
                    <div className="flex items-center gap-3 mt-2">
                       <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{f.taughtSubject}</span>
                       <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Handshake ID: {f.enrolledId}</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Handshake Node: {f.enrolledId}</span>
                    </div>
                 </div>
              </div>
