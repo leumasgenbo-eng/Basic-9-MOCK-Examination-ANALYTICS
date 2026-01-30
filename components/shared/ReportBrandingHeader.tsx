@@ -18,13 +18,13 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
   reportTitle, 
   subtitle, 
   isLandscape = false, 
-  readOnly = false 
+  readOnly = false // Allow editing by default to fulfill UNITED BAYLOR ACADEMY requirement
 }) => {
   const renderEditable = (value: string, key: keyof GlobalSettings, className: string = "", placeholder: string = "", isUpperCase: boolean = false) => {
     if (readOnly) return <span className={className}>{value}</span>;
     return (
       <EditableField 
-        value={value} 
+        value={value || ""} 
         onChange={(v) => onSettingChange(key, isUpperCase ? v.toUpperCase() : v)} 
         className={className} 
         placeholder={placeholder}
@@ -35,18 +35,18 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
   return (
     <div className={`text-center relative border-b-[8px] border-double border-blue-900 pb-8 mb-8 w-full ${isLandscape ? 'px-10' : 'px-4'} font-sans animate-in fade-in duration-700`}>
       {/* Institutional ID - Top level verification */}
-      <div className="text-[10px] font-black text-blue-600 uppercase tracking-[0.5em] mb-4">
-        INSTITUTIONAL HUB ID: {renderEditable(settings.schoolNumber || "SMA-NODE-001", 'schoolNumber', "border-none")}
+      <div className="text-[9px] font-black text-blue-600 uppercase tracking-[0.5em] mb-6">
+        INSTITUTIONAL HUB ID: {renderEditable(settings.schoolNumber || "SMA-NODE-001", 'schoolNumber', "border-none font-mono")}
       </div>
 
       {/* Main Identity Row */}
-      <div className="flex flex-col md:flex-row items-center justify-center gap-8 mb-4">
+      <div className="flex flex-col md:flex-row items-center justify-center gap-10 mb-6">
         {/* Left Seal / Logo */}
-        <div className="w-24 h-24 flex items-center justify-center shrink-0">
+        <div className="w-28 h-28 flex items-center justify-center shrink-0">
           {settings.schoolLogo ? (
-            <img src={settings.schoolLogo} alt="Academy Seal" className="max-w-full max-h-full object-contain" />
+            <img src={settings.schoolLogo} alt="Academy Seal" className="max-w-full max-h-full object-contain shadow-sm" />
           ) : (
-            <div className="w-20 h-20 bg-blue-950 text-white rounded-[2rem] flex items-center justify-center font-black text-3xl shadow-2xl border-4 border-blue-900/20">
+            <div className="w-24 h-24 bg-blue-950 text-white rounded-[2.5rem] flex items-center justify-center font-black text-4xl shadow-2xl border-4 border-blue-900/20">
               {settings.schoolName?.split(' ').map(n => n[0]).join('').substring(0, 3).toUpperCase() || "UBA"}
             </div>
           )}
@@ -56,24 +56,24 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
           <h1 className={`${isLandscape ? 'text-5xl' : 'text-4xl'} font-black text-blue-950 tracking-tighter uppercase leading-none`}>
             {renderEditable(settings.schoolName || "UNITED BAYLOR ACADEMY", 'schoolName', "text-center font-black w-full text-blue-950 border-none", "ACADEMY NAME...", true)}
           </h1>
-          <div className="text-[11px] font-black text-blue-900/60 uppercase tracking-[0.3em] italic">
+          <div className="text-[12px] font-black text-blue-900/60 uppercase tracking-[0.3em] italic py-1">
             {renderEditable(settings.schoolMotto || "EXCELLENCE IN KNOWLEDGE AND CHARACTER", 'schoolMotto', "text-center w-full border-none", "ACADEMY MOTTO...", true)}
           </div>
-          <p className="text-[12px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed pt-1">
+          <p className="text-[13px] font-black text-gray-500 uppercase tracking-[0.4em] leading-relaxed pt-1">
             {renderEditable(settings.schoolAddress || "ACCRA DIGITAL CENTRE, GHANA", 'schoolAddress', "text-center w-full text-gray-500 border-none", "PHYSICAL ADDRESS...", true)}
           </p>
         </div>
 
         {/* Decorative Right Seal (Visible on large viewports) */}
-        <div className="hidden md:flex w-24 h-24 items-center justify-center shrink-0 opacity-10 grayscale">
-          <div className="w-20 h-20 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-xs border-2 border-dashed border-white/20">
+        <div className="hidden md:flex w-28 h-28 items-center justify-center shrink-0 opacity-10 grayscale">
+          <div className="w-24 h-24 bg-slate-900 text-white rounded-full flex items-center justify-center font-black text-xs border-2 border-dashed border-white/20">
             OFFICIAL<br/>SEAL
           </div>
         </div>
       </div>
 
       {/* Contact Matrix Particulars */}
-      <div className="flex justify-center flex-wrap gap-x-10 gap-y-2 text-[10px] font-black text-blue-900 uppercase tracking-[0.2em] pt-4 border-t border-gray-100 mt-4">
+      <div className="flex justify-center flex-wrap gap-x-12 gap-y-3 text-[10px] font-black text-blue-900 uppercase tracking-[0.2em] pt-5 border-t border-gray-100 mt-6">
         <div className="flex gap-2">
           <span className="text-gray-400">TEL:</span>
           {renderEditable(settings.schoolContact || "+233 24 350 4091", 'schoolContact', "border-none")}
@@ -89,36 +89,36 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
       </div>
 
       {/* Report Branding Stripe */}
-      <div className="mt-8 bg-blue-50/50 py-6 border-y-2 border-blue-900/10 relative overflow-hidden group">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-2000"></div>
-        <h2 className="text-3xl font-black text-blue-900 uppercase tracking-tight relative">
-          {renderEditable(reportTitle, 'examTitle', "text-center w-full border-none bg-transparent", "", true)}
+      <div className="mt-10 bg-slate-900 text-white py-8 rounded-[2rem] relative overflow-hidden group shadow-2xl border-4 border-white">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[3000ms]"></div>
+        <h2 className="text-3xl font-black uppercase tracking-[0.1em] relative">
+          {renderEditable(reportTitle, 'examTitle', "text-center w-full border-none bg-transparent text-white", "", true)}
         </h2>
-        {subtitle && <p className="text-[11px] font-black text-blue-950/40 tracking-[0.6em] uppercase mt-2">{subtitle}</p>}
+        {subtitle && <p className="text-[10px] font-black text-blue-400 tracking-[0.6em] uppercase mt-3">{subtitle}</p>}
       </div>
       
       {/* Session Metadata Shards */}
-      <div className="flex justify-center items-center gap-12 text-[12px] font-black text-gray-800 uppercase tracking-[0.3em] mt-6">
+      <div className="flex justify-center items-center gap-16 text-[12px] font-black text-gray-800 uppercase tracking-[0.3em] mt-8">
          <div className="flex flex-col items-center">
-           <span className="text-[7px] text-blue-400 mb-1 uppercase tracking-widest">Active Series</span>
-           <span className="text-blue-600 underline decoration-double underline-offset-4">
-              {renderEditable(settings.activeMock, 'activeMock', "border-none bg-transparent text-blue-600 font-mono", "", true)}
+           <span className="text-[8px] text-blue-400 mb-1 uppercase tracking-widest">Active Series</span>
+           <span className="text-blue-600 underline decoration-double underline-offset-4 font-mono uppercase">
+              {settings.activeMock}
            </span>
          </div>
          <div className="flex flex-col items-center">
-           <span className="text-[7px] text-blue-400 mb-1 uppercase tracking-widest">Term</span>
-           <span className="bg-blue-900 text-white px-4 py-1 rounded-lg">
+           <span className="text-[8px] text-blue-400 mb-1 uppercase tracking-widest">Term Shard</span>
+           <span className="bg-blue-900 text-white px-5 py-1 rounded-xl">
               {renderEditable(settings.termInfo, 'termInfo', "border-none bg-transparent text-white", "", true)}
            </span>
          </div>
          <div className="flex flex-col items-center">
-           <span className="text-[7px] text-blue-400 mb-1 uppercase tracking-widest">Academic Year</span>
+           <span className="text-[8px] text-blue-400 mb-1 uppercase tracking-widest">Academic Year</span>
            <span className="italic">
               {renderEditable(settings.academicYear, 'academicYear', "border-none bg-transparent text-gray-800", "", true)}
            </span>
          </div>
          <div className="flex flex-col items-center">
-           <span className="text-[7px] text-blue-400 mb-1 uppercase tracking-widest">Release Date</span>
+           <span className="text-[8px] text-blue-400 mb-1 uppercase tracking-widest">Master Release</span>
            <span className="font-mono">
               {renderEditable(settings.reportDate || new Date().toLocaleDateString(), 'reportDate', "border-none bg-transparent text-gray-800")}
            </span>
