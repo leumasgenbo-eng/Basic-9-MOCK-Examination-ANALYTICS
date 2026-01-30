@@ -42,11 +42,6 @@ ALTER TABLE public.uba_identities DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.uba_persistence DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.uba_audit DISABLE ROW LEVEL SECURITY;
 
--- If RLS is forced by hosting, use these universal policies
--- CREATE POLICY "Allow All" ON public.uba_persistence FOR ALL TO anon USING (true) WITH CHECK (true);
--- CREATE POLICY "Allow All" ON public.uba_identities FOR ALL TO anon USING (true) WITH CHECK (true);
--- CREATE POLICY "Allow All" ON public.uba_audit FOR ALL TO anon USING (true) WITH CHECK (true);
-
 -- Seed HQ Controller Shard for global reference
 INSERT INTO public.uba_identities (email, full_name, node_id, hub_id, role)
 VALUES ('leumasgenbo4@gmail.com', 'HQ CONTROLLER', 'MASTER-NODE-01', 'NETWORK', 'school_admin')

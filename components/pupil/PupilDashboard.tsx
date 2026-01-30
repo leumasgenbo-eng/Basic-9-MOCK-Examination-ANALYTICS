@@ -28,11 +28,11 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
   const navItems = [
     { id: 'report', label: 'My Report Card' },
-    { id: 'merit', label: 'Personal Merit Dashboard' },
+    { id: 'merit', label: 'My Merit Status' },
     { id: 'bece', label: 'BECE Ledger' },
-    { id: 'journey', label: 'Academic Journey' },
+    { id: 'journey', label: 'Progress Trend' },
     { id: 'detailed', label: 'Detailed Breakdown' },
-    { id: 'global', label: 'My Global Matrix' }
+    { id: 'global', label: 'Global Matrix' }
   ];
 
   return (
@@ -68,7 +68,7 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
          <button onClick={() => window.print()} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all hover:bg-black active:scale-95">Print Node Data</button>
       </div>
 
-      {/* 2. Institutional Branding Header */}
+      {/* 2. Institutional Branding Header - readOnly set to false to allow editing school particulars */}
       <div className="bg-white rounded-[3rem] p-10 shadow-2xl border border-gray-100 mb-10">
          <ReportBrandingHeader 
            settings={settings} 
@@ -76,7 +76,7 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
            reportTitle={settings.examTitle}
            subtitle={`CANDIDATE ATTAINMENT PROFILE: ${student.name}`}
            isLandscape={true}
-           readOnly={true}
+           readOnly={false}
          />
       </div>
 
@@ -124,7 +124,7 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
       <div className="mt-16 pt-8 border-t border-gray-200 flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-widest italic no-print">
          <span>Institutional Node Verified: {settings.schoolNumber}</span>
-         <span>SS-map ACADEMY — SHARD AUTHENTICATOR v4.0.1</span>
+         <span>UNITED BAYLOR ACADEMY — SHARD AUTHENTICATOR v4.0.1</span>
       </div>
     </div>
   );
