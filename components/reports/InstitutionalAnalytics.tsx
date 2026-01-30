@@ -168,7 +168,7 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
          <div className="flex flex-col items-center">
             <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
                <EditableField 
-                value={settings.registryRoleTitle || "Director of Studies"} 
+                value={settings.registryRoleTitle || "Examination Registry"} 
                 onChange={(v) => onSettingChange('registryRoleTitle', v)} 
                 className="text-center w-full" 
                />
@@ -184,7 +184,7 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
                 className="text-center w-full text-[8px] opacity-60" 
                />
             </div>
-            <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Academy Director's Seal</p>
+            <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Institutional Director's Seal</p>
          </div>
       </div>
     </div>

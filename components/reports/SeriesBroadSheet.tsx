@@ -111,19 +111,27 @@ const SeriesBroadSheet: React.FC<SeriesBroadSheetProps> = ({ students, settings,
       </div>
 
       {/* 3. Formal Authentication Signatures */}
-      <div className="mt-12 flex justify-between items-end border-t-2 border-blue-900 pt-6">
-         <div className="text-center w-[30%] border-t-2 border-slate-900 pt-2">
-            <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest">
-              <EditableField value={settings.registryRoleTitle || "Examination Registry"} onChange={(v) => onSettingChange('registryRoleTitle', v)} className="text-center" />
-            </span>
+      <div className="flex justify-between items-end pt-12 pb-4 border-t-2 border-blue-900 mt-12 page-break-inside-avoid">
+         <div className="flex flex-col items-center">
+            <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
+               <EditableField 
+                value={settings.registryRoleTitle || "Examination Registry"} 
+                onChange={(v) => onSettingChange('registryRoleTitle', v)} 
+                className="text-center w-full" 
+               />
+            </div>
+            <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Authorized Signature Node</p>
          </div>
-         <div className="text-center w-[30%] border-t-2 border-slate-900 pt-2">
-            <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest">
-               <EditableField value={settings.adminRoleTitle || "Academy Director"} onChange={(v) => onSettingChange('adminRoleTitle', v)} className="text-center" />
-            </span>
-            <p className="text-[10px] font-black text-blue-900 uppercase truncate mt-1">
-               <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center" />
-            </p>
+         <div className="flex flex-col items-center">
+            <div className="w-48 border-t-2 border-gray-900 text-center font-black uppercase text-[10px] pt-2">
+               <EditableField value={settings.headTeacherName} onChange={(v) => onSettingChange('headTeacherName', v)} className="text-center w-full mb-1" />
+               <EditableField 
+                value={settings.adminRoleTitle || "Academy Director"} 
+                onChange={(v) => onSettingChange('adminRoleTitle', v)} 
+                className="text-center w-full text-[8px] opacity-60" 
+               />
+            </div>
+            <p className="text-[8px] text-gray-400 mt-1 uppercase italic">Institutional Director's Seal</p>
          </div>
       </div>
     </div>
