@@ -58,24 +58,37 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
     try {
       const hubId = `SMA-2025-${Math.floor(1000 + Math.random() * 9000)}`;
       const accessKey = `SSMAP-SEC-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+      const targetEmail = formData.email.toLowerCase().trim();
+      const targetName = formData.registrant.toUpperCase().trim();
       
       setTempCredentials({ hubId, accessKey });
 
-      // TRIGGER OTP DISPATCH with Trigger-aligned metadata
-      const { error } = await supabase.auth.signInWithOtp({
-        email: formData.email.toLowerCase().trim(),
+      // 1. DIRECT SHARD INJECTION: Create identity record immediately
+      const { error: idError } = await supabase.from('uba_identities').upsert({
+        email: targetEmail,
+        full_name: targetName,
+        node_id: hubId,
+        hub_id: hubId,
+        role: 'school_admin'
+      });
+
+      if (idError) throw new Error("Identity Shard Failure: " + idError.message);
+
+      // 2. TRIGGER OTP DISPATCH with Trigger-aligned metadata
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: targetEmail,
         options: {
           data: { 
             role: 'school_admin', 
             hubId: hubId, 
             nodeId: hubId,
-            full_name: formData.registrant.toUpperCase().trim() 
+            full_name: targetName 
           },
           shouldCreateUser: true
         }
       });
       
-      if (error) throw error;
+      if (otpError) throw otpError;
       
       downloadCredentials(hubId, accessKey);
       setStep('PIN');
@@ -115,7 +128,6 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
       };
 
       // DATA HUB PERSISTENCE: Initialize Institution Shards
-      // The uba_identities record is handled by the SQL trigger on auth.users
       await supabase.from('uba_persistence').insert([
         { id: `${hubId}_settings`, hub_id: hubId, payload: newSettings, user_id: data.user.id },
         { id: `${hubId}_students`, hub_id: hubId, payload: [], user_id: data.user.id },
@@ -150,7 +162,7 @@ const SchoolRegistrationPortal: React.FC<SchoolRegistrationPortalProps> = ({
               <input type="text" value={formData.location} onChange={e=>setFormData({...formData, location: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none" placeholder="LOCATION..." required />
               <input type="email" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-sm font-black outline-none" placeholder="REGISTERED EMAIL..." required />
               <button type="submit" disabled={isLoading} className="w-full bg-blue-900 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] disabled:opacity-50 transition-all hover:bg-black">
-                {isLoading ? "Analyzing Particulars..." : "Execute Storage Ingestion"}
+                {isLoading ? "Forging Institutional Shard..." : "Execute Storage Ingestion"}
               </button>
               <button type="button" onClick={onSwitchToLogin} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline mt-2">Already registered? Access Hub Login</button>
             </form>
