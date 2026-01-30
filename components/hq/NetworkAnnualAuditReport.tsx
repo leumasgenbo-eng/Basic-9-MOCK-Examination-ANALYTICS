@@ -10,7 +10,7 @@ interface NetworkAnnualAuditReportProps {
 const NetworkAnnualAuditReport: React.FC<NetworkAnnualAuditReportProps> = ({ registry }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [networkBranding, setNetworkBranding] = useState({
-     name: "SS-map ACADEMY NETWORK HUB",
+     name: "MOCK ANALYSIS SS-MAP NETWORK HUB",
      address: "CENTRAL COMMAND, ACCRA DIGITAL CENTRE",
      director: "NETWORK CONTROLLER GENERAL"
   });
@@ -178,7 +178,7 @@ const NetworkAnnualAuditReport: React.FC<NetworkAnnualAuditReportProps> = ({ reg
       </div>
 
       <div className="pt-12 text-center">
-         <p className="text-[9px] font-black text-blue-900 uppercase tracking-[2em] opacity-30">SS-MAP PERFORMANCE HUB — GLOBAL AUDIT OUTPUT</p>
+         <p className="text-[9px] font-black text-blue-900 uppercase tracking-[2em] opacity-30">MOCK ANALYSIS SS-MAP — GLOBAL AUDIT OUTPUT</p>
       </div>
 
     </div>

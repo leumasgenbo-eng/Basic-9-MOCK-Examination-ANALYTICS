@@ -89,7 +89,7 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
     return (
       <div className="w-full max-w-4xl p-4 animate-in fade-in duration-500">
         <div className="text-center mb-16">
-           <h2 className="text-4xl font-black text-white uppercase tracking-tighter">SS-map ACADEMY</h2>
+           <h2 className="text-4xl font-black text-white uppercase tracking-tighter">MOCK ANALYSIS SS-MAP</h2>
            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Identity Sector</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

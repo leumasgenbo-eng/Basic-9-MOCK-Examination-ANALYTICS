@@ -49,14 +49,14 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
   const resetSchoolParticulars = () => {
     if (window.confirm("CRITICAL ACTION: Reset all institutional identity particulars AND CLEAR ALL SHEETS? This cannot be undone.")) {
       onBulkUpdate({
-        schoolName: "SS-map ACADEMY",
+        schoolName: "MOCK ANALYSIS SS-MAP",
         schoolLogo: "",
-        schoolContact: "+233 00 000 0000",
+        schoolContact: "+233 24 350 4091",
         schoolEmail: "info@ssmap.app",
         headTeacherName: "HEADMASTER NAME",
         academicYear: "2024/2025",
         termInfo: "TERM 2",
-        examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
+        examTitle: "OFFICIAL MOCK ASSESSMENT SERIES",
         nextTermBegin: "2025-05-12",
         accessCode: "",
         schoolNumber: ""
