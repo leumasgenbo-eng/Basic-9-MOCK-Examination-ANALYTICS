@@ -1,4 +1,3 @@
-
 -- ==========================================================
 -- 1. CORE TABLE STRUCTURE (ANONYMOUS ACCESS MODE)
 -- ==========================================================
@@ -22,6 +21,19 @@ CREATE TABLE IF NOT EXISTS public.uba_persistence (
     user_id UUID                         -- Kept for structural compatibility but unused
 );
 
+-- Bulk Process Ledger: Tracks mass enrollment/CSV jobs
+CREATE TABLE IF NOT EXISTS public.uba_bulk_logs (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    hub_id TEXT NOT NULL,
+    job_type TEXT NOT NULL,              -- e.g., 'PUPIL_ENROLLMENT'
+    status TEXT NOT NULL,                -- e.g., 'COMPLETED', 'FAILED'
+    filename TEXT,
+    success_count INTEGER DEFAULT 0,
+    error_count INTEGER DEFAULT 0,
+    actor_node TEXT,
+    timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Global Audit Ledger
 CREATE TABLE IF NOT EXISTS public.uba_audit (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -41,6 +53,7 @@ CREATE TABLE IF NOT EXISTS public.uba_audit (
 ALTER TABLE public.uba_identities DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.uba_persistence DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.uba_audit DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.uba_bulk_logs DISABLE ROW LEVEL SECURITY;
 
 -- Seed HQ Controller Shard for global reference
 INSERT INTO public.uba_identities (email, full_name, node_id, hub_id, role)
