@@ -8,11 +8,20 @@ interface FacilitatorPortalProps {
   facilitators: Record<string, StaffAssignment>;
   setFacilitators: React.Dispatch<React.SetStateAction<Record<string, StaffAssignment>>>;
   settings: GlobalSettings;
+  onSave: () => void;
   isFacilitator?: boolean;
   activeFacilitator?: { name: string; subject: string } | null;
 }
 
-const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilitators, setFacilitators, settings, isFacilitator, activeFacilitator }) => {
+const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ 
+  subjects, 
+  facilitators, 
+  setFacilitators, 
+  settings, 
+  onSave,
+  isFacilitator, 
+  activeFacilitator 
+}) => {
   const [newStaff, setNewStaff] = useState({ name: '', email: '', role: 'FACILITATOR' as StaffRole, subject: '' });
   const [isEnrolling, setIsEnrolling] = useState(false);
 
@@ -28,7 +37,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
       const targetEmail = newStaff.email.toLowerCase().trim();
       const targetName = newStaff.name.toUpperCase().trim();
 
-      // 1. IDENTITY SHARD SYNC: Email + Node + Hub
+      // 1. IDENTITY RECALL SYNC: Public Shard Injection
       const { error: idError } = await supabase.from('uba_identities').upsert({
         email: targetEmail,
         full_name: targetName,
@@ -39,7 +48,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
 
       if (idError) throw new Error("Handshake Injection Failure: " + idError.message);
 
-      // 2. AUTH METADATA INJECTION: Mirror handshake to Supabase Auth
+      // 2. AUTH METADATA INJECTION: Supabase Handshake Pack
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: targetEmail,
         options: {
@@ -67,9 +76,16 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
         marking: { dateTaken: '', dateReturned: '', inProgress: false }
       };
 
-      setFacilitators(prev => ({ ...prev, [targetEmail]: staff }));
+      // 3. PERSISTENCE LAYER SYNC: Update Local State and Trigger Global Submission
+      setFacilitators(prev => {
+        const next = { ...prev, [targetEmail]: staff };
+        // Trigger actual database submission after state update
+        setTimeout(onSave, 100);
+        return next;
+      });
+
       setNewStaff({ name: '', email: '', role: 'FACILITATOR', subject: '' });
-      alert(`THREE-WAY HANDSHAKE COMPLETE: Facilitator ${targetName} authorized on Node ${nodeId}. Verification PIN sent.`);
+      alert(`HANDSHAKE COMPLETE: Educator ${targetName} enrolled. Identity ingested into the ${hubId} Hub.`);
     } catch (err: any) {
       alert("Faculty Shard Fault: " + err.message);
     } finally {
@@ -78,23 +94,24 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
   };
 
   const handleForwardCredentials = async (email: string) => {
-     if (!window.confirm(`FORWARD CREDENTIALS: Resend Handshake PIN to ${email}?`)) return;
+     if (!window.confirm(`FORWARD HANDSHAKE: Resend Verification PIN to ${email}?`)) return;
      try {
        await supabase.auth.signInWithOtp({ email });
-       alert("Credential handshake dispatched.");
+       alert("Handshake PIN dispatched.");
      } catch (e) { alert("Handshake dispatch failed."); }
   };
 
   return (
     <div className="space-y-12 animate-in fade-in duration-700 pb-20 font-sans">
       <section className="bg-slate-950 text-white p-10 rounded-[3.5rem] border border-white/5 shadow-2xl relative overflow-hidden">
+         <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/5 rounded-full -mr-40 -mt-40 blur-[120px]"></div>
          <div className="relative space-y-2">
             <h2 className="text-3xl font-black uppercase tracking-tighter">Faculty Registry Desk</h2>
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Multi-Tenant Handshake Protocol Active</p>
+            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Authorized Multi-Tenant Handshake Protocol</p>
          </div>
 
          {!isFacilitator && (
-           <form onSubmit={handleAddStaff} className="mt-10 grid grid-cols-1 md:grid-cols-4 gap-4">
+           <form onSubmit={handleAddStaff} className="mt-10 grid grid-cols-1 md:grid-cols-4 gap-4 relative z-10">
               <input type="text" value={newStaff.name} onChange={e=>setNewStaff({...newStaff, name: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="FULL LEGAL NAME..." required />
               <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="EMAIL ADDRESS..." required />
               <select value={newStaff.subject} onChange={e=>setNewStaff({...newStaff, subject: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none">
@@ -102,7 +119,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
                  {subjects.map(s => <option key={s} value={s} className="text-slate-900">{s.toUpperCase()}</option>)}
               </select>
               <button type="submit" disabled={isEnrolling} className="bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all active:scale-95">
-                 {isEnrolling ? "SYNCING..." : "Enroll Educator"}
+                 {isEnrolling ? "SUBMITTING..." : "Enroll Educator"}
               </button>
            </form>
          )}
@@ -125,6 +142,11 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({ subjects, facilit
              <button onClick={() => handleForwardCredentials(f.email)} className="bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 px-6 py-2 rounded-xl font-black text-[9px] uppercase transition-all shadow-sm">Sync Keys</button>
           </div>
         ))}
+        {Object.keys(facilitators || {}).length === 0 && (
+           <div className="py-20 text-center opacity-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-gray-200">
+              <p className="text-xs font-black uppercase tracking-[0.5em]">No Institutional Faculty Synchronized</p>
+           </div>
+        )}
       </div>
     </div>
   );

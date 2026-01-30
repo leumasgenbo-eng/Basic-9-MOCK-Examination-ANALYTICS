@@ -43,7 +43,7 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
         schoolContact: "+233 00 000 0000",
         schoolEmail: "info@ssmap.app",
         headTeacherName: "HEADMASTER NAME",
-        academicYear: "2024/2025",
+        academicYear: "2024/2024/2025",
         termInfo: "TERM 2",
         examTitle: "2ND MOCK 2025 BROAD SHEET EXAMINATION",
         nextTermBegin: "2025-05-12",
@@ -121,7 +121,6 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
               onBulkUpdate={onBulkUpdate} 
               onSave={onSave} 
               onComplete={onRegistrationComplete}
-              onExit={onRegistrationExit}
               onResetStudents={onResetStudents}
               onSwitchToLogin={() => setActiveTab('scoreEntry')}
             />
@@ -132,10 +131,9 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
               <AcademyIdentityPortal settings={settings} onSettingChange={onSettingChange} onSave={onSave} />
             </div>
           )}
-          {/* Added missing onSave prop to satisfy PupilSBAPortalProps requirement */}
           {activeTab === 'pupils' && <PupilSBAPortal students={students} setStudents={setStudents} settings={settings} subjects={subjects} onSave={onSave} />}
-          {/* Added settings={settings} to provide the required GlobalSettings prop to FacilitatorPortal */}
-          {activeTab === 'facilitators' && <FacilitatorPortal subjects={subjects} facilitators={facilitators} setFacilitators={setFacilitators} settings={settings} />}
+          {/* Fix: Added missing onSave prop to FacilitatorPortal to satisfy its FacilitatorPortalProps interface */}
+          {activeTab === 'facilitators' && <FacilitatorPortal subjects={subjects} facilitators={facilitators} setFacilitators={setFacilitators} settings={settings} onSave={onSave} />}
           {activeTab === 'grading' && <GradingConfigPortal settings={settings} onSettingChange={onSettingChange} />}
           {activeTab === 'history' && <SeriesHistoryPortal students={students} settings={settings} />}
           {activeTab === 'resources' && <MockResourcesPortal settings={settings} onSettingChange={onSettingChange} subjects={subjects} />}
