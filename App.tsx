@@ -19,11 +19,11 @@ import PupilDashboard from './components/pupil/PupilDashboard';
 import { SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGORY_THRESHOLDS } from './constants';
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-  schoolName: "SS-MAP ACADEMY",
+  schoolName: "UNITED BAYLOR ACADEMY",
   schoolMotto: "EXCELLENCE IN KNOWLEDGE AND CHARACTER",
-  schoolWebsite: "www.ssmap.app",
+  schoolWebsite: "www.unitedbaylor.edu",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
-  schoolNumber: "SSMAP-NODE-01", 
+  schoolNumber: "UBA-NODE-2025", 
   schoolLogo: "", 
   examTitle: "OFFICIAL MOCK ASSESSMENT SERIES",
   termInfo: "TERM 2",
@@ -35,7 +35,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   headTeacherName: "DIRECTOR NAME",
   reportDate: new Date().toLocaleDateString(),
   schoolContact: "+233 24 350 4091",
-  schoolEmail: "info@ssmap.app",
+  schoolEmail: "info@unitedbaylor.edu",
   gradingThresholds: DEFAULT_THRESHOLDS,
   categoryThresholds: DEFAULT_CATEGORY_THRESHOLDS,
   normalizationConfig: DEFAULT_NORMALIZATION,
@@ -53,10 +53,10 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   reportTemplate: 'standard',
   adminRoleTitle: "Academy Director",
   registryRoleTitle: "Examination Registry",
-  accessCode: "",
-  staffAccessCode: "",
-  pupilAccessCode: "",
-  enrollmentDate: ""
+  accessCode: "UBA-MASTER-KEY",
+  staffAccessCode: "STAFF-UBA-2025",
+  pupilAccessCode: "PUPIL-UBA-2025",
+  enrollmentDate: new Date().toLocaleDateString()
 };
 
 const App: React.FC = () => {
@@ -177,10 +177,6 @@ const App: React.FC = () => {
 
   if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={async (id)=>{ await syncCloudShards(id); setCurrentHubId(id); setIsSuperAdmin(false); }} />;
 
-  /**
-   * PUPIL ISOLATION GATE
-   * Prevents standard admin navigation if the role is 'pupil'.
-   */
   if (activeRole === 'pupil' && activePupil) {
     return (
       <PupilDashboard 
@@ -198,8 +194,6 @@ const App: React.FC = () => {
   }
 
   const isFacilitatorMode = activeRole === 'facilitator';
-
-  // Fallback student for Admin Preview in Pupil Hub
   const previewStudent = processedStudents.length > 0 ? processedStudents[0] : activePupil;
 
   return (

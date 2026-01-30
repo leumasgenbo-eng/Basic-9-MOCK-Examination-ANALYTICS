@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { GlobalSettings } from '../../types';
 
@@ -19,6 +18,29 @@ const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings,
       reader.onloadend = () => onSettingChange('schoolLogo', reader.result as string);
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleDownloadCredentials = () => {
+    const text = `UNITED BAYLOR ACADEMY - INSTITUTIONAL ACCESS PACK\n` +
+                 `==================================================\n\n` +
+                 `LOGIN CREDENTIALS:\n\n` +
+                 `1. Institution Name:   ${settings.schoolName}\n` +
+                 `2. Institution ID:     ${settings.schoolNumber}\n` +
+                 `3. Registrant Identity: ${settings.registrantName}\n` +
+                 `4. System Access Key:   ${settings.accessCode}\n\n` +
+                 `--------------------------------------------------\n` +
+                 `SECURITY NODE KEYS:\n` +
+                 `Staff Passkey:    ${settings.staffAccessCode}\n` +
+                 `Pupil Passkey:    ${settings.pupilAccessCode}\n\n` +
+                 `* IMPORTANT: Save this file. Your Access Key is required for identity recall.`;
+    
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `UBA_Credentials_${settings.schoolNumber}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleResetRoleCode = (role: 'staff' | 'pupil') => {
@@ -55,13 +77,22 @@ const AcademyIdentityPortal: React.FC<AcademyIdentityPortalProps> = ({ settings,
               <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Security Node Control</h4>
               <p className="text-xl font-black uppercase tracking-tight">Institutional Access Management</p>
            </div>
-           <button 
-             onClick={() => setShowKeys(!showKeys)}
-             className="bg-white/10 hover:bg-white/20 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase border border-white/10 transition-all flex items-center gap-2"
-           >
-             {showKeys ? 'Hide Keys' : 'View Passkeys'}
-             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-           </button>
+           <div className="flex gap-3">
+             <button 
+               onClick={handleDownloadCredentials}
+               className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all flex items-center gap-2"
+             >
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+               Download Access Pack
+             </button>
+             <button 
+               onClick={() => setShowKeys(!showKeys)}
+               className="bg-white/10 hover:bg-white/20 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase border border-white/10 transition-all flex items-center gap-2"
+             >
+               {showKeys ? 'Hide Keys' : 'View Passkeys'}
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+             </button>
+           </div>
         </div>
 
         {showKeys && (
