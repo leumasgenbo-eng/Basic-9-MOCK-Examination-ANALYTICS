@@ -3,7 +3,7 @@
 -- 1. CORE TABLE STRUCTURE
 -- ==========================================================
 
--- Identity Registry: Links emails to specific institutional nodes
+-- Identity Registry: Maps emails to institutional shards and roles
 CREATE TABLE IF NOT EXISTS public.uba_identities (
     email TEXT PRIMARY KEY,
     full_name TEXT NOT NULL,
@@ -13,16 +13,16 @@ CREATE TABLE IF NOT EXISTS public.uba_identities (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Persistence Hub: Stores the actual JSON shards (settings, students, etc.)
+-- Persistence Hub: JSON Shards (Settings, Students, Facilitators)
 CREATE TABLE IF NOT EXISTS public.uba_persistence (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY,                 -- e.g., 'SMA-2025-001_settings'
     hub_id TEXT NOT NULL,
     payload JSONB NOT NULL,
     last_updated TIMESTAMPTZ DEFAULT NOW(),
     user_id UUID REFERENCES auth.users(id)
 );
 
--- Global Audit Ledger
+-- Global Audit Ledger: Tracks all master actions
 CREATE TABLE IF NOT EXISTS public.uba_audit (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     timestamp TIMESTAMPTZ DEFAULT NOW(),
@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS public.uba_audit (
 -- 2. BI-DIRECTIONAL SYNC AUTOMATION (LOOP-PROOF)
 -- ==========================================================
 
--- TRIGGER A: Auth Metadata -> Identity Table (Sync on Handshake)
+-- TRIGGER A: Auth Metadata -> Database (Sync on Handshake)
+-- CRITICAL: SECURITY DEFINER allows the trigger to bypass RLS during user creation
 CREATE OR REPLACE FUNCTION public.sync_uba_identity()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -69,7 +70,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- TRIGGER B: Identity Table -> Auth Metadata (Back-Sync for Admin Updates)
+-- TRIGGER B: Database -> Auth (Self-Healing Metadata Back-Sync)
 CREATE OR REPLACE FUNCTION public.backfill_auth_metadata()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -116,42 +117,42 @@ ALTER TABLE public.uba_persistence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.uba_audit ENABLE ROW LEVEL SECURITY;
 
 -- --- UBA_IDENTITIES POLICIES ---
-DROP POLICY IF EXISTS "Public Identity Select" ON public.uba_identities;
-CREATE POLICY "Public Identity Select" ON public.uba_identities FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Global Identity Handshake" ON public.uba_identities;
+CREATE POLICY "Global Identity Handshake" ON public.uba_identities FOR SELECT TO anon, authenticated USING (true);
 
-DROP POLICY IF EXISTS "SuperAdmin Identity Full Access" ON public.uba_identities;
-CREATE POLICY "SuperAdmin Identity Full Access" ON public.uba_identities FOR ALL TO authenticated 
+DROP POLICY IF EXISTS "SuperAdmin Identity Override" ON public.uba_identities;
+CREATE POLICY "SuperAdmin Identity Override" ON public.uba_identities FOR ALL TO authenticated 
 USING (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com');
 
-DROP POLICY IF EXISTS "Admin Recruitment" ON public.uba_identities;
-CREATE POLICY "Admin Recruitment" ON public.uba_identities FOR INSERT TO authenticated
+DROP POLICY IF EXISTS "Admin Recruitment Access" ON public.uba_identities;
+CREATE POLICY "Admin Recruitment Access" ON public.uba_identities FOR INSERT TO authenticated
 WITH CHECK (
   (auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') 
   AND (hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId'))
 );
 
 -- --- UBA_PERSISTENCE POLICIES ---
-DROP POLICY IF EXISTS "SuperAdmin Persistence Full Access" ON public.uba_persistence;
-CREATE POLICY "SuperAdmin Persistence Full Access" ON public.uba_persistence FOR ALL TO authenticated
+DROP POLICY IF EXISTS "SuperAdmin Global Persistence" ON public.uba_persistence;
+CREATE POLICY "SuperAdmin Global Persistence" ON public.uba_persistence FOR ALL TO authenticated
 USING (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com');
 
-DROP POLICY IF EXISTS "Institutional Shard Isolation" ON public.uba_persistence;
-CREATE POLICY "Institutional Shard Isolation" ON public.uba_persistence FOR ALL TO authenticated
+DROP POLICY IF EXISTS "Institutional Hub Shard Isolation" ON public.uba_persistence;
+CREATE POLICY "Institutional Hub Shard Isolation" ON public.uba_persistence FOR ALL TO authenticated
 USING (
-    (hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId'))
+    (hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId')) OR
+    (user_id = auth.uid())
 );
 
 -- ==========================================================
--- 4. MASTER BOOTSTRAP
+-- 4. MASTER BOOTSTRAP (SUPERADMIN REPAIR)
 -- ==========================================================
 
--- PRE-SEED SUPERADMIN (Ensure metadata is correct before triggers run)
--- This allows leumasgenbo4@gmail.com to login even if the first trigger fails
+-- Seed the Master Identity Shard
 INSERT INTO public.uba_identities (email, full_name, node_id, hub_id, role)
 VALUES ('leumasgenbo4@gmail.com', 'HQ CONTROLLER', 'MASTER-NODE-01', 'NETWORK', 'school_admin')
-ON CONFLICT (email) DO UPDATE SET hub_id = 'NETWORK', role = 'school_admin';
+ON CONFLICT (email) DO UPDATE SET hub_id = 'NETWORK', role = 'school_admin', full_name = 'HQ CONTROLLER';
 
--- UPDATE AUTH (If user already exists in auth.users)
+-- Direct Auth Metadata Injection for SuperAdmin
 UPDATE auth.users 
 SET raw_user_meta_data = jsonb_build_object(
     'hubId', 'NETWORK', 
