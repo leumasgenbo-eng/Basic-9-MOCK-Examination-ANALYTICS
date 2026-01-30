@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 
 interface EditableFieldProps {
@@ -20,6 +19,7 @@ const EditableField: React.FC<EditableFieldProps> = ({ value, onChange, classNam
 
   useEffect(() => {
     if (multiline && textareaRef.current) {
+        // Precise height calculation
         textareaRef.current.style.height = 'auto';
         textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
@@ -31,7 +31,7 @@ const EditableField: React.FC<EditableFieldProps> = ({ value, onChange, classNam
     }
   };
 
-  const commonClasses = `bg-transparent hover:bg-blue-50/30 focus:bg-blue-50/50 transition-colors border-b border-dashed border-blue-200/50 focus:border-blue-500 focus:outline-none print:border-none print:bg-transparent ${className}`;
+  const commonClasses = `bg-transparent hover:bg-blue-50/40 focus:bg-blue-100/50 transition-all duration-300 border-b-2 border-dashed border-blue-200/50 focus:border-blue-600 focus:outline-none print:border-none print:bg-transparent cursor-text ${className}`;
 
   if (multiline) {
     return (

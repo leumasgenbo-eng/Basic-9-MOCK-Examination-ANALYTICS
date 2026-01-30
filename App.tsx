@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { calculateClassStatistics, processStudentData } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
@@ -22,7 +21,7 @@ import { SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGO
 const DEFAULT_SETTINGS: GlobalSettings = {
   schoolName: "UNITED BAYLOR ACADEMY",
   schoolMotto: "EXCELLENCE IN KNOWLEDGE AND CHARACTER",
-  schoolWebsite: "www.uba-academy.app",
+  schoolWebsite: "www.ssmap.app",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
   schoolNumber: "UBA-MASTER-NODE", 
   schoolLogo: "", 
@@ -36,7 +35,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   headTeacherName: "DIRECTOR NAME",
   reportDate: new Date().toLocaleDateString(),
   schoolContact: "+233 24 350 4091",
-  schoolEmail: "info@uba-academy.app",
+  schoolEmail: "info@ssmap.app",
   gradingThresholds: DEFAULT_THRESHOLDS,
   categoryThresholds: DEFAULT_CATEGORY_THRESHOLDS,
   normalizationConfig: DEFAULT_NORMALIZATION,
@@ -178,10 +177,6 @@ const App: React.FC = () => {
 
   if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={async (id)=>{ await syncCloudShards(id); setCurrentHubId(id); setIsSuperAdmin(false); }} />;
 
-  /**
-   * PUPIL ISOLATION GATE
-   * Prevents standard admin navigation if the role is 'pupil'.
-   */
   if (activeRole === 'pupil' && activePupil) {
     return (
       <PupilDashboard 
@@ -199,8 +194,6 @@ const App: React.FC = () => {
   }
 
   const isFacilitatorMode = activeRole === 'facilitator';
-
-  // Fallback student for Admin Preview in Pupil Hub
   const previewStudent = processedStudents.length > 0 ? processedStudents[0] : activePupil;
 
   return (

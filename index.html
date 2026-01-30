@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -32,7 +31,6 @@
       ::-webkit-scrollbar-track { background: #f1f1f1; }
       ::-webkit-scrollbar-thumb { background: #1e3a8a; border-radius: 4px; }
       
-      /* Smooth PWA scaling */
       body {
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
@@ -57,10 +55,13 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then((reg) => {
+          // Fix: Resolve script URL explicitly relative to window location 
+          // to prevent origin mismatch ('https://ai.studio' vs usercontent origin)
+          const swUrl = new URL('./sw.js', window.location.href).href;
+          navigator.serviceWorker.register(swUrl).then((reg) => {
             console.log('MOCK ANALYSIS SS-MAP Service Worker Registered.');
           }).catch((err) => {
-            console.log('SW Registration failed:', err);
+            console.error('SW Registration failed:', err);
           });
         });
       }
