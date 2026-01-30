@@ -1,6 +1,6 @@
 
 -- ==========================================================
--- UNITED BAYLOR ACADEMY - CLOUD ARCHITECTURE (v7.2)
+-- UNITED BAYLOR ACADEMY - CLOUD ARCHITECTURE (v7.3)
 -- ==========================================================
 
 -- 1. IDENTITY RECALL HUB
@@ -77,10 +77,18 @@ CREATE POLICY "Public Identity Handshake" ON public.uba_identities
 FOR SELECT TO anon, authenticated
 USING (true);
 
--- CRITICAL FIX: Allow anonymous enrollment during registration
+-- CRITICAL FIX: Allow anonymous enrollment and updates for registration retries
 DROP POLICY IF EXISTS "Anonymous Hub Enrollment" ON public.uba_identities;
-CREATE POLICY "Anonymous Hub Enrollment" ON public.uba_identities
+DROP POLICY IF EXISTS "Anonymous Hub Enrollment - Insert" ON public.uba_identities;
+DROP POLICY IF EXISTS "Anonymous Hub Enrollment - Update" ON public.uba_identities;
+
+CREATE POLICY "Anonymous Hub Enrollment - Insert" ON public.uba_identities
 FOR INSERT TO anon
+WITH CHECK (role = 'school_admin');
+
+CREATE POLICY "Anonymous Hub Enrollment - Update" ON public.uba_identities
+FOR UPDATE TO anon
+USING (role = 'school_admin')
 WITH CHECK (role = 'school_admin');
 
 DROP POLICY IF EXISTS "Admin Recruitment" ON public.uba_identities;
@@ -105,17 +113,33 @@ DROP POLICY IF EXISTS "Hub Shard Isolation" ON public.uba_persistence;
 CREATE POLICY "Hub Shard Isolation" ON public.uba_persistence
 FOR ALL TO authenticated
 USING (
+    -- HQ/Superadmin sees everything
     (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com')
+    OR
+    -- Owner always has access (Critical for initial shard creation before metadata sync)
+    (user_id = auth.uid())
     OR 
+    -- School Admins see everything in their Hub
     ((auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') 
       AND hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId'))
     OR
+    -- Facilitators see data in their Hub, but ONLY if the payload isn't marked 'admin_only'
     ((auth.jwt() -> 'user_metadata' ->> 'role' = 'facilitator') 
       AND hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId')
       AND (COALESCE(payload->>'visibility', '') != 'admin_only'))
     OR
+    -- Pupils only see their own specific data
     ((auth.jwt() -> 'user_metadata' ->> 'role' = 'pupil') 
       AND user_id = auth.uid())
+);
+
+-- 3. AUDIT TRAIL POLICIES
+DROP POLICY IF EXISTS "Audit Visibility" ON public.uba_audit;
+CREATE POLICY "Audit Visibility" ON public.uba_audit
+FOR ALL TO authenticated
+USING (
+    target = (auth.jwt() -> 'user_metadata' ->> 'hubId')
+    OR (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com')
 );
 
 -- HQ INITIALIZATION
