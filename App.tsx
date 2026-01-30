@@ -177,6 +177,10 @@ const App: React.FC = () => {
 
   if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={async (id)=>{ await syncCloudShards(id); setCurrentHubId(id); setIsSuperAdmin(false); }} />;
 
+  /**
+   * PUPIL ISOLATION GATE
+   * Prevents standard admin navigation if the role is 'pupil'.
+   */
   if (activeRole === 'pupil' && activePupil) {
     return (
       <PupilDashboard 
@@ -194,6 +198,8 @@ const App: React.FC = () => {
   }
 
   const isFacilitatorMode = activeRole === 'facilitator';
+
+  // Fallback student for Admin Preview in Pupil Hub
   const previewStudent = processedStudents.length > 0 ? processedStudents[0] : activePupil;
 
   return (
