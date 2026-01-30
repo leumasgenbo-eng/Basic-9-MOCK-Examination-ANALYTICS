@@ -37,11 +37,12 @@ interface ManagementDeskProps {
   onClearData: () => void;
   isFacilitator?: boolean;
   activeFacilitator?: { name: string; subject: string } | null;
+  loggedInUser?: { name: string; nodeId: string } | null;
 }
 
 const ManagementDesk: React.FC<ManagementDeskProps> = ({ 
   students, setStudents, facilitators, setFacilitators, subjects, settings, onSettingChange, onBulkUpdate, onSave, processedSnapshot, onLoadDummyData, onClearData,
-  isFacilitator, activeFacilitator
+  isFacilitator, activeFacilitator, loggedInUser
 }) => {
   const [activeTab, setActiveTab] = useState<ManagementTabType>(isFacilitator ? 'facilitatorDesk' : 'scoreEntry');
 
@@ -79,6 +80,7 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
             onClearData={onClearData}
             hasData={students.length > 0}
             isFacilitator={isFacilitator}
+            loggedInUser={loggedInUser}
         />
         <ManagementTabs activeTab={activeTab} setActiveTab={setActiveTab} isFacilitator={isFacilitator} />
         <div className="p-6 md:p-10 min-h-[600px]">

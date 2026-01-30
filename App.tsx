@@ -80,46 +80,35 @@ const App: React.FC = () => {
   const [activePupil, setActivePupil] = useState<ProcessedStudent | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   
+  const [loggedInUser, setLoggedInUser] = useState<{ name: string; nodeId: string } | null>(null);
   const [globalRegistry, setGlobalRegistry] = useState<SchoolRegistryEntry[]>([]);
   const [settings, setSettings] = useState<GlobalSettings>(DEFAULT_SETTINGS);
   const [students, setStudents] = useState<StudentData[]>([]); 
   const [facilitators, setFacilitators] = useState<Record<string, StaffAssignment>>({});
 
-  /**
-   * CORE CLOUD HYDRATION: Uploads latest JSON shards from Supabase into application state.
-   */
   const syncCloudShards = useCallback(async (hubId: string) => {
     if (!hubId) return null;
     try {
-      console.log(`[SMA SYNC] Pulling shards for Institutional Node: ${hubId}`);
       const { data, error } = await supabase
         .from('uba_persistence')
         .select('id, payload')
         .eq('hub_id', hubId);
-
       if (error) throw error;
-
       if (data && data.length > 0) {
         let cloudSettings = { ...DEFAULT_SETTINGS };
         let cloudStudents: StudentData[] = [];
         let cloudFacilitators: Record<string, StaffAssignment> = {};
-
         data.forEach(row => {
           if (row.id === `${hubId}_settings`) cloudSettings = row.payload;
           if (row.id === `${hubId}_students`) cloudStudents = row.payload;
           if (row.id === `${hubId}_facilitators`) cloudFacilitators = row.payload;
         });
-
         setSettings(cloudSettings);
         setStudents(cloudStudents);
         setFacilitators(cloudFacilitators);
-        
-        console.log(`[SMA SYNC] Successfully loaded ${cloudStudents.length} pupil records.`);
         return { settings: cloudSettings, students: cloudStudents, facilitators: cloudFacilitators };
       }
-    } catch (e) {
-      console.error("[SMA SYNC] Shard Hydration Failure:", e);
-    }
+    } catch (e) { console.error("[SMA SYNC] Shard Hydration Failure:", e); }
     return null;
   }, []);
 
@@ -127,17 +116,12 @@ const App: React.FC = () => {
     const statsObj = calculateClassStatistics(studentList, currentSettings);
     const processed = processStudentData(statsObj, studentList, {}, currentSettings);
     const pupil = processed.find(p => p.id === studentId);
-    if (pupil) { 
-      setActivePupil(pupil); 
-      setIsPupil(true); 
-    }
+    if (pupil) { setActivePupil(pupil); setIsPupil(true); }
   }, []);
 
   useEffect(() => {
     const initializeSystem = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      // Pull Global Registry for Pupil Matrix
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
@@ -145,10 +129,9 @@ const App: React.FC = () => {
         const metadata = session.user.user_metadata || {};
         const hubId = metadata.hubId;
         const role = metadata.role;
+        setLoggedInUser({ name: metadata.full_name || metadata.name || "UBA USER", nodeId: metadata.nodeId || hubId });
         
-        // HYDRATE BROWSER FROM CLOUD JSON
         const result = await syncCloudShards(hubId);
-        
         if (session.user.email === 'leumasgenbo4@gmail.com') {
           setIsSuperAdmin(true);
         } else {
@@ -178,11 +161,7 @@ const App: React.FC = () => {
     return { stats: s, processedStudents: processed, classAvgAggregate: avgAgg };
   }, [students, facilitators, settings]);
 
-  const handleLogout = async () => { 
-    await supabase.auth.signOut(); 
-    window.location.reload(); 
-  };
-
+  const handleLogout = async () => { await supabase.auth.signOut(); window.location.reload(); };
   const handleSaveAll = async () => {
     if (!settings.schoolNumber) return;
     const hubId = settings.schoolNumber;
@@ -206,33 +185,13 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         {isRegistering ? (
-          <SchoolRegistrationPortal 
-            settings={settings} 
-            onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} 
-            onSave={handleSaveAll} 
-            onComplete={() => setIsAuthenticated(true)} 
-            onResetStudents={() => setStudents([])} 
-            onSwitchToLogin={() => setIsRegistering(false)} 
-          />
+          <SchoolRegistrationPortal settings={settings} onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} onSave={handleSaveAll} onComplete={() => setIsAuthenticated(true)} onResetStudents={() => setStudents([])} onSwitchToLogin={() => setIsRegistering(false)} />
         ) : (
           <LoginPortal 
-            onLoginSuccess={async (id) => { 
-                await syncCloudShards(id);
-                setIsAuthenticated(true); 
-            }} 
+            onLoginSuccess={async (id) => { await syncCloudShards(id); setIsAuthenticated(true); }} 
             onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={async (n, s, id) => { 
-                await syncCloudShards(id);
-                setIsFacilitator(true); 
-                setActiveFacilitator({ name: n, subject: s }); 
-                setIsAuthenticated(true); 
-                setViewMode('home'); 
-            }} 
-            onPupilLogin={async (id, hId) => { 
-                const result = await syncCloudShards(hId);
-                setIsAuthenticated(true); 
-                if (result) resolvePupilPortal(id, result.students, result.settings); 
-            }} 
+            onFacilitatorLogin={async (n, s, id) => { await syncCloudShards(id); setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('home'); }} 
+            onPupilLogin={async (id, hId) => { const result = await syncCloudShards(hId); setIsAuthenticated(true); if (result) resolvePupilPortal(id, result.students, result.settings); }} 
             onSwitchToRegister={() => setIsRegistering(true)} 
           />
         )}
@@ -243,7 +202,7 @@ const App: React.FC = () => {
   if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={async (id) => { await syncCloudShards(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
 
   if (isPupil && activePupil) {
-    return <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} onLogout={handleLogout} />;
+    return <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} onLogout={handleLogout} loggedInUser={loggedInUser} />;
   }
 
   return (
@@ -268,7 +227,7 @@ const App: React.FC = () => {
             {processedStudents.filter(s => (s.name || "").toLowerCase().includes(reportSearchTerm.toLowerCase())).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />)}
           </div>
         )}
-        {viewMode === 'management' && <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u)=>setSettings(p=>({...p,...u}))} onSave={handleSaveAll} processedSnapshot={processedStudents} onLoadDummyData={()=>{}} onClearData={()=>{}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} />}
+        {viewMode === 'management' && <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u)=>setSettings(p=>({...p,...u}))} onSave={handleSaveAll} processedSnapshot={processedStudents} onLoadDummyData={()=>{}} onClearData={()=>{}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} loggedInUser={loggedInUser} />}
       </div>
     </div>
   );
