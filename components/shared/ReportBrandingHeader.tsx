@@ -47,14 +47,14 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
             <img src={settings.schoolLogo} alt="Academy Seal" className="max-w-full max-h-full object-contain shadow-sm" />
           ) : (
             <div className="w-24 h-24 bg-blue-950 text-white rounded-[2.5rem] flex items-center justify-center font-black text-4xl shadow-2xl border-4 border-blue-900/20">
-              {settings.schoolName?.split(' ').map(n => n[0]).join('').substring(0, 3).toUpperCase() || "SSM"}
+              {settings.schoolName?.split(' ').map(n => n[0]).join('').substring(0, 3).toUpperCase() || "UBA"}
             </div>
           )}
         </div>
 
         <div className="flex-1 space-y-1">
           <h1 className={`${isLandscape ? 'text-5xl' : 'text-4xl'} font-black text-blue-950 tracking-tighter uppercase leading-none`}>
-            {renderEditable(settings.schoolName || "SS-MAP ACADEMY", 'schoolName', "text-center font-black w-full text-blue-950 border-none", "SS-MAP ACADEMY", true)}
+            {renderEditable(settings.schoolName || "UNITED BAYLOR ACADEMY", 'schoolName', "text-center font-black w-full text-blue-950 border-none", "UNITED BAYLOR ACADEMY", true)}
           </h1>
           <div className="text-[12px] font-black text-blue-900/60 uppercase tracking-[0.3em] italic py-1">
             {renderEditable(settings.schoolMotto || "EXCELLENCE IN KNOWLEDGE AND CHARACTER", 'schoolMotto', "text-center w-full border-none", "ACADEMY MOTTO...", true)}
@@ -64,14 +64,14 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
           </p>
         </div>
 
-        {/* Decorative Right Seal (Editable Headmaster Name in Seal) */}
+        {/* Decorative Right Seal (Director Signature Node) */}
         <div className="hidden md:flex w-28 h-28 items-center justify-center shrink-0 group">
           <div className="w-24 h-24 bg-slate-900 text-white rounded-full flex flex-col items-center justify-center border-2 border-dashed border-white/20 p-2 shadow-xl group-hover:scale-110 transition-transform">
             <span className="text-[6px] font-black uppercase opacity-40">Verified By</span>
             <div className="text-[7px] font-black uppercase text-center leading-tight">
-               {renderEditable(settings.headTeacherName || "DIRECTOR", 'headTeacherName', "border-none text-white text-center")}
+               {renderEditable(settings.headTeacherName || "DIRECTOR NAME", 'headTeacherName', "border-none text-white text-center")}
             </div>
-            <span className="text-[5px] font-mono mt-1 opacity-30">{settings.schoolNumber || "SSMAP-NODE"}</span>
+            <span className="text-[5px] font-mono mt-1 opacity-30">{settings.schoolNumber || "UBA-NODE-2025"}</span>
           </div>
         </div>
       </div>
@@ -84,15 +84,15 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
         </div>
         <div className="flex gap-2">
           <span className="text-gray-400">WEB:</span>
-          {renderEditable(settings.schoolWebsite || "www.ssmap.app", 'schoolWebsite', "border-none lowercase font-mono")}
+          {renderEditable(settings.schoolWebsite || "www.unitedbaylor.edu", 'schoolWebsite', "border-none lowercase font-mono")}
         </div>
         <div className="flex gap-2">
           <span className="text-gray-400">EMAIL:</span>
-          {renderEditable(settings.schoolEmail || "hub@ssmap.app", 'schoolEmail', "border-none lowercase font-mono")}
+          {renderEditable(settings.schoolEmail || "info@unitedbaylor.edu", 'schoolEmail', "border-none lowercase font-mono")}
         </div>
       </div>
 
-      {/* Report Branding Stripe */}
+      {/* Assessment Series Branding Stripe */}
       <div className="mt-10 bg-slate-900 text-white py-8 rounded-[2rem] relative overflow-hidden group shadow-2xl border-4 border-white">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[3000ms]"></div>
         <h2 className="text-3xl font-black uppercase tracking-[0.1em] relative">

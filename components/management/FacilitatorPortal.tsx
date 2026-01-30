@@ -201,7 +201,8 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-gray-50">
-                    {Object.values(facilitators).map(f => (
+                    {/* Fix: Added explicit type assertion to Object.values(facilitators) to resolve 'unknown' type errors for email, name, role, and invigilations */}
+                    {(Object.values(facilitators) as StaffAssignment[]).map(f => (
                        <tr key={f.email} className="hover:bg-blue-50/20">
                           <td className="px-8 py-4 border-r border-gray-100">
                              <p className="text-[10px] font-black uppercase text-slate-800 leading-tight">{f.name}</p>

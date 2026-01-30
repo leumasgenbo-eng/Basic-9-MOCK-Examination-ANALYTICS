@@ -76,15 +76,18 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
 
     try {
       if (editingId) {
-        setStudents(prev => prev.map(s => s.id === editingId ? { 
-          ...s, 
-          name: formData.name.toUpperCase().trim(), 
-          email: formData.email.toLowerCase().trim(),
-          gender: formData.gender,
-          parentName: formData.guardianName.toUpperCase(),
-          parentContact: formData.parentContact,
-          parentEmail: formData.parentEmail.toLowerCase().trim()
-        } : s));
+        setStudents(prev => {
+          const next = prev.map(s => s.id === editingId ? { 
+            ...s, 
+            name: formData.name.toUpperCase().trim(), 
+            email: formData.email.toLowerCase().trim(),
+            gender: formData.gender,
+            parentName: formData.guardianName.toUpperCase(),
+            parentContact: formData.parentContact,
+            parentEmail: formData.parentEmail.toLowerCase().trim()
+          } : s);
+          return next;
+        });
         alert("PUPIL IDENTITY REFACTORED.");
       } else {
         const nextId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 101;
@@ -134,7 +137,6 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
       let errorCount = 0;
       let currentId = students.length > 0 ? Math.max(...students.map(s => s.id)) : 100;
 
-      // Map headers to indices
       const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
       const getCol = (row: string[], key: string) => {
         const idx = headers.indexOf(key.toLowerCase());
@@ -160,20 +162,17 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
           newEntries.push(enrolled);
           successCount++;
 
-          // Prevent rate-limit lockouts
           if (successCount % 5 === 0) await new Promise(r => setTimeout(r, 600));
         } catch (err) {
-          console.error("Bulk Item Failure:", err);
           errorCount++;
         }
       }
 
       if (newEntries.length > 0) {
-        // Atomic state update for all sheets
         const finalSet = [...students, ...newEntries];
         setStudents(finalSet);
 
-        // Mirror to Cloud Registry Shard
+        // 1. Mirror to Cloud Identity Audit
         await supabase.from('uba_bulk_logs').insert({
           hub_id: settings.schoolNumber,
           job_type: 'PUPIL_ENROLLMENT',
@@ -184,7 +183,7 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
           actor_node: settings.registrantName || 'SYSTEM_NODE'
         });
 
-        // Trigger global persistence
+        // 2. IMMEDIATE PERSISTENCE SHARD SYNC (Crucial for all Sheets)
         const hubId = settings.schoolNumber;
         await supabase.from('uba_persistence').upsert({ 
           id: `${hubId}_students`, 
@@ -193,7 +192,15 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
           last_updated: new Date().toISOString() 
         });
 
-        alert(`MASS ENROLMENT SUCCESSFUL:\n- ${successCount} Identity shards created.\n- ${errorCount} Errors encountered.\n\nRegistry and Master Sheets updated.`);
+        // 3. Update Registry Data Node
+        const { data: regData } = await supabase.from('uba_persistence').select('payload').eq('id', `registry_${hubId}`).maybeSingle();
+        if (regData) {
+           const registryArray = Array.isArray(regData.payload) ? regData.payload : [regData.payload];
+           const updatedRegistry = [{ ...registryArray[0], studentCount: finalSet.length, lastActivity: new Date().toISOString() }];
+           await supabase.from('uba_persistence').upsert({ id: `registry_${hubId}`, hub_id: hubId, payload: updatedRegistry });
+        }
+
+        alert(`MASS ENROLMENT SUCCESSFUL:\n- ${successCount} Identity shards created.\n- ${errorCount} Errors encountered.\n\nWorkforce registry updated and synchronized.`);
       }
 
       setBulkProcessing(false);
@@ -219,8 +226,17 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
     if (!window.confirm(`Revoke identity for ${name}?`)) return;
     const student = students.find(s => s.id === id);
     if (student) await supabase.from('uba_identities').delete().eq('email', student.email);
-    setStudents(prev => prev.filter(s => s.id !== id));
-    setTimeout(onSave, 100);
+    const nextSet = students.filter(s => s.id !== id);
+    setStudents(nextSet);
+    
+    // Immediate Cloud Sync on deletion
+    const hubId = settings.schoolNumber;
+    await supabase.from('uba_persistence').upsert({ 
+      id: `${hubId}_students`, 
+      hub_id: hubId, 
+      payload: nextSet, 
+      last_updated: new Date().toISOString() 
+    });
   };
 
   const handleEditClick = (s: StudentData) => {

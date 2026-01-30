@@ -86,39 +86,48 @@ const App: React.FC = () => {
         let cloudSettings = { ...DEFAULT_SETTINGS };
         let cloudStudents: StudentData[] = [];
         let cloudFacilitators: Record<string, StaffAssignment> = {};
+        
         data.forEach(row => {
           if (row.id === `${hubId}_settings`) cloudSettings = row.payload;
           if (row.id === `${hubId}_students`) cloudStudents = row.payload;
           if (row.id === `${hubId}_facilitators`) cloudFacilitators = row.payload;
         });
+
+        // Set state synchronously from cloud data
         setSettings(cloudSettings);
         setStudents(cloudStudents);
         setFacilitators(cloudFacilitators);
         return { settings: cloudSettings, students: cloudStudents, facilitators: cloudFacilitators };
       }
-    } catch (e) { console.error("[SMA SYNC] Shard Failure:", e); }
+    } catch (e) { 
+      console.error("[CLOUD SYNC ERROR]", e); 
+    }
     return null;
   }, []);
 
   useEffect(() => {
     const initializeSystem = async () => {
+      // 1. Fetch Network Registry
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
+      // 2. Resolve Active Identity Handshake
       if (currentHubId) {
         const storedUser = localStorage.getItem('uba_user_context');
         if (storedUser) {
           const user = JSON.parse(storedUser);
           setLoggedInUser(user);
-          const result = await syncCloudShards(currentHubId);
+          
+          // Force download from cloud as default
+          const cloudData = await syncCloudShards(currentHubId);
           
           if (user.role === 'school_admin' && user.email === 'leumasgenbo4@gmail.com') {
             setIsSuperAdmin(true);
           } else if (user.role === 'facilitator') {
             setActiveFacilitator({ name: user.name, subject: user.subject || "GENERAL" });
-          } else if (user.role === 'pupil' && result) {
-            const s = calculateClassStatistics(result.students, result.settings);
-            const processed = processStudentData(s, result.students, {}, result.settings);
+          } else if (user.role === 'pupil' && cloudData) {
+            const s = calculateClassStatistics(cloudData.students, cloudData.settings);
+            const processed = processStudentData(s, cloudData.students, {}, cloudData.settings);
             const pupil = processed.find(p => p.id === parseInt(user.nodeId));
             if (pupil) setActivePupil(pupil);
           }
@@ -159,9 +168,12 @@ const App: React.FC = () => {
   };
 
   if (isInitializing) return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
-      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Accessing Shards...</p>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-6">
+      <div className="w-16 h-16 border-8 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="text-center space-y-1">
+        <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em]">Downloading Cloud Shards</p>
+        <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Handshaking with UNITED BAYLOR ACADEMY Registry...</p>
+      </div>
     </div>
   );
 
