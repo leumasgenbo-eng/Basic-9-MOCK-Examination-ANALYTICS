@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   schoolMotto: "EXCELLENCE IN KNOWLEDGE AND CHARACTER",
   schoolWebsite: "www.uba-academy.app",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
-  schoolNumber: "", 
+  schoolNumber: "UBA-MASTER-NODE", 
   schoolLogo: "", 
   examTitle: "OFFICIAL MOCK ASSESSMENT SERIES",
   termInfo: "TERM 2",
@@ -62,7 +62,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
 
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
-  const [viewMode, setViewMode] = useState<'home' | 'master' | 'reports' | 'management' | 'series'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'master' | 'reports' | 'management' | 'series' | 'pupil_hub'>('home');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
   
   const [currentHubId, setCurrentHubId] = useState<string | null>(localStorage.getItem('uba_active_hub_id'));
@@ -179,9 +179,8 @@ const App: React.FC = () => {
   if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={async (id)=>{ await syncCloudShards(id); setCurrentHubId(id); setIsSuperAdmin(false); }} />;
 
   /**
-   * PUPIL ISOLATION LOGIC
-   * When the pupil role is active, we bypass the standard admin navigation entirely.
-   * This effectively hides: Home, Sheets, Reports, Tracker, and Mgmt Hub.
+   * PUPIL ISOLATION GATE
+   * Prevents standard admin navigation if the role is 'pupil'.
    */
   if (activeRole === 'pupil' && activePupil) {
     return (
@@ -201,6 +200,9 @@ const App: React.FC = () => {
 
   const isFacilitatorMode = activeRole === 'facilitator';
 
+  // Fallback student for Admin Preview in Pupil Hub
+  const previewStudent = processedStudents.length > 0 ? processedStudents[0] : activePupil;
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
       <div className="no-print bg-blue-900 text-white p-4 sticky top-0 z-50 shadow-md flex justify-between items-center">
@@ -210,6 +212,7 @@ const App: React.FC = () => {
           <button onClick={()=>setViewMode('reports')} className={`px-4 py-2 rounded transition-all ${viewMode==='reports' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Reports</button>
           <button onClick={()=>setViewMode('series')} className={`px-4 py-2 rounded transition-all ${viewMode==='series' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Tracker</button>
           <button onClick={()=>setViewMode('management')} className={`px-4 py-2 rounded transition-all ${viewMode==='management' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Mgmt Hub</button>
+          <button onClick={()=>setViewMode('pupil_hub')} className={`px-4 py-2 rounded transition-all ${viewMode==='pupil_hub' ? 'bg-orange-600 text-white shadow-lg' : 'hover:bg-blue-700 text-blue-200'}`}>Pupil Hub</button>
         </div>
         <button onClick={handleLogout} className="bg-red-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase active:scale-95 transition-all">Logout</button>
       </div>
@@ -217,6 +220,26 @@ const App: React.FC = () => {
         {viewMode==='home' && <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode as any} />}
         {viewMode==='master' && <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitatorMode} />}
         {viewMode==='series' && <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(ps=>({id:ps.id, bestSixAggregate:ps.bestSixAggregate, rank:ps.rank, totalScore:ps.totalScore, category:ps.category}))} />}
+        {viewMode==='pupil_hub' && (
+           previewStudent ? (
+             <PupilDashboard 
+               student={previewStudent} 
+               stats={stats} 
+               settings={settings} 
+               classAverageAggregate={classAvgAggregate} 
+               totalEnrolled={processedStudents.length} 
+               onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} 
+               globalRegistry={globalRegistry} 
+               onLogout={handleLogout} 
+               loggedInUser={loggedInUser} 
+             />
+           ) : (
+             <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4 opacity-50">
+               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-blue-900"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+               <p className="font-black uppercase text-xs tracking-[0.5em] text-blue-900">No Candidate Data to Display</p>
+             </div>
+           )
+        )}
         {viewMode==='reports' && (
           <div className="space-y-8">
             <input type="text" placeholder="Search..." value={reportSearchTerm} onChange={(e)=>setReportSearchTerm(e.target.value)} className="w-full p-6 rounded-3xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none" />

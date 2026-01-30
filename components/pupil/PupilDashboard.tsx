@@ -26,6 +26,18 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'report' | 'merit' | 'bece' | 'journey' | 'detailed' | 'global'>('report');
 
+  if (!student) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-10 text-center">
+        <div className="bg-white p-12 rounded-[3rem] shadow-2xl space-y-6">
+           <p className="text-lg font-black text-slate-900 uppercase">Awaiting Shard Sync</p>
+           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Candidate particulars not yet fully propagated.</p>
+           <button onClick={onLogout} className="bg-blue-900 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase">Logout and Retry</button>
+        </div>
+      </div>
+    );
+  }
+
   const navItems = [
     { id: 'report', label: 'My Report Card', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' },
     { id: 'merit', label: 'My Merit Status', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
@@ -52,13 +64,13 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
          <div className="flex items-center gap-6">
             <div className="text-right hidden md:block">
                <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">System Node ID</p>
-               <p className="text-[10px] font-mono font-black text-blue-300">{student.id.toString().padStart(6, '0')}</p>
+               <p className="text-[10px] font-mono font-black text-blue-300">{student.id?.toString().padStart(6, '0')}</p>
             </div>
             <button onClick={onLogout} className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-5 py-2 rounded-xl font-black text-[9px] uppercase border border-red-500/20 transition-all active:scale-95">Revoke Session</button>
          </div>
       </div>
 
-      {/* Institutional Branding Header - Particulars are editable */}
+      {/* Institutional Branding Header */}
       <div className="bg-white rounded-[3.5rem] p-10 shadow-2xl border border-gray-100 mb-10">
          <ReportBrandingHeader 
            settings={settings} 
@@ -71,7 +83,7 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1">
-        {/* Navigation Sidebar (Exclusively for Pupils) */}
+        {/* Navigation Sidebar */}
         <div className="lg:col-span-3 space-y-6 no-print">
            <div className="flex flex-col gap-2 bg-slate-200/50 p-2 rounded-[2.5rem]">
               {navItems.map(t => (
@@ -87,8 +99,8 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
            </div>
            
            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl text-center space-y-4">
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Current Candidate Level</span>
-              <p className={`text-2xl font-black uppercase ${student.category === 'Distinction' ? 'text-emerald-600' : 'text-blue-900'}`}>{student.category}</p>
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Candidate Assessment Level</span>
+              <p className={`text-2xl font-black uppercase ${student.category === 'Distinction' ? 'text-emerald-600' : 'text-blue-900'}`}>{student.category || 'N/A'}</p>
               <div className="w-10 h-1 bg-slate-100 mx-auto rounded-full"></div>
            </div>
         </div>
@@ -98,7 +110,7 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
            <div className="animate-in slide-in-from-bottom-8 duration-700 h-full">
               {activeSubTab === 'report' && (
                 <div className="space-y-8">
-                   <div className="bg-blue-950 text-white p-6 rounded-[2rem] text-center font-black uppercase text-[10px] tracking-[0.6em] no-print shadow-xl">My Official Report Card</div>
+                   <div className="bg-blue-950 text-white p-6 rounded-[2rem] text-center font-black uppercase text-[10px] tracking-[0.6em] no-print shadow-xl">Official Individual Report Shard</div>
                    <ReportCard student={student} stats={stats} settings={settings} onSettingChange={onSettingChange} classAverageAggregate={classAverageAggregate} totalEnrolled={totalEnrolled} />
                 </div>
               )}
@@ -112,8 +124,8 @@ const PupilDashboard: React.FC<PupilDashboardProps> = ({
       </div>
 
       <div className="mt-16 pt-8 border-t border-gray-200 flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-widest italic no-print">
-         <span>Institutional Node Verified: {settings.schoolNumber || 'UBA-MASTER'}</span>
-         <span>UNITED BAYLOR ACADEMY — SHARD AUTHENTICATOR v4.5</span>
+         <span>Institutional Node Verified: {settings.schoolNumber}</span>
+         <span>UNITED BAYLOR ACADEMY — SHARD AUTHENTICATOR v4.6</span>
       </div>
     </div>
   );

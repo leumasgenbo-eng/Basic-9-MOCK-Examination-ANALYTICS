@@ -18,7 +18,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
   reportTitle, 
   subtitle, 
   isLandscape = false, 
-  readOnly = false // Allow editing by default to fulfill UNITED BAYLOR ACADEMY requirement
+  readOnly = false // Enabled for editing by default to fulfill UNITED BAYLOR ACADEMY requirement
 }) => {
   const renderEditable = (value: string, key: keyof GlobalSettings, className: string = "", placeholder: string = "", isUpperCase: boolean = false) => {
     if (readOnly) return <span className={className}>{value}</span>;

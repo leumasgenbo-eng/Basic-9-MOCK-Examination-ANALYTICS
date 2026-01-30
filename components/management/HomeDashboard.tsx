@@ -83,12 +83,13 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ students, settings, setVi
             <div className="w-3 h-3 bg-blue-600 rounded-full shadow-lg"></div>
             Mission Quick Actions
          </h4>
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
             {[
               { id: 'management', label: 'Score Entry', icon: 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7', color: 'bg-blue-600' },
               { id: 'master', label: 'Broad Sheets', icon: 'M3 3h18v18H3zM3 9h18M9 21V9', color: 'bg-indigo-600' },
               { id: 'reports', label: 'Pupil Reports', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', color: 'bg-purple-600' },
-              { id: 'series', label: 'Tracker', icon: 'M12 20V10M18 20V4M6 20v-6', color: 'bg-emerald-600' }
+              { id: 'series', label: 'Tracker', icon: 'M12 20V10M18 20V4M6 20v-6', color: 'bg-emerald-600' },
+              { id: 'pupil_hub', label: 'Pupil Portal', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z', color: 'bg-orange-600' }
             ].map(action => (
               <button 
                 key={action.id}
@@ -115,7 +116,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({ students, settings, setVi
               <h3 className="text-4xl font-black uppercase tracking-tighter leading-none group-hover:text-yellow-400 transition-colors">{topStudent.name}</h3>
               <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
                  Mastery in <span className="text-white">English, Math, and {(topStudent.subjects && topStudent.subjects[2]) ? topStudent.subjects[2].subject : "Core Electives"}</span>. <br/>
-                 Current best six aggregate: <span className="text-yellow-500 font-black">{topStudent.bestSixAggregate}</span>
+                 Current best six aggregate: <span className="text-yellow-50 font-black">{topStudent.bestSixAggregate}</span>
               </p>
            </div>
            <div className="flex gap-10 relative">
