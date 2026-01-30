@@ -36,7 +36,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
       {/* Institutional ID - Top level verification */}
       <div className="text-[9px] font-black text-blue-600 uppercase tracking-[0.5em] mb-6 flex justify-center items-center gap-2">
         <span>INSTITUTIONAL HUB ID:</span>
-        {renderEditable(settings.schoolNumber || "UBA-HUB-NODE", 'schoolNumber', "border-none font-mono bg-blue-50/50 px-2 rounded")}
+        {renderEditable(settings.schoolNumber || "SSMAP-HUB-NODE", 'schoolNumber', "border-none font-mono bg-blue-50/50 px-2 rounded")}
       </div>
 
       {/* Main Identity Row */}
@@ -47,14 +47,14 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
             <img src={settings.schoolLogo} alt="Academy Seal" className="max-w-full max-h-full object-contain shadow-sm" />
           ) : (
             <div className="w-24 h-24 bg-blue-950 text-white rounded-[2.5rem] flex items-center justify-center font-black text-4xl shadow-2xl border-4 border-blue-900/20">
-              {settings.schoolName?.split(' ').map(n => n[0]).join('').substring(0, 3).toUpperCase() || "UBA"}
+              {settings.schoolName?.split(' ').map(n => n[0]).join('').substring(0, 3).toUpperCase() || "SSM"}
             </div>
           )}
         </div>
 
         <div className="flex-1 space-y-1">
           <h1 className={`${isLandscape ? 'text-5xl' : 'text-4xl'} font-black text-blue-950 tracking-tighter uppercase leading-none`}>
-            {renderEditable(settings.schoolName || "UNITED BAYLOR ACADEMY", 'schoolName', "text-center font-black w-full text-blue-950 border-none", "UNITED BAYLOR ACADEMY", true)}
+            {renderEditable(settings.schoolName || "SS-MAP ACADEMY", 'schoolName', "text-center font-black w-full text-blue-950 border-none", "SS-MAP ACADEMY", true)}
           </h1>
           <div className="text-[12px] font-black text-blue-900/60 uppercase tracking-[0.3em] italic py-1">
             {renderEditable(settings.schoolMotto || "EXCELLENCE IN KNOWLEDGE AND CHARACTER", 'schoolMotto', "text-center w-full border-none", "ACADEMY MOTTO...", true)}
@@ -71,7 +71,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
             <div className="text-[7px] font-black uppercase text-center leading-tight">
                {renderEditable(settings.headTeacherName || "DIRECTOR", 'headTeacherName', "border-none text-white text-center")}
             </div>
-            <span className="text-[5px] font-mono mt-1 opacity-30">{settings.schoolNumber || "UBA-NODE"}</span>
+            <span className="text-[5px] font-mono mt-1 opacity-30">{settings.schoolNumber || "SSMAP-NODE"}</span>
           </div>
         </div>
       </div>

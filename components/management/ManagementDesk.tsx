@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { StudentData, GlobalSettings, ProcessedStudent, StaffAssignment } from '../../types';
 
@@ -49,7 +48,7 @@ const ManagementDesk: React.FC<ManagementDeskProps> = ({
   const resetSchoolParticulars = () => {
     if (window.confirm("CRITICAL ACTION: Reset all institutional identity particulars AND CLEAR ALL SHEETS? This cannot be undone.")) {
       onBulkUpdate({
-        schoolName: "MOCK ANALYSIS SS-MAP",
+        schoolName: "SS-MAP ACADEMY",
         schoolLogo: "",
         schoolContact: "+233 24 350 4091",
         schoolEmail: "info@ssmap.app",

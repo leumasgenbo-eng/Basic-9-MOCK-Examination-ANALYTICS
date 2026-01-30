@@ -19,11 +19,11 @@ import PupilDashboard from './components/pupil/PupilDashboard';
 import { SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGORY_THRESHOLDS } from './constants';
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-  schoolName: "UNITED BAYLOR ACADEMY",
+  schoolName: "SS-MAP ACADEMY",
   schoolMotto: "EXCELLENCE IN KNOWLEDGE AND CHARACTER",
   schoolWebsite: "www.ssmap.app",
   schoolAddress: "ACCRA DIGITAL CENTRE, GHANA",
-  schoolNumber: "UBA-MASTER-NODE", 
+  schoolNumber: "SSMAP-NODE-01", 
   schoolLogo: "", 
   examTitle: "OFFICIAL MOCK ASSESSMENT SERIES",
   termInfo: "TERM 2",

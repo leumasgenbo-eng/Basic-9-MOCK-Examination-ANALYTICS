@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { StudentData, GlobalSettings } from '../../types';
 import { supabase } from '../../supabaseClient';
@@ -107,6 +106,12 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
     } catch (e) { alert("Dispatch Failed."); }
   };
 
+  const handleCopyCredentials = (s: StudentData) => {
+    const text = `SS-MAP PUPIL LOGIN PACK\n------------------------\nFullName: ${s.name}\nNodeID: ${s.id}\nHubID: ${settings.schoolNumber}\nPortal: ${window.location.origin}`;
+    navigator.clipboard.writeText(text);
+    alert(`LOGIN PACK COPIED: Successfully captured credentials for ${s.name}.`);
+  };
+
   const handleDeletePupil = async (id: number, name: string) => {
     if (!window.confirm(`CRITICAL: Decommission ${name}? Identity handshake will be revoked.`)) return;
     try {
@@ -173,7 +178,7 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
                     </div>
 
                     <div className="flex flex-wrap justify-end gap-3">
-                       <button onClick={() => { setShowCredsId(isCredsOpen ? null : s.id); setSbaEntryId(null); }} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all ${isCredsOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>Handshake Keys</button>
+                       <button onClick={() => { setShowCredsId(isCredsOpen ? null : s.id); setSbaEntryId(null); }} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all ${isCredsOpen ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>Identity Matrix</button>
                        <button onClick={() => { setSbaEntryId(isSbaOpen ? null : s.id); setShowCredsId(null); }} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all ${isSbaOpen ? 'bg-indigo-900 text-white' : 'bg-indigo-50 text-indigo-700'}`}>SBA Ledger</button>
                        <button onClick={() => handleForwardCredentials(s)} className="bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase transition-all">Resend PIN</button>
                        <button onClick={() => handleEditClick(s)} className="bg-gray-50 text-slate-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border border-gray-200">Modify</button>
@@ -186,11 +191,18 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
                       <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="space-y-1">
                            <h5 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Recall Particulars</h5>
-                           <p className="text-xs font-bold text-slate-400 uppercase">Handshake Keys for {s.name}</p>
+                           <p className="text-xs font-bold text-slate-400 uppercase">Verification Handshake for {s.name}</p>
                         </div>
-                        <div className="bg-white border border-gray-200 p-6 rounded-[2rem] shadow-sm flex flex-wrap gap-10">
+                        <div className="bg-white border border-gray-200 p-6 rounded-[2rem] shadow-sm flex flex-wrap gap-10 relative group/creds">
+                           <button 
+                             onClick={() => handleCopyCredentials(s)}
+                             className="absolute -top-3 -right-3 bg-emerald-600 text-white p-2 rounded-xl shadow-lg opacity-0 group-hover/creds:opacity-100 transition-all hover:scale-110 active:scale-95 flex items-center gap-2 px-4"
+                           >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                              <span className="text-[9px] font-black uppercase">Copy Pack</span>
+                           </button>
                            <div className="space-y-1">
-                              <span className="text-[8px] font-black text-slate-400 uppercase">Verification Name</span>
+                              <span className="text-[8px] font-black text-slate-400 uppercase">Registered Name</span>
                               <p className="text-sm font-black text-slate-800 uppercase">{s.name}</p>
                            </div>
                            <div className="space-y-1">
@@ -198,7 +210,7 @@ const PupilSBAPortal: React.FC<PupilSBAPortalProps> = ({ students, setStudents, 
                               <p className="text-sm font-black text-blue-600 font-mono">{s.id}</p>
                            </div>
                            <div className="space-y-1">
-                              <span className="text-[8px] font-black text-slate-400 uppercase">Sync Hub</span>
+                              <span className="text-[8px] font-black text-slate-400 uppercase">Hub ID</span>
                               <p className="text-sm font-black text-slate-800 uppercase font-mono">{settings.schoolNumber}</p>
                            </div>
                         </div>
