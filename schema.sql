@@ -1,7 +1,9 @@
+
 -- ==========================================================
 -- 1. CORE TABLE STRUCTURE
 -- ==========================================================
 
+-- Identity Registry: Links emails to specific institutional nodes
 CREATE TABLE IF NOT EXISTS public.uba_identities (
     email TEXT PRIMARY KEY,
     full_name TEXT NOT NULL,
@@ -11,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.uba_identities (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Persistence Hub: Stores the actual JSON shards (settings, students, etc.)
 CREATE TABLE IF NOT EXISTS public.uba_persistence (
     id TEXT PRIMARY KEY,
     hub_id TEXT NOT NULL,
@@ -19,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.uba_persistence (
     user_id UUID REFERENCES auth.users(id)
 );
 
+-- Global Audit Ledger
 CREATE TABLE IF NOT EXISTS public.uba_audit (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     timestamp TIMESTAMPTZ DEFAULT NOW(),
@@ -33,10 +37,11 @@ CREATE TABLE IF NOT EXISTS public.uba_audit (
 -- 2. BI-DIRECTIONAL SYNC AUTOMATION (LOOP-PROOF)
 -- ==========================================================
 
--- TRIGGER A: Auth Metadata -> Database Table
+-- TRIGGER A: Auth Metadata -> Identity Table (Sync on Handshake)
 CREATE OR REPLACE FUNCTION public.sync_uba_identity()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- CIRCUIT BREAKER: Stop if the database already matches the incoming metadata
   IF EXISTS (
     SELECT 1 FROM public.uba_identities 
     WHERE email = NEW.email 
@@ -64,7 +69,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- TRIGGER B: Database Table -> Auth Metadata
+-- TRIGGER B: Identity Table -> Auth Metadata (Back-Sync for Admin Updates)
 CREATE OR REPLACE FUNCTION public.backfill_auth_metadata()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -79,22 +84,28 @@ BEGIN
   END IF;
 
   UPDATE auth.users
-  SET raw_user_meta_data = raw_user_meta_data || 
+  SET raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || 
     jsonb_build_object(
       'hubId', NEW.hub_id,
       'role', NEW.role,
-      'full_name', NEW.full_name
+      'full_name', NEW.full_name,
+      'nodeId', NEW.node_id
     )
   WHERE email = NEW.email;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Bind the Triggers
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created AFTER INSERT OR UPDATE OF raw_user_meta_data ON auth.users FOR EACH ROW EXECUTE FUNCTION public.sync_uba_identity();
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT OR UPDATE OF raw_user_meta_data ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.sync_uba_identity();
 
 DROP TRIGGER IF EXISTS on_identity_update_sync_auth ON public.uba_identities;
-CREATE TRIGGER on_identity_update_sync_auth AFTER UPDATE OF hub_id, role, full_name ON public.uba_identities FOR EACH ROW EXECUTE FUNCTION public.backfill_auth_metadata();
+CREATE TRIGGER on_identity_update_sync_auth
+  AFTER UPDATE OF hub_id, role, full_name ON public.uba_identities
+  FOR EACH ROW EXECUTE FUNCTION public.backfill_auth_metadata();
 
 -- ==========================================================
 -- 3. ROW LEVEL SECURITY (RLS) - HARDENED
@@ -105,52 +116,47 @@ ALTER TABLE public.uba_persistence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.uba_audit ENABLE ROW LEVEL SECURITY;
 
 -- --- UBA_IDENTITIES POLICIES ---
-DROP POLICY IF EXISTS "Public Identity Handshake" ON public.uba_identities;
-CREATE POLICY "Public Identity Handshake" ON public.uba_identities FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Public Identity Select" ON public.uba_identities;
+CREATE POLICY "Public Identity Select" ON public.uba_identities FOR SELECT TO anon, authenticated USING (true);
 
-DROP POLICY IF EXISTS "Anon School Registration" ON public.uba_identities;
-CREATE POLICY "Anon School Registration" ON public.uba_identities FOR INSERT TO anon WITH CHECK (role = 'school_admin');
+DROP POLICY IF EXISTS "SuperAdmin Identity Full Access" ON public.uba_identities;
+CREATE POLICY "SuperAdmin Identity Full Access" ON public.uba_identities FOR ALL TO authenticated 
+USING (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com');
 
--- recruitment fix: ensures superadmin and admin hub matching works correctly
 DROP POLICY IF EXISTS "Admin Recruitment" ON public.uba_identities;
 CREATE POLICY "Admin Recruitment" ON public.uba_identities FOR INSERT TO authenticated
 WITH CHECK (
-  (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com') OR 
-  (
-    (auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') 
-    AND (hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId'))
-  )
-);
-
-DROP POLICY IF EXISTS "Admin Management" ON public.uba_identities;
-CREATE POLICY "Admin Management" ON public.uba_identities FOR ALL TO authenticated
-USING (
-  (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com') OR 
-  ((hub_id = auth.jwt() -> 'user_metadata' ->> 'hubId') AND (auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin'))
+  (auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') 
+  AND (hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId'))
 );
 
 -- --- UBA_PERSISTENCE POLICIES ---
-DROP POLICY IF EXISTS "Hub Shard Isolation" ON public.uba_persistence;
-CREATE POLICY "Hub Shard Isolation" ON public.uba_persistence FOR ALL TO authenticated
+DROP POLICY IF EXISTS "SuperAdmin Persistence Full Access" ON public.uba_persistence;
+CREATE POLICY "SuperAdmin Persistence Full Access" ON public.uba_persistence FOR ALL TO authenticated
+USING (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com');
+
+DROP POLICY IF EXISTS "Institutional Shard Isolation" ON public.uba_persistence;
+CREATE POLICY "Institutional Shard Isolation" ON public.uba_persistence FOR ALL TO authenticated
 USING (
-    (auth.jwt() ->> 'email' = 'leumasgenbo4@gmail.com') OR
-    (user_id = auth.uid()) OR 
-    ((auth.jwt() -> 'user_metadata' ->> 'role' = 'school_admin') AND hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId')) OR
-    ((auth.jwt() -> 'user_metadata' ->> 'role' = 'facilitator') AND hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId') AND (COALESCE(payload->>'visibility', '') != 'admin_only')) OR
-    ((auth.jwt() -> 'user_metadata' ->> 'role' = 'pupil') AND user_id = auth.uid())
+    (hub_id = (auth.jwt() -> 'user_metadata' ->> 'hubId'))
 );
 
 -- ==========================================================
--- 4. MASTER REPAIR & BOOTSTRAP
+-- 4. MASTER BOOTSTRAP
 -- ==========================================================
 
--- Repair Superadmin and Admin 1
-UPDATE auth.users SET raw_user_meta_data = jsonb_build_object('hubId', 'NETWORK', 'role', 'school_admin', 'full_name', 'HQ CONTROLLER') WHERE email = 'leumasgenbo4@gmail.com';
-UPDATE auth.users SET raw_user_meta_data = raw_user_meta_data || '{"hubId": "SMA-2025-8891", "role": "school_admin"}'::jsonb WHERE email = 'leumasgenbo2009@gmail.com';
-
--- Force insert identities to bridge the gap
+-- PRE-SEED SUPERADMIN (Ensure metadata is correct before triggers run)
+-- This allows leumasgenbo4@gmail.com to login even if the first trigger fails
 INSERT INTO public.uba_identities (email, full_name, node_id, hub_id, role)
-VALUES 
-  ('leumasgenbo4@gmail.com', 'HQ CONTROLLER', 'MASTER-NODE-01', 'NETWORK', 'school_admin'),
-  ('leumasgenbo2009@gmail.com', 'SMA ADMIN', 'SMA-ADMIN-NODE', 'SMA-2025-8891', 'school_admin')
-ON CONFLICT (email) DO UPDATE SET hub_id = EXCLUDED.hub_id, role = EXCLUDED.role;
+VALUES ('leumasgenbo4@gmail.com', 'HQ CONTROLLER', 'MASTER-NODE-01', 'NETWORK', 'school_admin')
+ON CONFLICT (email) DO UPDATE SET hub_id = 'NETWORK', role = 'school_admin';
+
+-- UPDATE AUTH (If user already exists in auth.users)
+UPDATE auth.users 
+SET raw_user_meta_data = jsonb_build_object(
+    'hubId', 'NETWORK', 
+    'role', 'school_admin', 
+    'full_name', 'HQ CONTROLLER',
+    'nodeId', 'MASTER-NODE-01'
+) 
+WHERE email = 'leumasgenbo4@gmail.com';
