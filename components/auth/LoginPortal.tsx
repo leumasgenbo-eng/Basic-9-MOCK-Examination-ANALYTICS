@@ -3,117 +3,81 @@ import React, { useState } from 'react';
 import { supabase } from '../../supabaseClient';
 
 interface LoginPortalProps {
-  onLoginSuccess: (hubId: string) => void;
+  onLoginSuccess: (hubId: string, user: { name: string, nodeId: string, role: string, subject?: string }) => void;
   onSuperAdminLogin: () => void;
-  onFacilitatorLogin: (name: string, subject: string, hubId: string) => void;
-  onPupilLogin: (studentId: number, hubId: string) => void;
   onSwitchToRegister: () => void;
 }
 
 type UserRole = 'admin' | 'facilitator' | 'pupil' | null;
 
-const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminLogin, onFacilitatorLogin, onPupilLogin, onSwitchToRegister }) => {
+const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminLogin, onSwitchToRegister }) => {
   const [activeGate, setActiveGate] = useState<UserRole>(null);
-  const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [nodeId, setNodeId] = useState('');
-  const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'GATE_SELECTION' | 'IDENTITY_INPUT' | 'PIN_VERIFICATION'>('GATE_SELECTION');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const MASTER_ADMIN_EMAIL = 'leumasgenbo4@gmail.com';
+  const MASTER_ADMIN_NAME = 'HQ CONTROLLER';
+  const MASTER_ADMIN_ID = 'MASTER-NODE-01';
 
   const handleGateSelect = (role: UserRole) => {
     setActiveGate(role);
-    setStep('IDENTITY_INPUT');
     setError(null);
   };
 
-  const handleRequestPin = async (e: React.FormEvent) => {
+  const handleSyncIdentity = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    const targetEmail = email.toLowerCase().trim();
     const inputName = fullName.toUpperCase().trim();
     const inputId = nodeId.trim().toUpperCase();
 
-    if (!targetEmail || !inputName || !inputId) {
+    if (!inputName || !inputId) {
       setError("Complete all identity fields.");
       setIsLoading(false);
       return;
     }
 
     try {
-      let resolvedHubId = 'PENDING';
-      let resolvedRole = activeGate === 'admin' ? 'school_admin' : activeGate || 'pupil';
-      let resolvedSubject = 'GENERAL';
-      let resolvedStudentId = 0;
-
-      // 1. GLOBAL RECALL: Verify identity particulars in uba_identities
-      if (targetEmail !== MASTER_ADMIN_EMAIL) {
-        const { data: identity, error: idError } = await supabase
-          .from('uba_identities')
-          .select('*')
-          .ilike('email', targetEmail)
-          .maybeSingle();
-
-        if (idError) throw idError;
-        
-        if (!identity) {
-          throw new Error("Recall Failed: Identity not found. Verify your registered email.");
-        }
-
-        // THREE-WAY HANDSHAKE VERIFICATION
-        const isNameMatch = identity.full_name.trim().toUpperCase() === inputName;
-        const isNodeMatch = identity.node_id.trim().toUpperCase() === inputId;
-
-        if (!isNameMatch || !isNodeMatch) {
-          throw new Error("Recall Mismatch: Full Name or System Node ID provided does not match our records.");
-        }
-
-        const roleMap: Record<string, string> = { 
-          'school_admin': 'admin', 
-          'facilitator': 'facilitator', 
-          'pupil': 'pupil' 
-        };
-        
-        if (roleMap[identity.role] !== activeGate) {
-          throw new Error(`Gate Refusal: This identity is assigned to the ${identity.role} node.`);
-        }
-
-        resolvedHubId = identity.hub_id;
-        resolvedRole = identity.role;
-        
-        // Handle specific role metadata
-        if (resolvedRole === 'pupil') resolvedStudentId = parseInt(identity.node_id);
-      } else {
-        // Master Admin Defaults
-        resolvedHubId = 'NETWORK';
-        resolvedRole = 'school_admin';
+      // 1. MASTER OVERRIDE
+      if (inputName === MASTER_ADMIN_NAME && inputId === MASTER_ADMIN_ID) {
+        onSuperAdminLogin();
+        return;
       }
 
-      // 2. DISPATCH PIN WITH METADATA HANDSHAKE
-      // metadata keys must match SQL trigger expectations (nodeId, hubId, facilitatorId, studentId)
-      const { error: otpError } = await supabase.auth.signInWithOtp({ 
-        email: targetEmail,
-        options: {
-          data: {
-            role: resolvedRole,
-            full_name: inputName,
-            nodeId: inputId,
-            hubId: resolvedHubId,
-            studentId: resolvedStudentId,
-            facilitatorId: resolvedRole === 'facilitator' ? inputId : null,
-            subject: resolvedSubject
-          },
-          shouldCreateUser: true
-        }
-      });
+      // 2. RECALL FROM DB (ANONYMOUS)
+      const { data: identity, error: idError } = await supabase
+        .from('uba_identities')
+        .select('*')
+        .eq('full_name', inputName)
+        .eq('node_id', inputId)
+        .maybeSingle();
+
+      if (idError) throw new Error("Recall Shard unreachable: " + idError.message);
       
-      if (otpError) throw otpError;
-      setStep('PIN_VERIFICATION');
+      if (!identity) {
+        throw new Error("Identity Mismatch: Handshake particulars not found in registry.");
+      }
+
+      const roleMap: Record<string, string> = { 
+        'school_admin': 'admin', 
+        'facilitator': 'facilitator', 
+        'pupil': 'pupil' 
+      };
+      
+      if (roleMap[identity.role] !== activeGate) {
+        throw new Error(`Gate Refusal: This identity node belongs to the ${identity.role} sector.`);
+      }
+
+      // 3. SUCCESSFUL HANDSHAKE
+      onLoginSuccess(identity.hub_id, {
+        name: identity.full_name,
+        nodeId: identity.node_id,
+        role: identity.role,
+        subject: identity.role === 'facilitator' ? 'GENERAL' : undefined // In a real app we'd fetch this from shards
+      });
+
     } catch (err: any) { 
       setError(err.message); 
     } finally { 
@@ -121,46 +85,12 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
     }
   };
 
-  const handleVerifyPin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({ 
-        email: email.toLowerCase().trim(), 
-        token: otp.trim(), 
-        type: 'email' 
-      });
-      
-      if (verifyError) throw new Error("Recall Rejected: Invalid or expired PIN.");
-      if (!data.user) throw new Error("Sync Interrupted: Shard handshake lost.");
-
-      const metadata = data.user.user_metadata || {};
-      
-      // HQ Override
-      if (email.toLowerCase() === MASTER_ADMIN_EMAIL) { 
-        onSuperAdminLogin(); 
-        return; 
-      }
-
-      const hubId = metadata.hubId;
-      if (activeGate === 'admin') onLoginSuccess(hubId);
-      else if (activeGate === 'facilitator') onFacilitatorLogin(metadata.full_name || metadata.name, metadata.subject, hubId);
-      else if (activeGate === 'pupil') onPupilLogin(metadata.studentId, hubId);
-    } catch (err: any) { 
-      setError(err.message); 
-    } finally { 
-      setIsLoading(false); 
-    }
-  };
-
-  if (step === 'GATE_SELECTION') {
+  if (!activeGate) {
     return (
       <div className="w-full max-w-4xl p-4 animate-in fade-in duration-500">
         <div className="text-center mb-16">
            <h2 className="text-4xl font-black text-white uppercase tracking-tighter">SS-map ACADEMY</h2>
-           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Authorized Identity Gate</p>
+           <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.5em] mt-3">Select Identity Sector</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
            {[
@@ -186,32 +116,31 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess, onSuperAdminL
   return (
     <div className="w-full max-w-xl p-4 animate-in slide-in-from-bottom-4 duration-500">
       <div className="bg-slate-950 p-10 md:p-14 rounded-[4rem] shadow-2xl border border-white/10 relative overflow-hidden">
-        <button onClick={() => setStep('GATE_SELECTION')} className="absolute top-10 left-10 text-slate-500 hover:text-white transition-colors">
+        <button onClick={() => setActiveGate(null)} className="absolute top-10 left-10 text-slate-500 hover:text-white transition-colors">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
         <div className="text-center relative mb-12">
           <div className={`w-24 h-24 mx-auto mb-6 rounded-3xl flex items-center justify-center text-white shadow-2xl border border-white/20 uppercase font-black text-xs bg-${gateColor}-600`}>{activeGate?.substring(0, 3)}</div>
           <h2 className="text-2xl font-black text-white uppercase tracking-tight">IDENTITY RECALL</h2>
-          <p className={`text-[9px] font-black text-${gateColor}-400 uppercase tracking-[0.4em] mt-3`}>Verification Handshake</p>
+          <p className={`text-[9px] font-black text-${gateColor}-400 uppercase tracking-[0.4em] mt-3`}>Authorized Recall</p>
         </div>
 
-        {step === 'IDENTITY_INPUT' ? (
-          <form onSubmit={handleRequestPin} className="space-y-5">
-            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Verification Name</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER FULL NAME" required /></div>
-            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">System Node ID</label><input type="text" value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-mono font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER NODE ID" required /></div>
-            <div className="space-y-2"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Registered Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" placeholder="user@ssmap.app" required /></div>
-            {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
-            <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-colors`}>{isLoading ? "RECALLING..." : "SYNC IDENTITY"}</button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyPin} className="space-y-8 animate-in slide-in-from-right-4 duration-500 text-center">
-            <h3 className="text-xl font-black text-white uppercase tracking-tight">Enter Secure PIN</h3>
-            <div className="bg-blue-50/5 p-4 rounded-2xl border border-white/10 text-[10px] font-bold text-slate-400 uppercase leading-relaxed">Verification Shard found for {email.toLowerCase()}. <br/> Handshake PIN has been dispatched.</div>
-            <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className={`w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-7 text-5xl font-black text-white text-center tracking-[0.6em] outline-none focus:ring-4 focus:ring-${gateColor}-500/10`} placeholder="000000" maxLength={6} required autoFocus />
-            {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
-            <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-colors`}>{isLoading ? "VALIDATING..." : "AUTHORIZE ACCESS"}</button>
-          </form>
-        )}
+        <form onSubmit={handleSyncIdentity} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Registered Full Name</label>
+            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER FULL NAME" required />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">System Node ID (Hub or Index #)</label>
+            <input type="text" value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full bg-slate-900 border border-white/5 rounded-2xl px-6 py-4 text-sm font-mono font-bold text-white outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="ENTER ID" required />
+          </div>
+          
+          {error && <div className="bg-red-500/10 text-red-500 p-5 rounded-2xl text-[9px] font-black uppercase text-center border border-red-500/20">{error}</div>}
+          
+          <button type="submit" disabled={isLoading} className={`w-full bg-${gateColor}-600 hover:bg-${gateColor}-500 text-white py-6 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-colors`}>
+            {isLoading ? "SYNCING..." : "ENTER ACADEMY HUB"}
+          </button>
+        </form>
       </div>
     </div>
   );

@@ -4,23 +4,16 @@ import { calculateClassStatistics, processStudentData } from './utils';
 import { GlobalSettings, StudentData, StaffAssignment, SchoolRegistryEntry, ProcessedStudent } from './types';
 import { supabase } from './supabaseClient';
 
-// Shared
-import ReportBrandingHeader from './components/shared/ReportBrandingHeader';
-
-// Auth Gates
+// Auth Gates (Simplified for Anonymous Hub Access)
 import LoginPortal from './components/auth/LoginPortal';
 import SchoolRegistrationPortal from './components/auth/SchoolRegistrationPortal';
 
-// Management Sub-Portals
+// Management & Reporting
 import ManagementDesk from './components/management/ManagementDesk';
 import HomeDashboard from './components/management/HomeDashboard';
-
-// Reporting Engines
 import MasterSheet from './components/reports/MasterSheet';
 import ReportCard from './components/reports/ReportCard';
 import SeriesBroadSheet from './components/reports/SeriesBroadSheet';
-
-// HQ & Network
 import SuperAdminPortal from './components/hq/SuperAdminPortal';
 import PupilDashboard from './components/pupil/PupilDashboard';
 
@@ -72,12 +65,11 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'home' | 'master' | 'reports' | 'management' | 'series' | 'pupil_hub'>('home');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
   
-  const [isAuthenticated, setIsAuthenticated] = useState(false); 
+  const [currentHubId, setCurrentHubId] = useState<string | null>(localStorage.getItem('uba_active_hub_id'));
+  const [activeRole, setActiveRole] = useState<string | null>(localStorage.getItem('uba_active_role'));
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [isFacilitator, setIsFacilitator] = useState(false);
-  const [isPupil, setIsPupil] = useState(false);
-  const [activeFacilitator, setActiveFacilitator] = useState<{ name: string; subject: string } | null>(null);
   const [activePupil, setActivePupil] = useState<ProcessedStudent | null>(null);
+  const [activeFacilitator, setActiveFacilitator] = useState<{ name: string; subject: string } | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   
   const [loggedInUser, setLoggedInUser] = useState<{ name: string; nodeId: string } | null>(null);
@@ -116,38 +108,37 @@ const App: React.FC = () => {
     const statsObj = calculateClassStatistics(studentList, currentSettings);
     const processed = processStudentData(statsObj, studentList, {}, currentSettings);
     const pupil = processed.find(p => p.id === studentId);
-    if (pupil) { setActivePupil(pupil); setIsPupil(true); }
+    if (pupil) { setActivePupil(pupil); setViewMode('pupil_hub'); }
   }, []);
 
   useEffect(() => {
     const initializeSystem = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Pull Global Registry Data (Anonymous)
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
-      if (session) {
-        const metadata = session.user.user_metadata || {};
-        const hubId = metadata.hubId;
-        const role = metadata.role;
-        setLoggedInUser({ name: metadata.full_name || metadata.name || "UBA USER", nodeId: metadata.nodeId || hubId });
-        
-        const result = await syncCloudShards(hubId);
-        if (session.user.email === 'leumasgenbo4@gmail.com') {
-          setIsSuperAdmin(true);
-        } else {
-          setIsAuthenticated(true);
-          if (role === 'facilitator') {
-            setIsFacilitator(true);
-            setActiveFacilitator({ name: metadata.name || "FACULTY", subject: metadata.subject || "GENERAL" });
-          } else if (role === 'pupil' && result) {
-            resolvePupilPortal(metadata.studentId, result.students, result.settings);
+      // Attempt Auto-Login if Hub ID exists
+      if (currentHubId) {
+        const storedUser = localStorage.getItem('uba_user_context');
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          setLoggedInUser(user);
+          
+          const result = await syncCloudShards(currentHubId);
+          
+          if (user.role === 'school_admin' && user.email === 'leumasgenbo4@gmail.com') {
+            setIsSuperAdmin(true);
+          } else if (user.role === 'facilitator') {
+            setActiveFacilitator({ name: user.name, subject: user.subject || "GENERAL" });
+          } else if (user.role === 'pupil' && result) {
+            resolvePupilPortal(parseInt(user.nodeId), result.students, result.settings);
           }
         }
       }
       setIsInitializing(false);
     };
     initializeSystem();
-  }, [syncCloudShards, resolvePupilPortal]);
+  }, [currentHubId, syncCloudShards, resolvePupilPortal]);
 
   const { stats, processedStudents, classAvgAggregate } = useMemo(() => {
     const s = calculateClassStatistics(students, settings);
@@ -161,10 +152,17 @@ const App: React.FC = () => {
     return { stats: s, processedStudents: processed, classAvgAggregate: avgAgg };
   }, [students, facilitators, settings]);
 
-  const handleLogout = async () => { await supabase.auth.signOut(); window.location.reload(); };
+  const handleLogout = () => { 
+    localStorage.removeItem('uba_active_hub_id');
+    localStorage.removeItem('uba_active_role');
+    localStorage.removeItem('uba_user_context');
+    window.location.reload(); 
+  };
+
   const handleSaveAll = async () => {
-    if (!settings.schoolNumber) return;
-    const hubId = settings.schoolNumber;
+    const hubId = settings.schoolNumber || currentHubId;
+    if (!hubId) return;
+    
     await supabase.from('uba_persistence').upsert([
       { id: `${hubId}_settings`, hub_id: hubId, payload: settings, last_updated: new Date().toISOString() },
       { id: `${hubId}_students`, hub_id: hubId, payload: students, last_updated: new Date().toISOString() },
@@ -181,17 +179,36 @@ const App: React.FC = () => {
     );
   }
 
-  if (!isAuthenticated && !isSuperAdmin) {
+  // Simplified Anonymous Entry Gate
+  if (!currentHubId && !isSuperAdmin) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         {isRegistering ? (
-          <SchoolRegistrationPortal settings={settings} onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} onSave={handleSaveAll} onComplete={() => setIsAuthenticated(true)} onResetStudents={() => setStudents([])} onSwitchToLogin={() => setIsRegistering(false)} />
+          <SchoolRegistrationPortal 
+            settings={settings} 
+            onBulkUpdate={(u) => setSettings(p => ({...p, ...u}))} 
+            onSave={handleSaveAll} 
+            onComplete={(hubId) => {
+               localStorage.setItem('uba_active_hub_id', hubId);
+               localStorage.setItem('uba_active_role', 'school_admin');
+               setCurrentHubId(hubId);
+               setActiveRole('school_admin');
+            }} 
+            onResetStudents={() => setStudents([])} 
+            onSwitchToLogin={() => setIsRegistering(false)} 
+          />
         ) : (
           <LoginPortal 
-            onLoginSuccess={async (id) => { await syncCloudShards(id); setIsAuthenticated(true); }} 
+            onLoginSuccess={async (hubId, user) => { 
+              localStorage.setItem('uba_active_hub_id', hubId);
+              localStorage.setItem('uba_active_role', user.role);
+              localStorage.setItem('uba_user_context', JSON.stringify(user));
+              setCurrentHubId(hubId);
+              setActiveRole(user.role);
+              setLoggedInUser(user);
+              await syncCloudShards(hubId);
+            }} 
             onSuperAdminLogin={() => setIsSuperAdmin(true)} 
-            onFacilitatorLogin={async (n, s, id) => { await syncCloudShards(id); setIsFacilitator(true); setActiveFacilitator({ name: n, subject: s }); setIsAuthenticated(true); setViewMode('home'); }} 
-            onPupilLogin={async (id, hId) => { const result = await syncCloudShards(hId); setIsAuthenticated(true); if (result) resolvePupilPortal(id, result.students, result.settings); }} 
             onSwitchToRegister={() => setIsRegistering(true)} 
           />
         )}
@@ -199,11 +216,13 @@ const App: React.FC = () => {
     );
   }
 
-  if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={async (id) => { await syncCloudShards(id); setIsSuperAdmin(false); setIsAuthenticated(true); }} />;
+  if (isSuperAdmin) return <SuperAdminPortal onExit={handleLogout} onRemoteView={async (id) => { await syncCloudShards(id); setCurrentHubId(id); setIsSuperAdmin(false); }} />;
 
-  if (isPupil && activePupil) {
+  if (activeRole === 'pupil' && activePupil) {
     return <PupilDashboard student={activePupil} stats={stats} settings={settings} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} globalRegistry={globalRegistry} onLogout={handleLogout} loggedInUser={loggedInUser} />;
   }
+
+  const isFacilitatorMode = activeRole === 'facilitator';
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
@@ -213,21 +232,25 @@ const App: React.FC = () => {
           <button onClick={() => setViewMode('master')} className={`px-4 py-2 rounded transition-all ${viewMode === 'master' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Sheets</button>
           <button onClick={() => setViewMode('reports')} className={`px-4 py-2 rounded transition-all ${viewMode === 'reports' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Reports</button>
           <button onClick={() => setViewMode('series')} className={`px-4 py-2 rounded transition-all ${viewMode === 'series' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Tracker</button>
-          <button onClick={() => setViewMode('management')} className={`px-4 py-2 rounded transition-all ${viewMode === 'management' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Mgmt</button>
+          <button onClick={() => setViewMode('management')} className={`px-4 py-2 rounded transition-all ${viewMode === 'management' ? 'bg-white text-blue-900 shadow-lg' : 'hover:bg-blue-700'}`}>Mgmt Hub</button>
         </div>
-        <button onClick={handleLogout} className="bg-red-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase active:scale-95 transition-all">Logout</button>
+        <div className="flex items-center gap-4">
+           <span className="hidden md:block text-[9px] font-black uppercase text-blue-300">HUB: {currentHubId}</span>
+           <button onClick={handleLogout} className="bg-red-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase active:scale-95 transition-all">Logout</button>
+        </div>
       </div>
+      
       <div className="flex-1 overflow-auto p-4 md:p-8">
         {viewMode === 'home' && <HomeDashboard students={processedStudents} settings={settings} setViewMode={setViewMode} />}
-        {viewMode === 'master' && <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitator} />}
+        {viewMode === 'master' && <MasterSheet students={processedStudents} stats={stats} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} facilitators={facilitators} isFacilitator={isFacilitatorMode} />}
         {viewMode === 'series' && <SeriesBroadSheet students={students} settings={settings} onSettingChange={(k,v) => setSettings(p=>({...p,[k]:v}))} currentProcessed={processedStudents.map(ps => ({ id: ps.id, bestSixAggregate: ps.bestSixAggregate, rank: ps.rank, totalScore: ps.totalScore, category: ps.category }))} />}
         {viewMode === 'reports' && (
           <div className="space-y-8">
             <input type="text" placeholder="Search candidates..." value={reportSearchTerm} onChange={(e) => setReportSearchTerm(e.target.value)} className="w-full p-6 rounded-3xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none focus:border-blue-300 transition-all" />
-            {processedStudents.filter(s => (s.name || "").toLowerCase().includes(reportSearchTerm.toLowerCase())).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitator} />)}
+            {processedStudents.filter(s => (s.name || "").toLowerCase().includes(reportSearchTerm.toLowerCase())).map(s => <ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitatorMode} />)}
           </div>
         )}
-        {viewMode === 'management' && <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u)=>setSettings(p=>({...p,...u}))} onSave={handleSaveAll} processedSnapshot={processedStudents} onLoadDummyData={()=>{}} onClearData={()=>{}} isFacilitator={isFacilitator} activeFacilitator={activeFacilitator} loggedInUser={loggedInUser} />}
+        {viewMode === 'management' && <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u)=>setSettings(p=>({...p,...u}))} onSave={handleSaveAll} processedSnapshot={processedStudents} onLoadDummyData={()=>{}} onClearData={()=>{}} isFacilitator={isFacilitatorMode} activeFacilitator={activeFacilitator} loggedInUser={loggedInUser} />}
       </div>
     </div>
   );
