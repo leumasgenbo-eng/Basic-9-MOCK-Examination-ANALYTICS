@@ -52,7 +52,7 @@ export interface VerificationEntry {
   confirmedScripts: string[]; 
 }
 
-export type StaffRole = 'FACILITATOR' | 'INVIGILATOR' | 'EXAMINER' | 'SUPERVISOR' | 'OFFICER';
+export type StaffRole = 'FACILITATOR' | 'INVIGILATOR' | 'EXAMINER' | 'CHIEF INVIGILATOR' | 'CHIEF EXAMINER' | 'SUPERVISOR' | 'OFFICER';
 
 export interface InvigilationSlot {
   dutyDate: string;

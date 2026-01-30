@@ -24,6 +24,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
   const [newStaff, setNewStaff] = useState({ name: '', email: '', role: 'FACILITATOR' as StaffRole, subject: '' });
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [expandedStaff, setExpandedStaff] = useState<string | null>(null);
+  const [showMasterSchedule, setShowMasterSchedule] = useState(false);
 
   const createEmptyRegister = (): InvigilationSlot[] => 
     Array.from({ length: 9 }, () => ({ dutyDate: '', timeSlot: '', subject: '' }));
@@ -36,7 +37,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
 
     try {
       const hubId = settings.schoolNumber || "SSMAP-2025-01";
-      const staffId = customStaff?.id || `FAC-${Math.floor(1000 + Math.random() * 9000)}`;
+      const staffId = customStaff?.id || `STAFF-${Math.floor(1000 + Math.random() * 9000)}`;
       const nodeId = staffId.includes('/') ? staffId : `${hubId}/${staffId}`;
       const targetEmail = staffData.email.toLowerCase().trim();
       const targetName = staffData.name.toUpperCase().trim();
@@ -47,7 +48,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
         full_name: targetName,
         node_id: nodeId, 
         hub_id: hubId,   
-        role: 'facilitator'
+        role: staffData.role.toLowerCase()
       });
 
       // 2. AUTH HANDSHAKE
@@ -55,7 +56,7 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
         email: targetEmail,
         options: {
           data: { 
-            role: 'facilitator', hubId, nodeId, facilitatorId: nodeId, 
+            role: staffData.role.toLowerCase(), hubId, nodeId, facilitatorId: nodeId, 
             email: targetEmail, full_name: targetName, subject: staffData.subject 
           },
           shouldCreateUser: true
@@ -65,21 +66,18 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
       const staff: StaffAssignment = {
         name: targetName,
         email: targetEmail,
-        role: staffData.role || 'FACILITATOR',
+        role: staffData.role,
         taughtSubject: staffData.subject,
         enrolledId: nodeId, 
         invigilations: createEmptyRegister(),
         marking: { dateTaken: '', dateReturned: '', inProgress: false }
       };
 
-      setFacilitators(prev => {
-        const next = { ...prev, [targetEmail]: staff };
-        return next;
-      });
+      setFacilitators(prev => ({ ...prev, [targetEmail]: staff }));
 
       if (!customStaff) {
         setNewStaff({ name: '', email: '', role: 'FACILITATOR', subject: '' });
-        alert(`FACULTY HANDSHAKE COMPLETE: ${targetName} enrolled with ID ${nodeId}`);
+        alert(`STAFF ENROLLED: ${targetName} registered as ${staffData.role}`);
       }
     } catch (err: any) {
       console.error(err);
@@ -98,18 +96,53 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
     });
   };
 
+  const handleAutoGenerateSchedule = () => {
+    if (!window.confirm("AUTO-GENERATE MASTER SCHEDULE? This will populate empty slots across all registered staff using available subjects and the active mock cycle dates.")) return;
+    
+    const startDateStr = settings.startDate || new Date().toISOString().split('T')[0];
+    const startDate = new Date(startDateStr);
+    const timeSlots = ["09:00 AM", "02:00 PM"];
+    
+    setFacilitators(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(email => {
+        const staff = { ...next[email] };
+        const nextInv = [...staff.invigilations];
+        
+        nextInv.forEach((slot, idx) => {
+          if (!slot.dutyDate || !slot.subject) {
+            // Logic: Distribute over 5 days, 2 slots per day
+            const dayOffset = Math.floor(idx / 2);
+            const timeIdx = idx % 2;
+            const d = new Date(startDate);
+            d.setDate(startDate.getDate() + dayOffset);
+            
+            slot.dutyDate = d.toISOString().split('T')[0];
+            slot.timeSlot = timeSlots[timeIdx];
+            slot.subject = subjects[idx % subjects.length];
+          }
+        });
+        next[email] = { ...staff, invigilations: nextInv };
+      });
+      return next;
+    });
+    alert("SCHEDULE FORGED: Master invigilation matrix distributed.");
+  };
+
   const handleCopyCredentials = (f: StaffAssignment) => {
-    const text = `${settings.schoolName} - FACULTY LOGIN PACK\n------------------------\nLegal Identity: ${f.name}\nEnrolled Institutional ID: ${f.enrolledId}\nHub Role: ${f.role}\nPortal: ${window.location.origin}`;
+    const text = `${settings.schoolName} - STAFF LOGIN PACK\n------------------------\nLegal Identity: ${f.name}\nEnrolled Institutional ID: ${f.enrolledId}\nHub Role: ${f.role}\nPortal: ${window.location.origin}`;
     navigator.clipboard.writeText(text);
-    alert(`LOGIN PACK COPIED: Successfully captured credentials for ${f.name}.`);
+    alert(`LOGIN PACK COPIED: Credentials for ${f.name} captured.`);
   };
 
   const handleForwardCredentials = async (email: string) => {
      try {
        await supabase.auth.signInWithOtp({ email });
-       alert("Verification PIN re-dispatched to facilitator email.");
+       alert("Verification PIN re-dispatched to staff email.");
      } catch (e) { alert("Dispatch failed."); }
   };
+
+  const roles: StaffRole[] = ['FACILITATOR', 'INVIGILATOR', 'EXAMINER', 'CHIEF INVIGILATOR', 'CHIEF EXAMINER', 'SUPERVISOR', 'OFFICER'];
 
   return (
     <div className="space-y-12 animate-in fade-in duration-700 pb-20 font-sans">
@@ -118,24 +151,76 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
          <div className="relative flex flex-col md:flex-row justify-between items-start gap-8">
             <div className="space-y-2">
                <h2 className="text-3xl font-black uppercase tracking-tighter">{settings.schoolName} Faculty</h2>
-               <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Institutional Identity & Invigilation Matrix</p>
+               <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">Institutional Identity & Multi-Role Register</p>
             </div>
+            {!isFacilitator && (
+              <div className="flex gap-4">
+                <button onClick={handleAutoGenerateSchedule} className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase shadow-xl transition-all active:scale-95">Auto-Generate Schedule</button>
+                <button onClick={() => setShowMasterSchedule(!showMasterSchedule)} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase shadow-xl transition-all active:scale-95">{showMasterSchedule ? 'Hide Master View' : 'Master Registry View'}</button>
+              </div>
+            )}
          </div>
 
          {!isFacilitator && (
            <form onSubmit={handleAddStaff} className="mt-10 grid grid-cols-1 md:grid-cols-4 gap-4 relative z-10">
               <input type="text" value={newStaff.name} onChange={e=>setNewStaff({...newStaff, name: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="LEGAL IDENTITY..." required />
-              <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="FACULTY@EMAIL.COM" required />
+              <input type="email" value={newStaff.email} onChange={e=>setNewStaff({...newStaff, email: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="STAFF@EMAIL.COM" required />
+              <select value={newStaff.role} onChange={e=>setNewStaff({...newStaff, role: e.target.value as StaffRole})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none">
+                 {roles.map(r => <option key={r} value={r} className="text-slate-900">{r}</option>)}
+              </select>
               <select value={newStaff.subject} onChange={e=>setNewStaff({...newStaff, subject: e.target.value})} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none">
-                 <option value="" className="text-slate-900">SUBJECT SPECIALIST...</option>
+                 <option value="" className="text-slate-900">SUBJECT SHARD...</option>
                  {subjects.map(s => <option key={s} value={s} className="text-slate-900">{s.toUpperCase()}</option>)}
               </select>
-              <button type="submit" disabled={isEnrolling} className="bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all active:scale-95">
-                 {isEnrolling ? "SYNCING..." : "Enroll Specialist"}
-              </button>
+              <div className="md:col-span-4 flex justify-end">
+                <button type="submit" disabled={isEnrolling} className="bg-blue-600 hover:bg-blue-500 text-white px-12 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg transition-all active:scale-95">
+                  {isEnrolling ? "SYNCING..." : "Enroll Staff Member"}
+                </button>
+              </div>
            </form>
          )}
       </section>
+
+      {showMasterSchedule && (
+        <div className="bg-white rounded-[3rem] border border-gray-100 shadow-2xl overflow-hidden animate-in zoom-in-95">
+           <div className="bg-blue-900 p-8 flex justify-between items-center">
+              <div className="text-white uppercase">
+                 <h3 className="text-xl font-black tracking-tight">Master Examination Invigilation Schedule</h3>
+                 <p className="text-[10px] font-bold text-blue-300 tracking-widest mt-1">Unified Institutional Deployment Matrix</p>
+              </div>
+              <button onClick={() => window.print()} className="bg-white text-blue-900 px-6 py-2.5 rounded-xl font-black text-[9px] uppercase active:scale-95">Print Schedule</button>
+           </div>
+           <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                 <thead className="bg-gray-50 text-[8px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                    <tr>
+                       <th className="px-8 py-5 border-r border-gray-100">Staff Identity</th>
+                       {Array.from({ length: 9 }).map((_, i) => (
+                          <th key={i} className="px-4 py-5 border-r border-gray-100 text-center min-w-[120px]">Session {i + 1}</th>
+                       ))}
+                    </tr>
+                 </thead>
+                 <tbody className="divide-y divide-gray-50">
+                    {Object.values(facilitators).map(f => (
+                       <tr key={f.email} className="hover:bg-blue-50/20">
+                          <td className="px-8 py-4 border-r border-gray-100">
+                             <p className="text-[10px] font-black uppercase text-slate-800 leading-tight">{f.name}</p>
+                             <p className="text-[7px] font-bold text-blue-500 uppercase tracking-tighter mt-1">{f.role}</p>
+                          </td>
+                          {f.invigilations.map((inv, i) => (
+                             <td key={i} className="px-3 py-4 border-r border-gray-100 text-center space-y-1">
+                                <p className="text-[9px] font-black text-slate-900 uppercase leading-none">{inv.subject || '—'}</p>
+                                <p className="text-[7px] text-gray-400 font-mono">{inv.dutyDate || '—'}</p>
+                                <p className="text-[7px] text-indigo-600 font-black">{inv.timeSlot || '—'}</p>
+                             </td>
+                          ))}
+                       </tr>
+                    ))}
+                 </tbody>
+              </table>
+           </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-8">
         {(Object.values(facilitators) as StaffAssignment[]).map((f, staffIdx) => {
@@ -153,12 +238,12 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
                      <div className="space-y-2">
                         <div className="flex items-center gap-3">
                            <h4 className="text-xl font-black text-slate-900 uppercase leading-none">{f.name}</h4>
-                           <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase">{dutyCount}/9 DUTIES</span>
+                           <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase ${dutyCount > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{dutyCount}/9 DUTIES</span>
                         </div>
                         <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                           <span className="text-blue-600">{f.taughtSubject}</span>
+                           <span className="text-blue-600">{f.taughtSubject || 'GENERIC'}</span>
                            <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
-                           <span>{f.role}</span>
+                           <span className="text-indigo-600">{f.role}</span>
                            <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
                            <span className="font-mono text-[9px]">{f.enrolledId}</span>
                         </div>
@@ -189,10 +274,10 @@ const FacilitatorPortal: React.FC<FacilitatorPortalProps> = ({
                  <div className="bg-slate-50 p-10 border-t border-gray-100 animate-in slide-in-from-top-4 duration-300">
                     <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
                        <div className="space-y-1">
-                          <h5 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em]">Official Invigilation Register</h5>
-                          <p className="text-lg font-black text-slate-900 uppercase">Manage Duty Slots for {f.name}</p>
+                          <h5 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em]">Official Role Register</h5>
+                          <p className="text-lg font-black text-slate-900 uppercase">Manage Duty Slots for {f.name} ({f.role})</p>
                        </div>
-                       <button onClick={onSave} className="bg-blue-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Commit Register Changes</button>
+                       <button onClick={onSave} className="bg-blue-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Commit Changes</button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
