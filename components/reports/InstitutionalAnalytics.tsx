@@ -1,7 +1,9 @@
+
 import React, { useMemo } from 'react';
 import { ProcessedStudent, ClassStatistics, GlobalSettings, StaffAssignment } from '../../types';
 import { SUBJECT_LIST } from '../../constants';
 import EditableField from '../shared/EditableField';
+import ReportBrandingHeader from '../shared/ReportBrandingHeader';
 
 interface InstitutionalAnalyticsProps {
   students: ProcessedStudent[];
@@ -13,7 +15,6 @@ interface InstitutionalAnalyticsProps {
 
 const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ students, stats, settings, facilitators, onSettingChange }) => {
   const analytics = useMemo(() => {
-    // 1. Calculate Global Subject Metrics (QPR & SVI)
     const subjectMetrics = SUBJECT_LIST.map(subject => {
       const total = students.length;
       const quality = students.filter(s => {
@@ -33,7 +34,6 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
     const avgQPR = subjectMetrics.reduce((a, b) => a + b.qpr, 0) / (SUBJECT_LIST.length || 1);
     const avgSVI = subjectMetrics.reduce((a, b) => a + b.svi, 0) / (SUBJECT_LIST.length || 1);
 
-    // 2. Section Ranges
     const getAvgRange = (isSectionA: boolean) => {
       const ranges = SUBJECT_LIST.map(sub => {
         const scores = students.map(s => {
@@ -47,13 +47,11 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
       return ranges.reduce((a, b) => a + b, 0) / (ranges.length || 1);
     };
 
-    // 3. Gender Performance
     const males = students.filter(s => s.gender === 'M');
     const females = students.filter(s => s.gender === 'F');
     const maleAvg = males.length > 0 ? males.reduce((sum, s) => sum + s.totalScore, 0) / males.length : 0;
     const femaleAvg = females.length > 0 ? females.reduce((sum, s) => sum + s.totalScore, 0) / females.length : 0;
 
-    // 4. Strength Index
     const globalMean = students.length > 0 ? students.reduce((sum, s) => sum + s.totalScore, 0) / students.length : 0;
     const meanAgg = students.length > 0 ? students.reduce((sum, s) => sum + s.bestSixAggregate, 0) / students.length : 1;
     const strengthIndex = (globalMean / meanAgg) / 5;
@@ -63,6 +61,15 @@ const InstitutionalAnalytics: React.FC<InstitutionalAnalyticsProps> = ({ student
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
+      {/* Academy Particulars & Header */}
+      <ReportBrandingHeader 
+        settings={settings} 
+        onSettingChange={onSettingChange} 
+        reportTitle={settings.examTitle}
+        subtitle="INSTITUTIONAL PERFORMANCE ANALYTICS"
+        isLandscape={true}
+      />
+
       {/* KPI Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-blue-950 text-white p-8 rounded-[3rem] shadow-xl border border-blue-900 relative overflow-hidden">

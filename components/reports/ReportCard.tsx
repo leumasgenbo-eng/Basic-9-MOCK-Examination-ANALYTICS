@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { ProcessedStudent, GlobalSettings, ClassStatistics } from '../../types';
 import EditableField from '../shared/EditableField';
@@ -135,20 +136,32 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
          subtitle="INDIVIDUAL PUPIL ATTAINMENT REPORT"
        />
 
-       {/* Pupil Particulars */}
+       {/* Pupil Identity & Welfare */}
        <div className="grid grid-cols-2 gap-6 mb-6 border-2 border-blue-950 p-4 rounded-3xl bg-blue-50/10 text-[12px] font-bold">
           <div className="space-y-2 border-r border-blue-100 pr-4">
             <div className="flex items-center"><span className="text-gray-400 w-28 uppercase text-[10px]">Pupil:</span><span className="flex-1 uppercase font-black text-blue-950 truncate">{student.name}</span></div>
             <div className="flex items-center"><span className="text-gray-400 w-28 uppercase text-[10px]">Index:</span><span className="flex-1 font-mono text-blue-800">{student.id.toString().padStart(6, '0')}</span></div>
-            <div className="flex items-center"><span className="text-gray-400 w-28 uppercase text-[10px]">Sex:</span><span className="font-black text-blue-900">{student.gender === 'M' ? 'MALE' : 'FEMALE'}</span></div>
+            <div className="flex items-center">
+              <span className="text-gray-400 w-28 uppercase text-[10px]">Attendance:</span>
+              <span className="font-black text-blue-900">
+                {student.attendance} OF <EditableField value={settings.attendanceTotal} onChange={(v) => onSettingChange('attendanceTotal', v)} className="border-none inline-block w-8" />
+              </span>
+            </div>
+            <div className="flex items-center">
+              <span className="text-gray-400 w-28 uppercase text-[10px]">Mock Start:</span>
+              <span className="font-black text-gray-700 italic">
+                <EditableField value={settings.startDate || 'TBA'} onChange={(v) => onSettingChange('startDate', v)} className="border-none" />
+              </span>
+            </div>
           </div>
           <div className="space-y-2 pl-2">
             <div className="flex items-center justify-between"><span className="text-gray-400 uppercase text-[10px]">Best 6 Aggregate:</span><span className="text-3xl font-black text-blue-950 leading-none">{student.bestSixAggregate}</span></div>
             <div className="flex items-center justify-between"><span className="text-gray-400 uppercase text-[10px]">Position:</span><span className="font-black text-blue-900">{student.rank} OF {totalEnrolled || '---'}</span></div>
+            <div className="flex items-center justify-between"><span className="text-gray-400 uppercase text-[10px]">Academic Level:</span><span className={`px-2 py-0.5 rounded text-white text-[9px] font-black uppercase ${student.category === 'Distinction' ? 'bg-green-600' : 'bg-blue-600'}`}>{student.category}</span></div>
           </div>
        </div>
 
-       {/* Performance Matrix */}
+       {/* Results Table */}
        <div className="mb-6 flex-1">
          <table className="w-full text-[11px] border-collapse border-2 border-blue-950">
             <thead className="bg-blue-950 text-white uppercase text-[8px] tracking-[0.2em]">
@@ -220,7 +233,9 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
          </div>
          <div className="w-[30%] text-center border-t-2 border-gray-900 pt-2">
             <p className="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1">Resumption Protocol</p>
-            <p className="text-[10px] font-black text-red-700 font-mono">{new Date(settings.nextTermBegin).toLocaleDateString(undefined, { dateStyle: 'long' }).toUpperCase()}</p>
+            <div className="font-black text-red-700 text-[10px] uppercase">
+               <EditableField value={settings.nextTermBegin} onChange={(v) => onSettingChange('nextTermBegin', v)} className="text-center" placeholder="YYYY-MM-DD" />
+            </div>
          </div>
        </div>
     </div>

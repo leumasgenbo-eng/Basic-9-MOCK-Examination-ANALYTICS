@@ -34,7 +34,7 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
 
       <div className="space-y-2">
         <div className="text-[10px] font-black text-blue-600 uppercase tracking-[0.5em] mb-1">
-          INSTITUTIONAL HUB ID: {settings.schoolNumber || "UBA-NODE-001"}
+          INSTITUTIONAL HUB ID: <EditableField value={settings.schoolNumber || "UBA-NODE-001"} onChange={(v) => onSettingChange('schoolNumber', v)} className="border-none" />
         </div>
         
         <h1 className={`${isLandscape ? 'text-5xl' : 'text-4xl'} font-black text-blue-950 tracking-tighter uppercase leading-tight`}>
@@ -90,15 +90,21 @@ const ReportBrandingHeader: React.FC<ReportBrandingHeaderProps> = ({
         <div className="flex justify-center items-center gap-16 text-[13px] font-black text-gray-800 uppercase tracking-[0.3em] mt-6">
            <div className="flex flex-col items-center">
              <span className="text-[8px] text-blue-400 mb-1">TERM</span>
-             <span className="bg-blue-900 text-white px-5 py-1.5 rounded-xl shadow-lg">{settings.termInfo}</span>
+             <span className="bg-blue-900 text-white px-5 py-1.5 rounded-xl shadow-lg">
+                <EditableField value={settings.termInfo} onChange={(v) => onSettingChange('termInfo', v.toUpperCase())} className="border-none bg-transparent text-white" />
+             </span>
            </div>
            <div className="flex flex-col items-center">
              <span className="text-[8px] text-blue-400 mb-1">SERIES</span>
-             <span className="text-blue-600 underline decoration-double underline-offset-4 font-mono">{settings.activeMock}</span>
+             <span className="text-blue-600 underline decoration-double underline-offset-4 font-mono">
+                <EditableField value={settings.activeMock} onChange={(v) => onSettingChange('activeMock', v.toUpperCase())} className="border-none bg-transparent text-blue-600" />
+             </span>
            </div>
            <div className="flex flex-col items-center">
              <span className="text-[8px] text-blue-400 mb-1">ACADEMIC PERIOD</span>
-             <span className="italic">{settings.academicYear}</span>
+             <span className="italic">
+                <EditableField value={settings.academicYear} onChange={(v) => onSettingChange('academicYear', v.toUpperCase())} className="border-none bg-transparent text-gray-800" />
+             </span>
            </div>
         </div>
       </div>
