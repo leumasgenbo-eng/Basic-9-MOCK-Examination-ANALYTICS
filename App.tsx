@@ -15,6 +15,7 @@ import ReportCard from './components/reports/ReportCard';
 import SeriesBroadSheet from './components/reports/SeriesBroadSheet';
 import SuperAdminPortal from './components/hq/SuperAdminPortal';
 import PupilDashboard from './components/pupil/PupilDashboard';
+import EditableField from './components/shared/EditableField';
 
 import { SUBJECT_LIST, DEFAULT_THRESHOLDS, DEFAULT_NORMALIZATION, DEFAULT_CATEGORY_THRESHOLDS } from './constants';
 
@@ -93,7 +94,6 @@ const App: React.FC = () => {
           if (row.id === `${hubId}_facilitators`) cloudFacilitators = row.payload;
         });
 
-        // Set state synchronously from cloud data
         setSettings(cloudSettings);
         setStudents(cloudStudents);
         setFacilitators(cloudFacilitators);
@@ -107,20 +107,15 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initializeSystem = async () => {
-      // 1. Fetch Network Registry
       const { data: regData } = await supabase.from('uba_persistence').select('payload').like('id', 'registry_%');
       if (regData) setGlobalRegistry(regData.flatMap(r => r.payload || []));
 
-      // 2. Resolve Active Identity Handshake
       if (currentHubId) {
         const storedUser = localStorage.getItem('uba_user_context');
         if (storedUser) {
           const user = JSON.parse(storedUser);
           setLoggedInUser(user);
-          
-          // Force download from cloud as default
           const cloudData = await syncCloudShards(currentHubId);
-          
           if (user.role === 'school_admin' && user.email === 'leumasgenbo4@gmail.com') {
             setIsSuperAdmin(true);
           } else if (user.role === 'facilitator') {
@@ -246,9 +241,49 @@ const App: React.FC = () => {
            )
         )}
         {viewMode==='reports' && (
-          <div className="space-y-8">
-            <input type="text" placeholder="Search..." value={reportSearchTerm} onChange={(e)=>setReportSearchTerm(e.target.value)} className="w-full p-6 rounded-3xl border-2 border-gray-100 shadow-sm font-bold no-print outline-none" />
-            {processedStudents.filter(s=>(s.name||"").toLowerCase().includes(reportSearchTerm.toLowerCase())).map(s=><ReportCard key={s.id} student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitatorMode} />)}
+          <div className="space-y-12">
+            {/* Global Particulars Header - Admin Only */}
+            {!isFacilitatorMode && (
+              <section className="no-print bg-white p-8 rounded-[2.5rem] border-2 border-blue-900/10 shadow-xl space-y-6">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 bg-blue-900 text-white rounded-xl flex items-center justify-center font-black text-lg">P</div>
+                   <h3 className="text-xl font-black text-slate-900 uppercase">Institutional Particulars Editor</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   <div className="space-y-1">
+                      <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Academy Name</label>
+                      <EditableField value={settings.schoolName} onChange={(v)=>setSettings(p=>({...p, schoolName: v.toUpperCase()}))} className="text-sm font-black w-full" />
+                   </div>
+                   <div className="space-y-1">
+                      <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Official Motto</label>
+                      <EditableField value={settings.schoolMotto || ""} onChange={(v)=>setSettings(p=>({...p, schoolMotto: v.toUpperCase()}))} className="text-[10px] italic font-bold w-full" />
+                   </div>
+                   <div className="space-y-1">
+                      <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Physical Address</label>
+                      <EditableField value={settings.schoolAddress} onChange={(v)=>setSettings(p=>({...p, schoolAddress: v.toUpperCase()}))} className="text-[10px] font-bold w-full" />
+                   </div>
+                </div>
+                <div className="pt-4 flex justify-between items-center border-t border-gray-50">
+                   <p className="text-[9px] text-gray-400 uppercase font-bold">Changes made here are reflected on every report card in the preview below.</p>
+                   <button onClick={handleSaveAll} className="bg-blue-900 text-white px-8 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Save Cloud Particulars</button>
+                </div>
+              </section>
+            )}
+
+            <div className="no-print relative">
+               <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none text-gray-300">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+               </div>
+               <input type="text" placeholder="Filter by candidate name..." value={reportSearchTerm} onChange={(e)=>setReportSearchTerm(e.target.value)} className="w-full p-8 pl-16 rounded-[2.5rem] border-2 border-gray-100 shadow-xl font-bold outline-none focus:border-blue-500 transition-all text-lg" />
+            </div>
+
+            <div className="grid grid-cols-1 gap-12">
+               {processedStudents.filter(s=>(s.name||"").toLowerCase().includes(reportSearchTerm.toLowerCase())).map(s=>(
+                  <div key={s.id} className="relative group">
+                    <ReportCard student={s} stats={stats} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} classAverageAggregate={classAvgAggregate} totalEnrolled={processedStudents.length} isFacilitator={isFacilitatorMode} />
+                  </div>
+               ))}
+            </div>
           </div>
         )}
         {viewMode==='management' && <ManagementDesk students={students} setStudents={setStudents} facilitators={facilitators} setFacilitators={setFacilitators} subjects={SUBJECT_LIST} settings={settings} onSettingChange={(k,v)=>setSettings(p=>({...p,[k]:v}))} onBulkUpdate={(u)=>setSettings(p=>({...p,...u}))} onSave={handleSaveAll} processedSnapshot={processedStudents} onLoadDummyData={()=>{}} onClearData={()=>{}} isFacilitator={isFacilitatorMode} activeFacilitator={activeFacilitator} loggedInUser={loggedInUser} />}

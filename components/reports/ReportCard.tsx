@@ -43,8 +43,6 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
     const element = document.getElementById(reportId);
     if (!element) return setIsGenerating(false);
     
-    // Strict A4 Sheet Optimization: One report, one sheet.
-    // We use a high scale to ensure crisp capture of the editable particulars.
     const opt = { 
       margin: 0, 
       filename: `${student.name.replace(/\s+/g, '_')}_Report.pdf`, 
@@ -82,17 +80,19 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
   };
 
   return (
-    <div id={`report-${student.id}`} className="bg-white p-6 w-[210mm] mx-auto h-[297mm] border border-gray-100 shadow-2xl print:shadow-none print:border-none page-break relative flex flex-col box-border font-sans mb-10 overflow-hidden shrink-0">
+    <div id={`report-${student.id}`} className="bg-white p-6 w-[210mm] mx-auto min-h-[296.5mm] h-auto border border-gray-100 shadow-2xl print:shadow-none print:border-none page-break relative flex flex-col box-border font-sans mb-10 overflow-hidden shrink-0">
        
-       {/* COMMAND INTERFACE - IGNORED IN PDF */}
+       {/* UI TOOLS - HIDDEN IN PDF */}
        <div data-html2canvas-ignore="true" className="absolute top-4 right-4 no-print flex gap-2 z-[60]">
-          <button onClick={handleShareWhatsApp} className="w-10 h-10 bg-green-500 text-white rounded-xl shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-7.6 8.38 8.38 0 0 1 3.8.9L21 3.5Z"/></svg></button>
-          <button onClick={handleDownloadPDF} disabled={isGenerating} className={`w-10 h-10 rounded-xl shadow-lg flex items-center justify-center transition-all ${isGenerating ? 'bg-gray-400' : 'bg-red-600 text-white hover:scale-110 active:scale-95'}`}>
+          <button onClick={handleShareWhatsApp} className="w-10 h-10 bg-green-500 text-white rounded-xl shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all" title="Share via WhatsApp">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-7.6 8.38 8.38 0 0 1 3.8.9L21 3.5Z"/></svg>
+          </button>
+          <button onClick={handleDownloadPDF} disabled={isGenerating} className={`w-10 h-10 rounded-xl shadow-lg flex items-center justify-center transition-all ${isGenerating ? 'bg-gray-400' : 'bg-red-600 text-white hover:scale-110 active:scale-95'}`} title="Capture PDF Shard">
              {isGenerating ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}
           </button>
        </div>
 
-       {/* HEADER SECTOR - Top part is ignored by PDF based on ReportBrandingHeader implementation */}
+       {/* BRANDING HEADER - Top Branding is auto-ignored by the component logic for PDF capture */}
        <div className="shrink-0">
          <ReportBrandingHeader 
            settings={settings} 
@@ -102,7 +102,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ student, stats, settings, onSet
          />
        </div>
 
-       {/* PUPIL IDENTITY BLOCK */}
+       {/* IDENTITY BLOCK */}
        <div className="grid grid-cols-2 gap-4 mb-4 border-2 border-blue-900 p-4 rounded-2xl bg-blue-50/5 text-[12px] font-bold shrink-0">
           <div className="space-y-1.5 border-r border-blue-100 pr-4">
             <div className="flex items-center"><span className="text-gray-400 w-24 uppercase text-[10px]">Pupil:</span><span className="flex-1 uppercase font-black text-blue-950 truncate">{student.name}</span></div>
